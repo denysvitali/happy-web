@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "generate": "buf generate",
     "vectors": "sh scripts/gen-crypto-vectors.sh",
-    "size": "size-limit"
+    "size": "size-limit",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",

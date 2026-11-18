@@ -21,6 +21,7 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Behaviour: `happy_flutter`.
 
 ## Rules
+- `.githooks/pre-commit` runs lint, typecheck and tests; keep it green, do not bypass it.
 - Decrypted content is typed `Decrypted<T>`; never `dangerouslySetInnerHTML` (lint-enforced).
 - Never log tokens, secrets, or payloads. Secret lives in IndexedDB only.
 - No CDNs, analytics or inline scripts; CSP in `index.html` + `src/lib/csp.ts`.
