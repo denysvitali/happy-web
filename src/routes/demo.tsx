@@ -1,109 +1,145 @@
-// /components-demo: every building block with sample data, no account needed.
+// /components-demo: the app's building blocks with sample data, no account needed.
+import { ActionIcon, Alert, Badge, Box, Button, Code, Group, Loader, NavLink, Paper, SegmentedControl, Stack, Text, TextInput, Title, useMantineColorScheme } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { Link } from "@tanstack/react-router";
-import { Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Archive, Plus, Search } from "lucide-react";
+import { useMemo } from "react";
 import { BlockList } from "@/components/chat/blocks";
+import classes from "@/components/chat/chat.module.css";
 import { Composer } from "@/components/chat/composer";
 import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
-import { SessionRow } from "@/components/session-row";
-import { StatusBadge } from "@/components/status";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { OnlineDot, StatusBadge } from "@/components/status";
 import { buildView } from "@/lib/sync/chat";
+import type { SessionStatus } from "@/lib/sync/decode";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">{title}</h2>
+    <Stack gap="sm">
+      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+        {title}
+      </Text>
       {children}
-    </section>
+    </Stack>
   );
 }
 
+const SESSIONS: { title: string; sub: string; status: SessionStatus }[] = [
+  { title: "Fix flaky login test", sub: "laptop · ~/src/app", status: "thinking" },
+  { title: "happy-web", sub: "k8s · /workspace/happy-web", status: "active" },
+  { title: "docs cleanup", sub: "laptop · ~/notes", status: "idle" },
+  { title: "old experiment", sub: "dc1 · ~/tmp", status: "archived" },
+];
+
 export function DemoScreen() {
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const view = useMemo(() => {
     const { state, agentState } = demoChat();
     return buildView(state, agentState);
   }, []);
-  const [log, setLog] = useState<string[]>([]);
-  const note = (s: string) => setLog((l) => [s, ...l].slice(0, 5));
+  const note = (message: string) => notifications.show({ message, color: "blue" });
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-8 p-4 pb-24">
-      <header className="flex items-center gap-2">
-        <h1 className="flex-1 text-xl font-semibold">Components demo</h1>
-        <Link to="/" className="text-sm underline">
-          Back to app
-        </Link>
-      </header>
+    <Box style={{ height: "100dvh", overflow: "auto" }}>
+      <Stack maw={860} mx="auto" p="lg" gap="xl">
+        <Group justify="space-between">
+          <Title order={2}>Components demo</Title>
+          <Group>
+            <SegmentedControl
+              size="xs"
+              value={colorScheme}
+              onChange={(v) => setColorScheme(v as "light" | "dark" | "auto")}
+              data={[
+                { label: "Light", value: "light" },
+                { label: "Dark", value: "dark" },
+                { label: "Auto", value: "auto" },
+              ]}
+            />
+            <Button component={Link} to="/" variant="default" size="xs">
+              Back to app
+            </Button>
+          </Group>
+        </Group>
 
-      <Section title="Buttons">
-        <div className="flex flex-wrap gap-2">
-          <Button>Default</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="destructive">
-            <Trash2 /> Archive
-          </Button>
-          <Button size="sm">Small</Button>
-          <Button size="icon" aria-label="Add">
-            <Plus />
-          </Button>
-          <Button disabled>Disabled</Button>
-        </div>
-      </Section>
+        <Section title="Buttons">
+          <Group>
+            <Button>Primary</Button>
+            <Button variant="light">Light</Button>
+            <Button variant="default">Default</Button>
+            <Button variant="subtle">Subtle</Button>
+            <Button color="red" leftSection={<Archive size={16} />}>
+              Stop and archive
+            </Button>
+            <Button loading>Loading</Button>
+            <ActionIcon variant="light" aria-label="Add">
+              <Plus size={16} />
+            </ActionIcon>
+          </Group>
+        </Section>
 
-      <Section title="Badges & status">
-        <div className="flex flex-wrap gap-2">
-          <StatusBadge status="thinking" />
-          <StatusBadge status="active" />
-          <StatusBadge status="idle" />
-          <StatusBadge status="archived" />
-          <Badge variant="active">online</Badge>
-          <Badge>offline</Badge>
-          <Badge variant="warning">reconnecting</Badge>
-        </div>
-      </Section>
+        <Section title="Status">
+          <Group>
+            <StatusBadge status="thinking" />
+            <StatusBadge status="active" />
+            <StatusBadge status="idle" />
+            <StatusBadge status="archived" />
+            <Group gap={6}>
+              <OnlineDot online /> <Text size="sm">online</Text>
+            </Group>
+            <Group gap={6}>
+              <OnlineDot online={false} /> <Text size="sm">offline</Text>
+            </Group>
+            <Loader size="sm" type="dots" />
+          </Group>
+        </Section>
 
-      <Section title="Inputs">
-        <Input placeholder="https://happy.example.com" />
-      </Section>
-
-      <Section title="Link QR">
-        <Card className="flex flex-col items-center gap-3">
-          <QrCode value="happy:///account?Rm9yIGRlbW8gcHVycG9zZXMgb25seSAtIG5vdCBhIGtleQ" className="size-48 rounded-lg" />
-          <p className="text-sm">Scan with the Happy app (demo code, not a real key)</p>
-        </Card>
-      </Section>
-
-      <Section title="Session list">
-        <Card className="flex flex-col gap-3">
-          <SessionRow title="Fix flaky login test" subtitle="laptop · ~/src/app · claude" status="thinking" />
-          <SessionRow title="happy-web" subtitle="k8s · /workspace/happy-web · codex" status="active" />
-          <SessionRow title="docs cleanup" subtitle="laptop · ~/notes · claude" status="idle" />
-          <SessionRow title="🔒 Undecryptable session" subtitle="" status="archived" />
-        </Card>
-      </Section>
-
-      <Section title="Chat">
-        <Card className="flex flex-col gap-3">
-          <BlockList
-            blocks={view.blocks}
-            onPermission={async (id, approved, decision) => note(`permission ${id}: ${approved ? "allow" : "deny"}${decision ? ` (${decision})` : ""}`)}
-          />
-        </Card>
-        <Composer canAbort={view.turnOpen} onSend={(t) => note(`send: ${t}`)} onAbort={() => note("abort")} />
-        {log.length > 0 && (
-          <ul className="text-muted-foreground text-xs">
-            {log.map((l, i) => (
-              <li key={i}>→ {l}</li>
+        <Section title="Sidebar items">
+          <Paper withBorder p="xs" maw={340}>
+            <TextInput placeholder="Search sessions" leftSection={<Search size={14} />} mb="xs" />
+            {SESSIONS.map((s, i) => (
+              <NavLink
+                key={s.title}
+                active={i === 0}
+                variant="subtle"
+                label={<Text size="sm" truncate>{s.title}</Text>}
+                description={<Text size="xs" c="dimmed" truncate>{s.sub}</Text>}
+                rightSection={<StatusBadge size="xs" status={s.status} />}
+              />
             ))}
-          </ul>
-        )}
-      </Section>
-    </main>
+          </Paper>
+        </Section>
+
+        <Section title="Link device">
+          <Paper withBorder p="lg" maw={340}>
+            <Stack align="center">
+              <Paper withBorder p="xs" bg="white">
+                <QrCode value="happy:///account?Rm9yIGRlbW8gcHVycG9zZXMgb25seSAtIG5vdCBhIGtleQ" size={180} />
+              </Paper>
+              <Text size="sm" ta="center">Demo code, not a real key</Text>
+            </Stack>
+          </Paper>
+        </Section>
+
+        <Section title="Feedback">
+          <Alert color="red" title="Request failed">handler_offline: the daemon is not connected</Alert>
+          <Group>
+            <Button variant="default" onClick={() => note("This is a notification")}>Show notification</Button>
+            <Code>happy:///account?…</Code>
+            <Badge variant="dot">dot badge</Badge>
+          </Group>
+        </Section>
+
+        <Section title="Chat">
+          <Paper withBorder radius="lg">
+            <Stack gap="sm" p="md">
+              <BlockList blocks={view.blocks} onPermission={async (id, approved, decision) => void note(`permission ${id}: ${approved ? "allow" : "deny"}${decision ? ` (${decision})` : ""}`)} />
+            </Stack>
+            <Box className={classes.composer} p="sm">
+              <Composer canAbort={view.turnOpen} onSend={(t) => note(`send: ${t}`)} onAbort={() => note("abort")} />
+            </Box>
+          </Paper>
+        </Section>
+      </Stack>
+    </Box>
   );
 }

@@ -6,7 +6,7 @@ initial JS ≤ 250 KB gzip).
 
 ## Commands
 `mise install`, then `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`,
-`pnpm test`, `pnpm build`, `pnpm size`, `pnpm generate` (buf; run after clone
+`pnpm test`, `pnpm test:e2e` (Playwright, mocked server), `pnpm build`, `pnpm size`, `pnpm generate` (buf; run after clone
 and after bumping the pinned `ref` in buf.gen.yaml; needs access to happy-cli-go), `pnpm vectors` (regenerates crypto vectors from a sibling
 happy-cli-go checkout).
 
@@ -25,4 +25,9 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Decrypted content is typed `Decrypted<T>`; never `dangerouslySetInnerHTML` (lint-enforced).
 - Never log tokens, secrets, or payloads. Secret lives in IndexedDB only.
 - No CDNs, analytics or inline scripts; CSP in `index.html` + `src/lib/csp.ts`.
+- UI is Mantine (CSS modules for custom styling). CSP is `style-src 'self'`, so nothing may
+  inject `<style>` at runtime: MantineProvider runs with `withCssVariables`/`withGlobalClasses`
+  off (static CSS in `src/app.css`), Modal/Drawer use `lockScroll={false}`, and avoid
+  `AppShell`, responsive style props and `SimpleGrid`/`Grid` breakpoints. The e2e smoke test
+  fails on any CSP violation.
 - Pinned deps (`save-exact`), Renovate keeps them fresh.

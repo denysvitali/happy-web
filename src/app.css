@@ -1,0 +1,34 @@
+/* Mantine "global classes" (normally injected at runtime). */
+@media (max-width: 47.99em) { .mantine-visible-from-sm { display: none !important; } }
+@media (min-width: 48em) { .mantine-hidden-from-sm { display: none !important; } }
+
+html, body, #root { height: 100%; }
+body { overflow: hidden; }
+
+/* Markdown rendered from agent text. */
+.prose-happy { overflow-wrap: anywhere; line-height: 1.6; font-size: var(--mantine-font-size-sm); }
+.prose-happy > :first-child { margin-top: 0; }
+.prose-happy > :last-child { margin-bottom: 0; }
+.prose-happy p, .prose-happy ul, .prose-happy ol, .prose-happy pre, .prose-happy table, .prose-happy blockquote { margin: 0.5em 0; }
+.prose-happy h1, .prose-happy h2, .prose-happy h3 { font-weight: 600; margin: 0.9em 0 0.4em; line-height: 1.3; }
+.prose-happy h1 { font-size: 1.25em; }
+.prose-happy h2 { font-size: 1.125em; }
+.prose-happy h3 { font-size: 1em; }
+.prose-happy ul, .prose-happy ol { padding-left: 1.4em; }
+.prose-happy a { color: var(--mantine-color-anchor); }
+.prose-happy blockquote { border-left: 3px solid var(--mantine-color-default-border); padding-left: 0.8em; color: var(--mantine-color-dimmed); }
+.prose-happy code { font-family: var(--mantine-font-family-monospace); font-size: 0.85em; background: var(--mantine-color-default-hover); border-radius: 4px; padding: 0.1em 0.35em; }
+.prose-happy pre { background: var(--mantine-color-default-hover); border-radius: var(--mantine-radius-md); padding: 0.75em; overflow-x: auto; }
+.prose-happy pre code { background: none; padding: 0; font-size: 0.8em; }
+.prose-happy table { border-collapse: collapse; display: block; overflow-x: auto; }
+.prose-happy th, .prose-happy td { border: 1px solid var(--mantine-color-default-border); padding: 0.25em 0.6em; }
+
+/* highlight.js tokens (rehype-highlight). */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: light-dark(#a626a4, #c678dd); }
+.hljs-string, .hljs-attr, .hljs-template-variable { color: light-dark(#50a14f, #98c379); }
+.hljs-number, .hljs-literal { color: light-dark(#986801, #d19a66); }
+.hljs-comment { color: light-dark(#a0a1a7, #7f848e); font-style: italic; }
+.hljs-title, .hljs-function { color: light-dark(#4078f2, #61afef); }
+
+@keyframes happy-blink { 50% { opacity: 0; } }
+.stream-caret { display: inline-block; width: 0.5em; height: 1em; margin-left: 2px; vertical-align: text-bottom; background: currentColor; animation: happy-blink 1s steps(1) infinite; }

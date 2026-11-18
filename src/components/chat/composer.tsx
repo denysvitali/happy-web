@@ -1,7 +1,6 @@
-import { Send, Square } from "lucide-react";
+import { ActionIcon, Group, Textarea, Tooltip } from "@mantine/core";
+import { SendHorizontal, Square } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
 
 export function Composer({
   onSend,
@@ -28,24 +27,30 @@ export function Composer({
     }
   };
   return (
-    <div className="flex items-end gap-2">
+    <Group gap="xs" align="flex-end" wrap="nowrap">
       <Textarea
-        rows={Math.min(8, Math.max(1, text.split("\n").length))}
-        placeholder={disabled ? "Session is not accepting messages" : "Message… (Enter to send, Shift+Enter for a new line)"}
+        style={{ flex: 1 }}
+        autosize
+        minRows={1}
+        maxRows={8}
+        radius="lg"
+        placeholder="Message… (Enter to send, Shift+Enter for a new line)"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => setText(e.currentTarget.value)}
         onKeyDown={onKey}
         disabled={disabled}
         aria-label="Message"
       />
       {canAbort && onAbort && (
-        <Button variant="outline" size="icon" onClick={onAbort} aria-label="Abort">
-          <Square />
-        </Button>
+        <Tooltip label="Abort turn">
+          <ActionIcon size={36} radius="xl" variant="light" color="red" onClick={onAbort} aria-label="Abort">
+            <Square size={16} />
+          </ActionIcon>
+        </Tooltip>
       )}
-      <Button size="icon" onClick={send} disabled={disabled || !text.trim()} aria-label="Send">
-        <Send />
-      </Button>
-    </div>
+      <ActionIcon size={36} radius="xl" onClick={send} disabled={disabled || !text.trim()} aria-label="Send">
+        <SendHorizontal size={16} />
+      </ActionIcon>
+    </Group>
   );
 }

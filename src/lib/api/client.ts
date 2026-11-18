@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import type { z } from "zod/mini";
 import { requestJson, type RequestOptions } from "./http";
 import {
   machinesResponse,
@@ -17,7 +17,7 @@ export class ApiClient {
     private readonly token: string,
   ) {}
 
-  private async get<S extends z.ZodType>(schema: S, path: string, opts: RequestOptions = {}): Promise<z.output<S>> {
+  private async get<S extends z.ZodMiniType>(schema: S, path: string, opts: RequestOptions = {}): Promise<z.output<S>> {
     return schema.parse(await requestJson(this.baseUrl, path, { ...opts, token: this.token }));
   }
 

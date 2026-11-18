@@ -1,5 +1,4 @@
 import { fileURLToPath, URL } from "node:url";
-import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vitest/config";
 
@@ -27,9 +26,10 @@ function csp(dev: boolean): Plugin {
 
 export default defineConfig(({ command }) => ({
   base: process.env.HAPPY_WEB_BASE ?? "/",
-  plugins: [react(), tailwindcss(), csp(command === "serve")],
+  plugins: [react(), csp(command === "serve")],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   build: { target: "es2022", sourcemap: false, assetsInlineLimit: 0 },
+  css: { modules: { localsConvention: "camelCaseOnly" } },
   test: {
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     environment: "node",

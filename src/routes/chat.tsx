@@ -1,6 +1,9 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, ArrowLeft } from "lucide-react";
+import { ActionIcon, Alert, Box, Button, Center, Group, Loader, Text, Tooltip } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
+import { Archive } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
@@ -8,7 +11,7 @@ import { statusOf } from "@/app/status";
 import { BlockView, type PermissionHandler } from "@/components/chat/blocks";
 import { Composer } from "@/components/chat/composer";
 import { StatusBadge } from "@/components/status";
-import { Button } from "@/components/ui/button";
+import classes from "@/components/chat/chat.module.css";
 import { buildView } from "@/lib/sync/chat";
 import type { ChatStore } from "@/lib/sync/chatStore";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
@@ -59,47 +62,46 @@ function Messages({ store, session, onPermission }: { store: ChatStore; session:
   return (
     <div
       ref={parentRef}
-      className="min-h-0 flex-1 overflow-y-auto"
+      style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
       onScroll={(e) => {
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       }}
     >
-      <div className="mx-auto max-w-3xl px-4">
+      <Box maw={860} mx="auto" px="md" py="sm">
         {meta.firstSeq > 1 && (
-          <div className="py-2 text-center">
-            <Button variant="ghost" size="sm" onClick={() => void store.loadOlder()}>
+          <Center py="xs">
+            <Button variant="subtle" size="xs" onClick={() => void store.loadOlder()}>
               Load earlier messages
             </Button>
-          </div>
+          </Center>
         )}
-        {meta.loading && <p className="text-muted-foreground py-4 text-center text-sm">Loading…</p>}
-        {meta.error && <p className="text-destructive py-2 text-center text-sm">{meta.error}</p>}
+        {meta.loading && (
+          <Center py="xl">
+            <Loader size="sm" />
+          </Center>
+        )}
+        {meta.error && <Alert color="red" my="xs">{meta.error}</Alert>}
         <div style={{ height: v.getTotalSize(), position: "relative" }}>
           {v.getVirtualItems().map((item) => (
             <div
               key={item.key}
               data-index={item.index}
               ref={v.measureElement}
-              className="absolute top-0 left-0 w-full py-1.5"
-              style={{ transform: `translateY(${item.start}px)` }}
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", padding: "6px 0", transform: `translateY(${item.start}px)` }}
             >
               <BlockView b={view.blocks[item.index]!} onPermission={onPermission} />
             </div>
           ))}
         </div>
         {view.blocks.some((b) => b.type === "user" && b.pending === "failed") && (
-          <div className="py-2 text-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => state.pending.filter((p) => p.failed).forEach((p) => void store.retry(p.localId))}
-            >
+          <Center py="xs">
+            <Button variant="light" color="red" size="xs" onClick={() => state.pending.filter((p) => p.failed).forEach((p) => void store.retry(p.localId))}>
               Retry failed messages
             </Button>
-          </div>
+          </Center>
         )}
-      </div>
+      </Box>
     </div>
   );
 }
@@ -112,69 +114,73 @@ export function ChatScreen() {
   const now = useNow();
   const session = sessions.data?.find((s) => s.id === sessionId);
   const store = useChat(session);
-  const [error, setError] = useState("");
   const status = session ? statusOf(session, presence, now) : "idle";
 
   const run = async (fn: () => Promise<unknown>) => {
-    setError("");
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Request failed");
+      notifications.show({ color: "red", title: "Request failed", message: e instanceof Error ? e.message : String(e) });
     }
   };
 
-  if (sessions.isPending) return <p className="text-muted-foreground p-6 text-sm">Loading…</p>;
+  if (sessions.isPending) {
+    return (
+      <Center style={{ flex: 1 }}>
+        <Loader />
+      </Center>
+    );
+  }
   if (!session) {
     return (
-      <div className="p-6 text-sm">
-        Session not found. <Link to="/" className="underline">Back</Link>
-      </div>
+      <Center style={{ flex: 1 }}>
+        <Text c="dimmed">Session not found.</Text>
+      </Center>
     );
   }
   const onPermission: PermissionHandler = async (id, approved, decision) => {
     await account.answerPermission(session.id, id, approved, decision);
   };
+  const confirmArchive = () =>
+    modals.openConfirmModal({
+      title: "Stop and archive?",
+      children: <Text size="sm">The session's process is stopped first, then the session is archived.</Text>,
+      labels: { confirm: "Stop and archive", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: () => void run(() => account.archive(session)),
+    });
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="border-border flex items-center gap-2 border-b px-3 py-2">
-        <Button asChild variant="ghost" size="icon" aria-label="Back">
-          <Link to="/">
-            <ArrowLeft />
-          </Link>
-        </Button>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{sessionTitle(session.meta, session.id)}</div>
-          <div className="text-muted-foreground truncate text-xs">{displayPath(session.meta)}</div>
-        </div>
+    <>
+      <Group px="md" py="xs" gap="sm" wrap="nowrap" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Text fw={600} size="sm" truncate>
+            {sessionTitle(session.meta, session.id)}
+          </Text>
+          <Text size="xs" c="dimmed" truncate>
+            {[displayPath(session.meta), session.meta.flavor].filter(Boolean).join(" · ")}
+          </Text>
+        </Box>
         <StatusBadge status={status} />
         {!session.archived && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Stop and archive"
-            title="Stop and archive"
-            onClick={() => {
-              if (confirm("Stop this session and archive it?")) void run(() => account.archive(session));
-            }}
-          >
-            <Archive />
-          </Button>
+          <Tooltip label="Stop and archive">
+            <ActionIcon variant="subtle" color="gray" onClick={confirmArchive} aria-label="Stop and archive">
+              <Archive size={18} />
+            </ActionIcon>
+          </Tooltip>
         )}
-      </header>
-      {store ? <Messages store={store} session={session} onPermission={onPermission} /> : <div className="flex-1" />}
-      <footer className="border-border border-t p-3">
-        <div className="mx-auto flex max-w-3xl flex-col gap-1">
-          {error && <p className="text-destructive text-xs">{error}</p>}
+      </Group>
+      {store ? <Messages store={store} session={session} onPermission={onPermission} /> : <div style={{ flex: 1 }} />}
+      <Box className={classes.composer} p="sm">
+        <Box maw={860} mx="auto">
           <Composer
             canAbort={status === "thinking"}
             onAbort={() => void run(() => account.abort(session.id))}
             onSend={(t) => void run(async () => store?.send(t))}
             disabled={!store}
           />
-        </div>
-      </footer>
-    </div>
+        </Box>
+      </Box>
+    </>
   );
 }

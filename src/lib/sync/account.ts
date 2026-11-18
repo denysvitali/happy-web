@@ -1,15 +1,8 @@
 // The linked account: HTTP client, socket, per-row ciphers, the session and
 // machine lists (TanStack Query cache, patched from socket updates) and the
 // open chats. Framework-agnostic; React binds to it in src/app/account.tsx.
-import { fromJson, toJson, type DescMessage, type JsonObject, type MessageInitShape, type MessageShape, create } from "@bufbuild/protobuf";
+import type { DescMessage, JsonObject, MessageInitShape, MessageShape } from "@bufbuild/protobuf";
 import type { QueryClient } from "@tanstack/react-query";
-import { AbortRequestSchema, AbortResponseSchema, PermissionRequestSchema, PermissionResponseSchema } from "@/gen/common_pb";
-import {
-  SpawnHappySessionRequestSchema,
-  SpawnHappySessionResponseSchema,
-  StopSessionRequestSchema,
-  StopSessionResponseSchema,
-} from "@/gen/daemon_pb";
 import { ApiClient } from "../api/client";
 import type { Ephemeral, MachineRow, SessionRow, UpdateBody } from "../api/schemas";
 import { createCipher, type Cipher } from "../crypto/cipher";
@@ -54,6 +47,10 @@ export interface Presence {
   thinking: boolean;
   activeAt: number;
 }
+
+type Protos = typeof import("./rpcProtos");
+let protos: Promise<Protos> | undefined;
+const loadProtos = () => (protos ??= import("./rpcProtos"));
 
 export const sessionsKey = ["sessions"] as const;
 export const machinesKey = ["machines"] as const;
@@ -289,11 +286,13 @@ export class Account {
   private async rpc<I extends DescMessage, O extends DescMessage>(
     scopeId: string,
     name: string,
-    input: I,
+    pick: (p: Protos) => [I, O],
     init: MessageInitShape<I>,
-    output: O,
     timeoutMs?: number,
   ): Promise<MessageShape<O>> {
+    const p = await loadProtos();
+    const [input, output] = pick(p);
+    const { create, toJson, fromJson } = p;
     const cipher = this.knownCipher(scopeId);
     if (!cipher) throw new RpcError("unknown session or machine");
     const c = await cipher;
@@ -306,11 +305,11 @@ export class Account {
   }
 
   abort(sessionId: string) {
-    return this.rpc(sessionId, "abort", AbortRequestSchema, { reason: "" }, AbortResponseSchema);
+    return this.rpc(sessionId, "abort", (p) => [p.AbortRequestSchema, p.AbortResponseSchema], { reason: "" });
   }
 
   answerPermission(sessionId: string, id: string, approved: boolean, decision?: "approved" | "approved_for_session" | "abort") {
-    return this.rpc(sessionId, "permission", PermissionRequestSchema, { id, approved, decision: decision ?? "" }, PermissionResponseSchema);
+    return this.rpc(sessionId, "permission", (p) => [p.PermissionRequestSchema, p.PermissionResponseSchema], { id, approved, decision: decision ?? "" });
   }
 
   async spawn(machineId: string, directory: string, agent: string) {
@@ -318,7 +317,7 @@ export class Account {
     const res = await this.rpc(
       machineId,
       "spawn-happy-session",
-      SpawnHappySessionRequestSchema,
+      (p) => [p.SpawnHappySessionRequestSchema, p.SpawnHappySessionResponseSchema],
       {
         type: "spawn-in-directory",
         directory,
@@ -327,7 +326,6 @@ export class Account {
         approvedNewDirectoryCreation: true,
         profileId: "default",
       },
-      SpawnHappySessionResponseSchema,
       90_000,
     );
     if (res.type === "error") throw new RpcError(res.errorMessage || "spawn failed");
@@ -337,7 +335,7 @@ export class Account {
   }
 
   stopSession(machineId: string, sessionId: string) {
-    return this.rpc(machineId, "stop-session", StopSessionRequestSchema, { sessionId }, StopSessionResponseSchema);
+    return this.rpc(machineId, "stop-session", (p) => [p.StopSessionRequestSchema, p.StopSessionResponseSchema], { sessionId });
   }
 
   /** Archiving a live session stops its process first (else the next

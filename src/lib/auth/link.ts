@@ -3,8 +3,6 @@
 // where <key> is an ephemeral X25519 public key; the approving app sends back
 // box(masterSecret, key) and the server hands us a token.
 import nacl from "tweetnacl";
-import { AuthService } from "@/gen/auth_pb";
-import { callGateway } from "../api/gateway";
 import { HttpError } from "../api/http";
 import { decodeBase64, encodeBase64, encodeBase64Url } from "../crypto/base64";
 import { decryptWithEphemeralKey } from "../crypto/primitives";
@@ -43,6 +41,8 @@ export function startLink(serverUrl: string): LinkRequest {
       while (Date.now() < deadline) {
         signal.throwIfAborted();
         try {
+          // Lazy: keeps protobuf-es out of the initial bundle.
+          const [{ callGateway }, { AuthService }] = await Promise.all([import("../api/gateway"), import("@/gen/auth_pb")]);
           const res = await callGateway(serverUrl, AuthService.method.requestAccountAuth, { publicKey }, { signal });
           if (res.state === "authorized" && res.token && res.response) {
             const secret = decryptWithEphemeralKey(decodeBase64(res.response), kp.secretKey);

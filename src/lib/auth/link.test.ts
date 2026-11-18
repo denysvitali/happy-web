@@ -26,11 +26,8 @@ describe("startLink", () => {
         return new Response(JSON.stringify(body), { status: 200 });
       }),
     );
-    vi.useFakeTimers({ toFake: ["setTimeout"] });
-    const p = link.wait(new AbortController().signal);
-    await vi.advanceTimersByTimeAsync(1500);
-    const res = await p;
-    vi.useRealTimers();
+    // Real timers: the gateway module is imported lazily inside the loop.
+    const res = await link.wait(new AbortController().signal);
     expect(res.token).toBe("tok");
     expect(Array.from(res.secret)).toEqual(Array.from(secret));
     expect(decodeBase64(encodeBase64(pub))).toEqual(pub);

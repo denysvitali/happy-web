@@ -1,13 +1,13 @@
 // Lenient decoders for decrypted session/machine payloads. Unknown fields are
 // kept out of the typed view, and malformed fields degrade to undefined
 // instead of rejecting the whole row (agents add fields all the time).
-import { z } from "zod";
+import { z } from "zod/mini";
 
-const str = z.string().optional().catch(undefined);
-const num = z.number().optional().catch(undefined);
+const str = z.catch(z.optional(z.string()), undefined);
+const num = z.catch(z.optional(z.number()), undefined);
 
-export const sessionMetadata = z
-  .object({
+export const sessionMetadata = z.catch(
+  z.object({
     path: str,
     host: str,
     name: str,
@@ -20,40 +20,43 @@ export const sessionMetadata = z
     lifecycleStateSince: num,
     lifecycleStateError: str,
     parentSessionId: str,
-    summary: z.object({ text: z.string(), updatedAt: num }).optional().catch(undefined),
-  })
-  .catch({});
+    summary: z.catch(z.optional(z.object({ text: z.string(), updatedAt: num })), undefined),
+  }),
+  {},
+);
 export type SessionMetadata = z.infer<typeof sessionMetadata>;
 
-const permissionRequest = z.object({ tool: z.string().catch("unknown"), arguments: z.unknown(), createdAt: num });
-const completedRequest = permissionRequest.extend({
+const permissionRequest = z.object({ tool: z.catch(z.string(), "unknown"), arguments: z.unknown(), createdAt: num });
+const completedRequest = z.extend(permissionRequest, {
   completedAt: num,
-  status: z.string().catch("unknown"),
+  status: z.catch(z.string(), "unknown"),
   reason: str,
   mode: str,
   decision: str,
 });
 
-export const agentState = z
-  .object({
-    controlledByUser: z.boolean().optional().catch(undefined),
-    requests: z.record(z.string(), permissionRequest).optional().catch(undefined),
-    completedRequests: z.record(z.string(), completedRequest).optional().catch(undefined),
-  })
-  .catch({});
+export const agentState = z.catch(
+  z.object({
+    controlledByUser: z.catch(z.optional(z.boolean()), undefined),
+    requests: z.catch(z.optional(z.record(z.string(), permissionRequest)), undefined),
+    completedRequests: z.catch(z.optional(z.record(z.string(), completedRequest)), undefined),
+  }),
+  {},
+);
 export type AgentState = z.infer<typeof agentState>;
 export type PermissionRequest = z.infer<typeof permissionRequest>;
 
-export const machineMetadata = z
-  .object({
+export const machineMetadata = z.catch(
+  z.object({
     host: str,
     displayName: str,
     platform: str,
     homeDir: str,
     happyCliVersion: str,
     defaultSpawnBackend: str,
-  })
-  .catch({});
+  }),
+  {},
+);
 export type MachineMetadata = z.infer<typeof machineMetadata>;
 
 export function sessionTitle(m: SessionMetadata, id: string): string {
