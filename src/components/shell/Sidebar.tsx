@@ -9,7 +9,7 @@ import { statusOf } from "@/app/status";
 import { OnlineDot, StatusBadge } from "@/components/status";
 import type { MachineItem, SessionItem } from "@/lib/sync/account";
 import { MACHINE_PRESENCE_MS, displayPath, machineName, sessionTitle } from "@/lib/sync/decode";
-import { openSpawnModal } from "./SpawnModal";
+import { openSpawnModal } from "./spawn";
 import classes from "./shell.module.css";
 
 const ARCHIVED_PAGE = 30;

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-export const MOCK_SERVER = "https://mock.happy.test";
+import { MOCK_SERVER } from "./e2e/mock";
 
 export default defineConfig({
   testDir: "e2e",
@@ -10,7 +10,7 @@ export default defineConfig({
   use: { baseURL: "http://localhost:4173", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm build && pnpm preview --port 4173 --strictPort",
+    command: process.env.E2E_SKIP_BUILD ? "pnpm preview --port 4173 --strictPort" : "pnpm build && pnpm preview --port 4173 --strictPort",
     url: "http://localhost:4173",
     env: { VITE_HAPPY_SERVER_URL: MOCK_SERVER },
     reuseExistingServer: !process.env.CI,

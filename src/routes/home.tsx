@@ -5,7 +5,7 @@ import { useAccount } from "@/app/auth";
 import { useMachines, useNow, useSessions, useStore } from "@/app/hooks";
 import { statusOf } from "@/app/status";
 import { isMachineOnline } from "@/components/shell/Sidebar";
-import { openSpawnModal } from "@/components/shell/SpawnModal";
+import { openSpawnModal } from "@/components/shell/spawn";
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (

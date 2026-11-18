@@ -9,7 +9,7 @@ import classes from "@/components/chat/chat.module.css";
 import { Composer } from "@/components/chat/composer";
 import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
-import { openSpawnModal } from "@/components/shell/SpawnModal";
+import { openSpawnModal } from "@/components/shell/spawn";
 import { OnlineDot, StatusBadge } from "@/components/status";
 import type { Account, MachineItem } from "@/lib/sync/account";
 import { buildView } from "@/lib/sync/chat";

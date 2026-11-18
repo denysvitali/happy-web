@@ -31,6 +31,23 @@ jobs:
       - run: pnpm size
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      # Visual snapshots of key screens against the mocked server; also
+      # published at <pages>/screenshots/ by the Pages workflow.
+      - run: pnpm screenshots
+        env:
+          E2E_SKIP_BUILD: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots/
+          retention-days: 14
+      - name: Screenshot summary
+        if: always()
+        run: |
+          echo "### UI screenshots" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the \`screenshots\` artifact, or see https://happyw.denv.it/screenshots/ after the Pages deploy." >> "$GITHUB_STEP_SUMMARY"
+          ls screenshots/*.png 2>/dev/null | sed 's#^#- #' >> "$GITHUB_STEP_SUMMARY" || true
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
