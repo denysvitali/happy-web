@@ -1,8 +1,9 @@
 import { ActionIcon } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 import { useEffect } from "react";
+import { OpenNavContext } from "./nav";
 import { ConnectionIndicator, Sidebar } from "./Sidebar";
 import { BrandMark } from "@/components/brand";
 import classes from "./shell.module.css";
@@ -13,7 +14,9 @@ import classes from "./shell.module.css";
  * runtime <style> and we keep the sidebar mounted across toggles).
  */
 export function Shell() {
-  const [open, { toggle, close }] = useDisclosure(false);
+  const [open, { toggle, open: show, close }] = useDisclosure(false);
+  // A session's own header carries the menu button on mobile.
+  const inSession = !!useParams({ strict: false }).sessionId;
 
   useEffect(() => {
     if (!open) return;
@@ -25,7 +28,7 @@ export function Shell() {
   }, [open, close]);
 
   return (
-    <div className={classes.root} data-nav-open={open || undefined}>
+    <div className={classes.root} data-nav-open={open || undefined} data-in-session={inSession || undefined}>
       <aside className={classes.sidebar} aria-label="Sessions sidebar">
         <Sidebar onNavigate={close} />
       </aside>
@@ -42,7 +45,9 @@ export function Shell() {
           <div style={{ flex: 1 }} />
           <ConnectionIndicator compact />
         </header>
-        <Outlet />
+        <OpenNavContext value={show}>
+          <Outlet />
+        </OpenNavContext>
       </main>
     </div>
   );

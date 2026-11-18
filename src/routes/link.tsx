@@ -2,6 +2,7 @@ import { Alert, Anchor, Button, Center, Code, Group, Loader, Paper, Stack, Stepp
 import { Pencil, RefreshCw } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/app/auth";
+import { BrandMark } from "@/components/brand";
 import { QrCode } from "@/components/qr";
 import { startLink, type LinkRequest } from "@/lib/auth/link";
 import { defaultServerUrl, getServerUrl, isAllowedServerUrl, normalizeServerUrl, setServerUrl } from "@/lib/config";
@@ -110,14 +111,19 @@ export function LinkScreen({ note }: { note?: string | undefined }) {
   return (
     <Center mih="100dvh" p="md" style={{ overflow: "auto" }}>
       <Stack w="100%" maw={440} gap="lg">
-        <div style={{ textAlign: "center" }}>
-          <Title order={2}>Happy</Title>
-          <Text c="dimmed" size="sm">
-            Link this browser to your account
-          </Text>
-        </div>
+        <Stack align="center" gap={10}>
+          <BrandMark size={44} />
+          <div style={{ textAlign: "center" }}>
+            <Title order={3} style={{ letterSpacing: "-0.02em" }}>
+              Welcome to Happy
+            </Title>
+            <Text c="dimmed" size="sm" mt={2}>
+              Link this browser to your account to see your sessions.
+            </Text>
+          </div>
+        </Stack>
         {note && <Alert color="yellow">{note}</Alert>}
-        <Paper withBorder shadow="sm" p="lg" radius="lg">
+        <Paper withBorder shadow="md" p="xl" radius="lg">
           <Stepper active={step} onStepClick={(s) => s === 0 && setStep(0)} size="sm" mb="lg" allowNextStepsSelect={false}>
             <Stepper.Step label="Server" description={step > 0 ? new URL(server).host : "Choose"} />
             <Stepper.Step label="Approve" description="Scan with the app" />

@@ -3,12 +3,13 @@ import type { SessionStatus } from "@/lib/sync/decode";
 import { STATUS_LABEL, agentLabel, type PodState, type Runtime } from "@/lib/sync/sessionList";
 import classes from "./sessions/sessions.module.css";
 
-/** Quiet sentence-case status pill: a dot plus the label. */
-export function StatusBadge({ status }: { status: SessionStatus }) {
+/** Quiet sentence-case status pill: a dot plus the label (`compact`: dot
+ * only on phones). */
+export function StatusBadge({ status, compact }: { status: SessionStatus; compact?: boolean }) {
   return (
-    <span className={classes.statusPill} data-status={status}>
+    <span className={classes.statusPill} data-status={status} data-compact={compact || undefined} title={STATUS_LABEL[status]}>
       <span className={classes.statusPillDot} aria-hidden />
-      {STATUS_LABEL[status]}
+      <span className={classes.statusPillLabel}>{STATUS_LABEL[status]}</span>
     </span>
   );
 }

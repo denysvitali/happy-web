@@ -84,7 +84,7 @@
 
 .thinking { font-size: var(--mantine-font-size-xs); color: var(--mantine-color-dimmed); }
 .thinkingHead {
-  display: flex; align-items: center; gap: 6px; max-width: 100%;
+  display: flex; align-items: center; gap: 6px; max-width: 100%; font-size: 13px;
   padding: 2px 6px 2px 2px; border-radius: 6px; color: inherit;
 }
 .thinkingHead:hover { background: var(--mantine-color-default-hover); }
@@ -200,7 +200,7 @@
 .toolHead:focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: -2px; }
 .toolIcon { flex-shrink: 0; color: var(--mantine-color-dimmed); }
 .tool[data-state="error"] .toolIcon, .errIcon { color: light-dark(var(--mantine-color-red-6), var(--mantine-color-red-5)); flex-shrink: 0; }
-.toolTitle { font-weight: 600; flex-shrink: 0; }
+.toolTitle { font-weight: 560; flex-shrink: 0; }
 .toolSummary {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--mantine-font-family-monospace); font-size: 12px; color: var(--mantine-color-dimmed);

@@ -13,9 +13,10 @@ import { useSessionSwitch } from "@/components/session/hooks";
 import { SessionToolbar } from "@/components/session/SessionToolbar";
 import { UsagePill } from "@/components/session/UsagePill";
 import { SessionMenu } from "@/components/sessions/SessionMenu";
+import { NavButton } from "@/components/shell/NavButton";
 import { AgentAvatar, StatusBadge } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
-import { buildView } from "@/lib/sync/chat";
+import { buildView, type Block } from "@/lib/sync/chat";
 import type { ChatStore } from "@/lib/sync/chatStore";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
 import { agentOf } from "@/lib/sync/sessionList";
@@ -44,6 +45,9 @@ function useChat(session: SessionItem | undefined): ChatStore | null {
   }, [account, id]);
   return store;
 }
+
+// Runs of tool cards sit closer together than conversational turns.
+const blockPadding = (b: Block) => (b.type === "tool" || b.type === "explore" || b.type === "permission" ? "4px 0" : "8px 0");
 
 function Messages({ store, session, onPermission }: { store: ChatStore; session: SessionItem; onPermission: PermissionHandler }) {
   const state = useStore(store.state);
@@ -92,7 +96,7 @@ function Messages({ store, session, onPermission }: { store: ChatStore; session:
               key={item.key}
               data-index={item.index}
               ref={v.measureElement}
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", padding: "6px 0", transform: `translateY(${item.start}px)` }}
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", padding: blockPadding(view.blocks[item.index]!), transform: `translateY(${item.start}px)` }}
             >
               <BlockView b={view.blocks[item.index]!} onPermission={onPermission} />
             </div>
@@ -154,18 +158,14 @@ export function ChatScreen() {
     }
   };
 
-  if (sessions.isPending) {
+  if (sessions.isPending || !session) {
     return (
-      <Center style={{ flex: 1 }}>
-        <Loader />
-      </Center>
-    );
-  }
-  if (!session) {
-    return (
-      <Center style={{ flex: 1 }}>
-        <Text c="dimmed">Session not found.</Text>
-      </Center>
+      <>
+        <header className={classes.header}>
+          <NavButton />
+        </header>
+        <Center style={{ flex: 1 }}>{sessions.isPending ? <Loader size="sm" /> : <Text c="dimmed">Session not found.</Text>}</Center>
+      </>
     );
   }
   const onPermission: PermissionHandler = async (id, approved, decision) => {
@@ -175,13 +175,14 @@ export function ChatScreen() {
   return (
     <>
       <header className={classes.header}>
+        <NavButton />
         <AgentAvatar agent={agentOf(session.meta.flavor)} size={28} />
         <div className={classes.headerMain}>
           <div className={classes.headerTitle}>{sessionTitle(session.meta, session.id)}</div>
           <div className={classes.headerSub}>{displayPath(session.meta)}</div>
         </div>
         <UsagePill session={session} />
-        <StatusBadge status={status} />
+        <StatusBadge status={status} compact />
         <SessionMenu
           session={session}
           target={

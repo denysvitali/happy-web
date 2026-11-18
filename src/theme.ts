@@ -22,7 +22,7 @@ export const theme = createTheme({
   cursorType: "pointer",
   components: {
     // react-remove-scroll injects a <style> element; CSP blocks it.
-    Modal: { defaultProps: { lockScroll: false } },
+    Modal: { defaultProps: { lockScroll: false, radius: "lg", shadow: "xl", overlayProps: { backgroundOpacity: 0.45 } } },
     Drawer: { defaultProps: { lockScroll: false } },
   },
 });
