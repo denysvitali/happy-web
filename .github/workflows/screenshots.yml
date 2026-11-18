@@ -1,7 +1,7 @@
 name: Screenshots
 
 # Visual snapshots of key screens against the mocked server. Kept out of CI and
-# Pages so neither waits on it; Pages picks up the gallery when this finishes.
+# Pages so neither waits on it; the next Pages deploy picks up the latest gallery.
 
 on:
   push:
