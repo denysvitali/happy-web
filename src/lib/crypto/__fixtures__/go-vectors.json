@@ -1,0 +1,18 @@
+{
+  "base64UrlSample": "-__-AAE",
+  "base64UrlSampleHex": "fbfffe0001",
+  "contentPublicKeyHex": "9dc102aa12c1884154d8ec301c53c541e1a4516f4591fc34e2f3afe05f8f1808",
+  "contentSeedHex": "8338f2814456f9a3bb0130c9702bca6a460e43e8616e35a2557163e55486a1df",
+  "dataKeyCiphertextB64": "AIduMyuk3lvkQr6KCoGwb7mLREZp1FAyjZehE9H80CuxySbPOqyNAB47lye4USE7BJVhE1hhVTNER/kEZDOwLBPl7pDG9p4wZC6N0KZz/cSuDA0cP1dAiST3",
+  "dataKeyHex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+  "legacyCiphertextB64": "BKwku8DriCIv0DrcOpHz9GAMtBvvAvi0+xb0yFLdKGDnc8FBax1QttjntF9THtsZvXjLlclOhyTn/3Xm7tJ38OB+BwaphIEUmeFeP+egdVRrySjIL+Y3T+mkfRKhycwZ2FXyjlY=",
+  "masterSecretHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "payload": {
+    "content": {
+      "text": "héllo ✓",
+      "type": "text"
+    },
+    "role": "user"
+  },
+  "wrappedDataKeyB64": "AOn/Wx5MODGuJesHORi/5f1T8MEC9RDb/hH8qksi/eReVQXQ3OhFHWj6Ws0sPmiUyx3QGziE+DTbcEkpcqH/kiKn0IDED4Lfp7zQtJGwfJyHGW0fSFtieuocoHiATOugLyejuL8ZSwop"
+}

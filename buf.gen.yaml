@@ -1,0 +1,18 @@
+# Generates protobuf-es message types from the Happy server protos.
+# Inputs are pinned to a happy-cli-go commit; bump `ref` to pick up proto changes.
+version: v2
+clean: true
+inputs:
+  - git_repo: https://github.com/denysvitali/happy-cli-go.git
+    ref: 7c606b5da0347134e017e7c896be898a91549702
+    subdir: proto/server/v1
+  - git_repo: https://github.com/denysvitali/happy-cli-go.git
+    ref: 7c606b5da0347134e017e7c896be898a91549702
+    subdir: proto/rpc/v1
+plugins:
+  - local: protoc-gen-es
+    out: src/gen
+    include_imports: true
+    opt:
+      - target=ts
+      - import_extension=none
