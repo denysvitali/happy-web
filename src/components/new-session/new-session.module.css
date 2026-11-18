@@ -33,7 +33,7 @@
 
 .mode[data-checked] {
   border-color: var(--mantine-primary-color-filled);
-  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.1));
+  background: var(--mantine-color-brand-light);
   box-shadow: 0 0 0 1px var(--mantine-primary-color-filled);
 }
 

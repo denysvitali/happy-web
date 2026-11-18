@@ -4,6 +4,7 @@ import { Link, Outlet } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 import { useEffect } from "react";
 import { ConnectionIndicator, Sidebar } from "./Sidebar";
+import { BrandMark } from "@/components/brand";
 import classes from "./shell.module.css";
 
 /**
@@ -35,9 +36,7 @@ export function Shell() {
             <Menu size={18} />
           </ActionIcon>
           <Link to="/" className={classes.brand}>
-            <span className={classes.brandMark} aria-hidden>
-              H
-            </span>
+            <BrandMark />
             <span className={classes.brandName}>Happy</span>
           </Link>
           <div style={{ flex: 1 }} />

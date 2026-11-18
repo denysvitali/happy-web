@@ -9,6 +9,7 @@ import { StatusDot } from "@/components/status";
 import { SessionList } from "@/components/sessions/SessionList";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { openSpawnModal } from "./spawn";
+import { BrandMark } from "@/components/brand";
 import classes from "./shell.module.css";
 
 const CONN_LABEL = { online: "Live", connecting: "Connecting", offline: "Offline" } as const;
@@ -47,7 +48,7 @@ export function UserMenu() {
     <Menu position="bottom-end" width={210} shadow="md">
       <Menu.Target>
         <ActionIcon variant="subtle" color="gray" size="lg" radius="xl" aria-label="Account menu">
-          <Avatar size={26} radius="xl" color="blue" variant="light">
+          <Avatar size={26} radius="xl" color="gray" variant="light">
             <UserRound size={15} />
           </Avatar>
         </ActionIcon>
@@ -89,9 +90,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     <>
       <div className={classes.brandBar}>
         <Link to="/" onClick={onNavigate} className={classes.brand} aria-label="Happy overview">
-          <span className={classes.brandMark} aria-hidden>
-            H
-          </span>
+          <BrandMark />
           <span className={classes.brandName}>Happy</span>
         </Link>
         <ConnectionIndicator />

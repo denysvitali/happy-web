@@ -118,7 +118,7 @@ export function DemoScreen() {
                 variant="subtle"
                 label={<Text size="sm" truncate>{s.title}</Text>}
                 description={<Text size="xs" c="dimmed" truncate>{s.sub}</Text>}
-                rightSection={<StatusBadge size="xs" status={s.status} />}
+                rightSection={<StatusBadge status={s.status} />}
               />
             ))}
           </Paper>

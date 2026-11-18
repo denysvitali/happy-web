@@ -1,20 +1,15 @@
-import { Badge, Loader } from "@mantine/core";
+import { Bot, Braces, Feather, Hexagon, Orbit, SquareTerminal, Telescope, Workflow, Zap, type LucideIcon } from "lucide-react";
 import type { SessionStatus } from "@/lib/sync/decode";
 import { STATUS_LABEL, agentLabel, type PodState, type Runtime } from "@/lib/sync/sessionList";
 import classes from "./sessions/sessions.module.css";
 
-const COLOR: Record<SessionStatus, string> = { thinking: "blue", active: "green", idle: "gray", archived: "gray" };
-
-export function StatusBadge({ status, size = "sm" }: { status: SessionStatus; size?: "xs" | "sm" }) {
+/** Quiet sentence-case status pill: a dot plus the label. */
+export function StatusBadge({ status }: { status: SessionStatus }) {
   return (
-    <Badge
-      size={size}
-      variant={status === "idle" || status === "archived" ? "outline" : "light"}
-      color={COLOR[status]}
-      leftSection={status === "thinking" ? <Loader size={8} color="blue" type="dots" /> : undefined}
-    >
-      {status}
-    </Badge>
+    <span className={classes.statusPill} data-status={status}>
+      <span className={classes.statusPillDot} aria-hidden />
+      {STATUS_LABEL[status]}
+    </span>
   );
 }
 
@@ -55,19 +50,35 @@ export function AttentionBadge({ count }: { count: number }) {
   );
 }
 
-/** Lettered agent mark with an optional status dot. */
+// Generic glyphs (not vendor logos) so agents are told apart at a glance;
+// each also has its own tint in sessions.module.css.
+const AGENT_ICON: Record<string, LucideIcon> = {
+  claude: Feather,
+  codex: Braces,
+  opencode: SquareTerminal,
+  grok: Zap,
+  antigravity: Orbit,
+  gemini: Orbit,
+  deepseek: Telescope,
+  har: Workflow,
+  "prime-agent": Hexagon,
+};
+
+/** Agent mark (glyph on a tinted tile) with an optional status dot. */
 export function AgentAvatar({ agent, status, size = 30 }: { agent: string; status?: SessionStatus | undefined; size?: number }) {
   const label = agentLabel(agent);
-  const letters = agent === "opencode" ? "OC" : agent === "deepseek" ? "DS" : label.slice(0, 1);
+  const Icon = AGENT_ICON[agent] ?? Bot;
   return (
     <span
       className={classes.avatar}
       data-agent={agent}
       data-dim={status === "archived" || undefined}
+      role="img"
+      aria-label={label}
       title={label}
-      style={size === 30 ? undefined : { width: size, height: size, borderRadius: Math.round(size * 0.3), fontSize: Math.round(size * 0.4) }}
+      style={size === 30 ? undefined : { width: size, height: size, borderRadius: Math.round(size * 0.3) }}
     >
-      {letters}
+      <Icon size={Math.round(size * 0.5)} strokeWidth={2} aria-hidden />
       {status && status !== "archived" && <StatusDot status={status} label={STATUS_LABEL[status]} className={classes.avatarDot} />}
     </span>
   );
