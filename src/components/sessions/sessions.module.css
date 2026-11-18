@@ -689,4 +689,7 @@ button.groupHeader:hover {
     align-items: stretch;
     flex-direction: column;
   }
+  .activityRow .pill {
+    display: none;
+  }
 }

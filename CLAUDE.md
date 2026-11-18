@@ -29,5 +29,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   inject `<style>` at runtime: MantineProvider runs with `withCssVariables`/`withGlobalClasses`
   off (static CSS in `src/app.css`), Modal/Drawer use `lockScroll={false}`, and avoid
   `AppShell`, responsive style props and `SimpleGrid`/`Grid` breakpoints. The e2e smoke test
-  fails on any CSP violation.
+  fails on any CSP violation. Theme values that are CSS variables (brand palette, dark
+  palette, fonts, radii, shadows) live in `src/theme.ts` and are mirrored statically in
+  `src/app.css`; change both. Use `--mantine-primary-color-*`/`--mantine-color-brand-*`
+  and the `--happy-*` surfaces in CSS modules, not hardcoded blue.
 - Pinned deps (`save-exact`), Renovate keeps them fresh.

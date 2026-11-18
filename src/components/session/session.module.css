@@ -155,4 +155,5 @@
 @media (max-width: 47.99em) {
   .chipLabel { max-width: 110px; }
   .contextText { display: none; }
+  .pill .track { display: none; }
 }
