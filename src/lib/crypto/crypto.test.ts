@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import nacl from "tweetnacl";
+import flutter from "./__fixtures__/flutter-vectors.json";
 import vectors from "./__fixtures__/go-vectors.json";
 import { decodeBase64, decodeBase64Url, decodeHex, encodeBase64, encodeBase64Url, encodeHex } from "./base64";
-import { deriveAccountKeys, openDataEncryptionKey } from "./keys";
+import { deriveAccountKeys, deriveKey, openDataEncryptionKey } from "./keys";
 import {
   decryptDataKeyJson,
   decryptLegacyJson,
@@ -13,10 +14,19 @@ import {
   importAesKey,
 } from "./primitives";
 
+describe("flutter vectors", () => {
+  it("derives the same key tree as happy_flutter DeriveKey", async () => {
+    const master = decodeHex(flutter.masterSecretHex);
+    expect(encodeHex(await deriveKey(master, "Happy EnCoder", ["content"]))).toBe(flutter.contentSeedHex);
+    expect(encodeHex(await deriveKey(master, "Happy Coder", ["analytics", "id"]))).toBe(flutter.analyticsIdSeedHex);
+  });
+});
+
 describe("go vectors", () => {
   const secret = decodeHex(vectors.masterSecretHex);
 
-  it("derives the Flutter content keypair", async () => {
+  it("derives the content keypair the Go side seals data keys to", async () => {
+    expect(vectors.contentSeedHex).toBe(flutter.contentSeedHex);
     const keys = await deriveAccountKeys(secret);
     expect(encodeHex(keys.content.publicKey)).toBe(vectors.contentPublicKeyHex);
   });
@@ -87,5 +97,19 @@ describe("error cases (mirroring cryptoutil_test.go)", () => {
   it("base64 round trips arbitrary bytes", () => {
     const b = nacl.randomBytes(1000);
     expect(decodeBase64(encodeBase64(b))).toEqual(b);
+  });
+});
+
+describe("createCipher", () => {
+  it("uses the data key when the row carries one, legacy otherwise", async () => {
+    const { createCipher } = await import("./cipher");
+    const keys = await deriveAccountKeys(decodeHex(vectors.masterSecretHex));
+    const dk = await createCipher(keys, vectors.wrappedDataKeyB64);
+    expect(dk.variant).toBe("dataKey");
+    expect(await dk.decrypt(vectors.dataKeyCiphertextB64)).toEqual(vectors.payload);
+    expect(await dk.decrypt(await dk.encrypt({ x: 1 }))).toEqual({ x: 1 });
+    const legacy = await createCipher(keys, null);
+    expect(legacy.variant).toBe("legacy");
+    expect(await legacy.decrypt(vectors.legacyCiphertextB64)).toEqual(vectors.payload);
   });
 });

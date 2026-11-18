@@ -5,6 +5,8 @@
 package cryptoutil
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -20,7 +22,7 @@ func TestHappyWebVectors(t *testing.T) {
 	for i := range secret {
 		secret[i] = byte(i + 1)
 	}
-	seed := flutterDeriveContentKey(secret)
+	seed := webContentSeed(secret)
 	pub, _ := flutterSeedKeyPair(seed)
 
 	dataKey := make([]byte, 32)
@@ -65,4 +67,16 @@ func TestHappyWebVectors(t *testing.T) {
 	if err := os.WriteFile(out, append(b, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// webContentSeed is happy_flutter's DeriveKey.derive(secret, "Happy EnCoder",
+// ["content"]). The root HMAC is keyed by the usage string (unlike the
+// flutterDeriveContentKey test helper in this package).
+func webContentSeed(secret []byte) []byte {
+	root := hmac.New(sha512.New, []byte("Happy EnCoder Master Seed"))
+	root.Write(secret)
+	chain := root.Sum(nil)[32:]
+	child := hmac.New(sha512.New, chain)
+	child.Write(append([]byte{0}, "content"...))
+	return child.Sum(nil)[:32]
 }

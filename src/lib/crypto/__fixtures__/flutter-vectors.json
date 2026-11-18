@@ -1,0 +1,6 @@
+{
+  "_source": "happy_flutter lib/core/encryption/derive_key.dart run with dart 3.11.5 (see README: crypto vectors)",
+  "masterSecretHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "contentSeedHex": "f1499e1e8eda11cace499ecb9a45b1a597303b8ce444cfffd634962cf254e50f",
+  "analyticsIdSeedHex": "b92e978ec52c5e5ecda1f131f0f66ae6e9cb25965e627568e673d3749625b393"
+}

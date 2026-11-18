@@ -1,6 +1,8 @@
 // Account key material derived from the 32-byte master secret, matching
-// happy_flutter's DeriveKey + libsodium crypto_box_seed_keypair
-// (cross-checked by happy-cli-go cryptoutil/flutter_compat_test.go).
+// happy_flutter's DeriveKey (lib/core/encryption/derive_key.dart) and
+// libsodium crypto_box_seed_keypair. Daemons seal data keys to the public key
+// the app hands them, so Flutter is the authority here. Note:
+// happy-cli-go's flutter_compat_test.go helper swaps the root HMAC arguments.
 import nacl from "tweetnacl";
 import { concatBytes } from "./base64";
 import { decryptWithEphemeralKey } from "./primitives";
@@ -14,11 +16,11 @@ async function hmacSha512(key: Uint8Array, data: Uint8Array): Promise<Uint8Array
 
 /**
  * deriveKey(master, usage, path): HMAC-SHA512 key tree.
- *   root  = HMAC(key=master, data=usage + " Master Seed") → key[0:32], chain[32:64]
+ *   root  = HMAC(key=utf8(usage + " Master Seed"), data=master) → key[0:32], chain[32:64]
  *   child = HMAC(key=chain,  data=0x00 || utf8(segment))  → key[0:32], chain[32:64]
  */
 export async function deriveKey(master: Uint8Array, usage: string, path: string[]): Promise<Uint8Array> {
-  let i = await hmacSha512(master, enc.encode(`${usage} Master Seed`));
+  let i = await hmacSha512(enc.encode(`${usage} Master Seed`), master);
   for (const segment of path) {
     i = await hmacSha512(i.subarray(32, 64), concatBytes(new Uint8Array([0]), enc.encode(segment)));
   }

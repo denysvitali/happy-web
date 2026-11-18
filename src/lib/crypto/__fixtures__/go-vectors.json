@@ -1,11 +1,11 @@
 {
   "base64UrlSample": "-__-AAE",
   "base64UrlSampleHex": "fbfffe0001",
-  "contentPublicKeyHex": "9dc102aa12c1884154d8ec301c53c541e1a4516f4591fc34e2f3afe05f8f1808",
-  "contentSeedHex": "8338f2814456f9a3bb0130c9702bca6a460e43e8616e35a2557163e55486a1df",
-  "dataKeyCiphertextB64": "AIduMyuk3lvkQr6KCoGwb7mLREZp1FAyjZehE9H80CuxySbPOqyNAB47lye4USE7BJVhE1hhVTNER/kEZDOwLBPl7pDG9p4wZC6N0KZz/cSuDA0cP1dAiST3",
+  "contentPublicKeyHex": "38171c982d63ce12be72dbdc92fd19aa000098e6c863793aee4523074e2ad840",
+  "contentSeedHex": "f1499e1e8eda11cace499ecb9a45b1a597303b8ce444cfffd634962cf254e50f",
+  "dataKeyCiphertextB64": "AJorqSjRgIGO6WXobbEkTZeQbensWq7ZksPUs7tC3NsgUzizfff4qFgSOJsd600iAEK1pg/E7cFmeOpBQO34rwqB2fr8lV8aw0IiHNJVduLj/6qClZVQ/FN4",
   "dataKeyHex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
-  "legacyCiphertextB64": "BKwku8DriCIv0DrcOpHz9GAMtBvvAvi0+xb0yFLdKGDnc8FBax1QttjntF9THtsZvXjLlclOhyTn/3Xm7tJ38OB+BwaphIEUmeFeP+egdVRrySjIL+Y3T+mkfRKhycwZ2FXyjlY=",
+  "legacyCiphertextB64": "iDWuxDEV9pI9mmygvaxVCwUqRU3kWxqBBvOti2mXtQh4Mb2ki9XzzJKS2LQHHIowgo3MUKPsyCRNcm2Nmd+9gzrCjLN02tf+Jg/B+WRQQk3NnH9Y6o2Indw/gbragAdu/xr16RA=",
   "masterSecretHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
   "payload": {
     "content": {
@@ -14,5 +14,5 @@
     },
     "role": "user"
   },
-  "wrappedDataKeyB64": "AOn/Wx5MODGuJesHORi/5f1T8MEC9RDb/hH8qksi/eReVQXQ3OhFHWj6Ws0sPmiUyx3QGziE+DTbcEkpcqH/kiKn0IDED4Lfp7zQtJGwfJyHGW0fSFtieuocoHiATOugLyejuL8ZSwop"
+  "wrappedDataKeyB64": "AIVfgcYT3/4cxfdEXyKjpPkbVVP0lR68Y9mX5iv2lIYOgHT8mrBSRl8YX09yL+hZaFPPbKPRoBzZDaRwmSi1uTwVpRizIILGwwIPvM/LLku12gW3Wlu7OW6goKcjs3h0jC/VhHsjiZq+"
 }
