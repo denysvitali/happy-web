@@ -30,6 +30,7 @@ for (const vp of VIEWPORTS) {
 
       if (vp.name === "mobile") {
         await page.getByLabel("Open menu").click();
+        await page.waitForTimeout(350);
         await shot(page, "03-sidebar");
         await page.getByText("Fix flaky login test").first().click();
       } else {
@@ -44,8 +45,39 @@ for (const vp of VIEWPORTS) {
       await shot(page, "05-chat-dark");
       await page.emulateMedia({ colorScheme: "light" });
 
+      // In-session controls.
+      await page.getByRole("button", { name: /^Model:/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "04b-model-picker");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: /usage \d+%/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "04c-usage");
+      await page.keyboard.press("Escape");
+      await page.getByRole("main").getByRole("button", { name: "Session actions" }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "04d-session-menu");
+      await page.keyboard.press("Escape");
+      // Top of the transcript: user bubbles, thinking, tool groups.
+      for (let i = 0; i < 3; i++) {
+        await page.locator("main [data-index]").first().evaluate((el) => {
+          let p = el.parentElement;
+          while (p && getComputedStyle(p).overflowY !== "auto") p = p.parentElement;
+          p?.scrollTo(0, 0);
+        });
+        await page.waitForTimeout(200);
+      }
+      await shot(page, "04e-chat-top");
+
       await page.goto("/#/");
-      if (vp.name === "mobile") await page.getByLabel("Open menu").click();
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(300);
+      await shot(page, "02b-home-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      if (vp.name === "mobile") {
+        await page.getByLabel("Open menu").click();
+        await page.waitForTimeout(350);
+      }
       await page.getByRole("button", { name: "New session" }).first().click();
       await expect(page.getByRole("dialog")).toBeVisible();
       const dialog = page.getByRole("dialog");
@@ -63,6 +95,13 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(300);
       await shot(page, "07b-new-session-advanced");
 
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "07c-new-session-advanced-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      // A hash navigation keeps the modal open; close it first.
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       await page.goto("/#/components-demo");
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/${vp.name}-08-components-demo.png`, fullPage: true });

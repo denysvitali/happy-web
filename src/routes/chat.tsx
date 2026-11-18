@@ -1,6 +1,6 @@
 import { useParams } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ActionIcon, Alert, Box, Button, Center, Group, Loader, Text } from "@mantine/core";
+import { ActionIcon, Alert, Box, Button, Center, Loader, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Ellipsis } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -13,11 +13,12 @@ import { useSessionSwitch } from "@/components/session/hooks";
 import { SessionToolbar } from "@/components/session/SessionToolbar";
 import { UsagePill } from "@/components/session/UsagePill";
 import { SessionMenu } from "@/components/sessions/SessionMenu";
-import { StatusBadge } from "@/components/status";
+import { AgentAvatar, StatusBadge } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
 import { buildView } from "@/lib/sync/chat";
 import type { ChatStore } from "@/lib/sync/chatStore";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
+import { agentOf } from "@/lib/sync/sessionList";
 import type { SessionItem } from "@/lib/sync/account";
 
 function useChat(session: SessionItem | undefined): ChatStore | null {
@@ -121,12 +122,17 @@ function ComposerArea({ session, store, canAbort, run }: { session: SessionItem;
     sw.markSent(opts);
   };
   return (
-    <Box className={classes.composer} p="sm">
-      <Box maw={860} mx="auto">
-        {!session.archived && <SessionToolbar sw={sw} store={store} />}
-        <Composer canAbort={canAbort} onAbort={() => void run(() => account.abort(session.id))} onSend={(t) => void run(() => send(t))} disabled={!store} />
+    <div className={classes.composer}>
+      <Box maw={828} mx="auto">
+        <Composer
+          tools={session.archived ? undefined : <SessionToolbar sw={sw} store={store} />}
+          canAbort={canAbort}
+          onAbort={() => void run(() => account.abort(session.id))}
+          onSend={(t) => void run(() => send(t))}
+          disabled={!store}
+        />
       </Box>
-    </Box>
+    </div>
   );
 }
 
@@ -168,15 +174,12 @@ export function ChatScreen() {
 
   return (
     <>
-      <Group px="md" py="xs" gap="sm" wrap="nowrap" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={600} size="sm" truncate>
-            {sessionTitle(session.meta, session.id)}
-          </Text>
-          <Text size="xs" c="dimmed" truncate>
-            {[displayPath(session.meta), session.meta.flavor].filter(Boolean).join(" · ")}
-          </Text>
-        </Box>
+      <header className={classes.header}>
+        <AgentAvatar agent={agentOf(session.meta.flavor)} size={28} />
+        <div className={classes.headerMain}>
+          <div className={classes.headerTitle}>{sessionTitle(session.meta, session.id)}</div>
+          <div className={classes.headerSub}>{displayPath(session.meta)}</div>
+        </div>
         <UsagePill session={session} />
         <StatusBadge status={status} />
         <SessionMenu
@@ -187,7 +190,7 @@ export function ChatScreen() {
             </ActionIcon>
           }
         />
-      </Group>
+      </header>
       {store ? <Messages store={store} session={session} onPermission={onPermission} /> : <div style={{ flex: 1 }} />}
       <ComposerArea session={session} store={store} canAbort={status === "thinking"} run={run} />
     </>

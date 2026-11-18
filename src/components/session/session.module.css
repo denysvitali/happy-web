@@ -5,8 +5,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  min-height: 30px;
-  margin-bottom: 6px;
+  min-height: 32px;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -23,7 +23,7 @@
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  color: var(--mantine-color-text);
+  color: light-dark(#4a4e5a, var(--mantine-color-dark-1));
   font: inherit;
   font-size: var(--mantine-font-size-xs);
   font-weight: 500;
@@ -36,7 +36,7 @@
 .chip[data-open] { background: var(--mantine-color-default-hover); border-color: var(--mantine-color-default-border); }
 .chip[data-danger] { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
 .chip[data-danger]:hover, .chip[data-danger][data-open] { background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.12)); }
-.chip[data-pending] { border-color: light-dark(var(--mantine-color-blue-3), var(--mantine-color-blue-8)); background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.12)); }
+.chip[data-pending] { border-color: transparent; color: var(--mantine-color-brand-light-color); background: var(--mantine-color-brand-light); }
 .chipIcon { flex-shrink: 0; opacity: 0.8; }
 .chipLabel { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .chevron { flex-shrink: 0; opacity: 0.5; }
@@ -46,7 +46,7 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-3));
+  color: var(--mantine-color-brand-text);
   white-space: nowrap;
 }
 
@@ -63,14 +63,14 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: inherit;
-  background: light-dark(var(--mantine-color-teal-6), var(--mantine-color-teal-5));
+  background: var(--mantine-color-brand-5);
   transition: width 400ms ease;
 }
 [data-level="warn"] .fill { background: var(--mantine-color-orange-5); }
 [data-level="critical"] .fill { background: var(--mantine-color-red-6); }
 
 .ringTrack { stroke: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)); }
-.ringFill { stroke: light-dark(var(--mantine-color-teal-6), var(--mantine-color-teal-5)); transition: stroke-dashoffset 400ms ease; }
+.ringFill { stroke: var(--mantine-color-brand-5); transition: stroke-dashoffset 400ms ease; }
 [data-level="warn"] .ringFill { stroke: var(--mantine-color-orange-5); }
 [data-level="critical"] .ringFill { stroke: var(--mantine-color-red-6); }
 .ringSvg { transform: rotate(-90deg); flex-shrink: 0; }
@@ -147,7 +147,7 @@
 .effort[data-active] {
   border-color: var(--mantine-primary-color-filled);
   color: var(--mantine-primary-color-filled);
-  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.12));
+  background: var(--mantine-color-brand-light);
 }
 
 .modeDanger { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }

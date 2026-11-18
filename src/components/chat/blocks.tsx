@@ -79,19 +79,21 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
   switch (b.type) {
     case "user":
       return (
-        <div className={`${classes.userRow} ${classes.hoverable}`}>
-          <div className={classes.rowTools}>
-            <TimeLabel at={b.at} />
-            <CopyIcon text={b.text} reveal />
-          </div>
-          <div className={classes.user} data-pending={b.pending}>
-            <div className={classes.userText}>{b.text}</div>
-            {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
-            {b.pending === "failed" && (
-              <div className={classes.userNote} data-tone="error">
-                Not sent
-              </div>
-            )}
+        <div className={classes.userRow}>
+          <div className={`${classes.userInner} ${classes.hoverable}`}>
+            <div className={classes.user} data-pending={b.pending}>
+              <div className={classes.userText}>{b.text}</div>
+              {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
+              {b.pending === "failed" && (
+                <div className={classes.userNote} data-tone="error">
+                  Not sent
+                </div>
+              )}
+            </div>
+            <div className={classes.rowTools}>
+              <TimeLabel at={b.at} />
+              <CopyIcon text={b.text} />
+            </div>
           </div>
         </div>
       );
@@ -104,7 +106,7 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
           {!b.streaming && (
             <div className={classes.rowTools}>
               <TimeLabel at={b.at} />
-              <CopyIcon text={b.text} reveal />
+              <CopyIcon text={b.text} />
             </div>
           )}
         </div>

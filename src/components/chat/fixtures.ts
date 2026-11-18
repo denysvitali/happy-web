@@ -9,7 +9,9 @@ import { normalizeRecord } from "@/lib/sync/normalize";
 const claude = (data: object) => ({ role: "agent", content: { type: "output", data } });
 const codex = (data: object) => ({ role: "agent", content: { type: "codex", data } });
 const user = (text: string) => ({ role: "user", content: { type: "text", text } });
-const say = (content: object[], extra: object = {}) => claude({ type: "assistant", ...extra, message: { content } });
+const say = (content: object[], extra: object = {}, message: object = {}) => claude({ type: "assistant", ...extra, message: { ...message, content } });
+// Main-thread usage as Claude reports it; the composer's context meter reads the newest one.
+const usage = (input: number, cached: number) => ({ model: "claude-sonnet-4-5", usage: { input_tokens: input, cache_creation_input_tokens: 1_840, cache_read_input_tokens: cached, output_tokens: 612 } });
 const results = (content: object[], extra: object = {}) => claude({ type: "user", ...extra, message: { content } });
 const call = (id: string, name: string, input: object) => ({ type: "tool_use", id, name, input });
 const out = (id: string, content: unknown, isError = false) => ({ type: "tool_result", tool_use_id: id, content, is_error: isError });
@@ -118,7 +120,7 @@ export const demoRecords: unknown[] = [
       old_string: "it(\"logs in\", async () => {\n  await login(user);\n  await sleep(5000);\n  expect(session()).toBeDefined();\n});",
       new_string: "it(\"logs in\", async () => {\n  vi.useFakeTimers();\n  await login(user);\n  await vi.advanceTimersByTimeAsync(5_000);\n  expect(session()).toBeDefined();\n});",
     }),
-  ]),
+   ], {}, usage(2_310, 81_400)),
   codex({ type: "tool-call", name: "Agent", callId: "agent-th1", agentMetadata: reviewerMeta, input: { agentId: "th1", description: "Review the fix", subagent_type: "codex", prompt: "Review the login test fix for regressions.", agentMetadata: reviewerMeta } }),
   codex({ type: "tool-call", name: "shell", callId: "c1", input: { command: ["bash", "-lc", "pnpm test login"] }, isSidechain: true, parentToolUseId: "agent-th1", agentId: "th1", agentMetadata: reviewerMeta }),
   codex({ type: "tool-call-result", callId: "c1", output: { stdout: "✓ 12 tests passed (1.2s)", stderr: "", exit_code: 0 }, parentToolUseId: "agent-th1", agentId: "th1", agentMetadata: reviewerMeta }),

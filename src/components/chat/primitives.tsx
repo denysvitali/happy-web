@@ -5,7 +5,7 @@ import { memo, useState, type ReactNode } from "react";
 import { inlineValue, isObj, resultParts, type ResultPart } from "./tools/format";
 import classes from "./chat.module.css";
 
-export function CopyIcon({ text, label = "Copy", reveal }: { text: string; label?: string; reveal?: boolean }) {
+export function CopyIcon({ text, label = "Copy" }: { text: string; label?: string }) {
   return (
     <CopyButton value={text} timeout={1200}>
       {({ copied, copy }) => (
@@ -18,7 +18,6 @@ export function CopyIcon({ text, label = "Copy", reveal }: { text: string; label
               e.stopPropagation();
               copy();
             }}
-            className={reveal ? classes.reveal : undefined}
             aria-label={label}
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -32,7 +31,7 @@ export function CopyIcon({ text, label = "Copy", reveal }: { text: string; label
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
 const fullFmt = new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "medium" });
 
-/** Time of a message, revealed on hover of the surrounding `.hoverable`. */
+/** Time of a message (shown in the hover toolbar of a `.hoverable`). */
 export function TimeLabel({ at }: { at?: number | undefined }) {
   if (!at) return null;
   const d = new Date(at);
