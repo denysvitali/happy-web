@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { addMessages, addPending, addPreview, buildView, emptyChat, MAX_PREVIEWS, type Block, type ChatMessage } from "./chat";
+import { addMessages, addPending, addPreview, buildView as build, emptyChat, MAX_PREVIEWS, sameBlock, type Block, type ChatMessage, type ChatState, type ToolBlock } from "./chat";
+import type { AgentState } from "./decode";
 import { normalizeRecord } from "./normalize";
 
 let seq = 0;
@@ -12,6 +13,11 @@ const claude = (data: object) => ({ role: "agent", content: { type: "output", da
 const user = (text: string) => ({ role: "user", content: { type: "text", text } });
 const ready = { role: "agent", content: { type: "event", data: { type: "ready" } } };
 const types = (bs: Block[]) => bs.map((b) => b.type);
+/** buildView without the day separators (most tests are about structure). */
+function buildView(s: ChatState, a: AgentState) {
+  const v = build(s, a);
+  return { ...v, blocks: v.blocks.filter((b) => b.type !== "day") };
+}
 
 describe("dedupe", () => {
   it("drops repeated ids and seqs", () => {
@@ -144,5 +150,130 @@ describe("normalizeRecord", () => {
     expect(normalizeRecord({ role: "user", content: { type: "text", text: "raw" }, meta: { displayText: "shown" } }).items).toEqual([
       { kind: "text", role: "user", text: "shown" },
     ]);
+  });
+});
+
+const use = (id: string, name: string, input: object = {}, parent?: string) =>
+  claude({ type: "assistant", ...(parent ? { parent_tool_use_id: parent } : {}), message: { content: [{ type: "tool_use", id, name, input }] } });
+const res = (id: string, content: unknown, isError = false) =>
+  claude({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] } });
+
+describe("explore grouping", () => {
+  it("folds two or more consecutive read-only calls, recursively", () => {
+    const s = addMessages(emptyChat, [
+      msg(use("r1", "Read", { file_path: "a.ts" })),
+      msg(use("r2", "Grep", { pattern: "x" })),
+      msg(res("r1", "…")),
+      msg(use("b1", "Bash", { command: "ls" })),
+      msg(use("r3", "Read", { file_path: "b.ts" })),
+      msg(use("task", "Task", {})),
+      msg(use("c1", "Glob", { pattern: "*.ts" }, "task")),
+      msg(use("c2", "LS", { path: "." }, "task")),
+    ]);
+    const blocks = buildView(s, {}).blocks;
+    expect(types(blocks)).toEqual(["explore", "tool", "tool", "tool"]);
+    const [group, , single, task] = blocks as [Extract<Block, { type: "explore" }>, ToolBlock, ToolBlock, ToolBlock];
+    expect(group.tools.map((t) => t.id)).toEqual(["r1", "r2"]);
+    expect(group.tools[0]!.result).toMatchObject({ output: "…" });
+    expect(group.key).toBe(`explore:${group.tools[0]!.key}`);
+    expect(single.id).toBe("r3");
+    expect(types(task.children)).toEqual(["explore"]);
+  });
+
+  it("never hides a call that waits for permission", () => {
+    const s = addMessages(emptyChat, [msg(use("r1", "Read")), msg(use("r2", "Read"))]);
+    const v = buildView(s, { requests: { r2: { tool: "Read", arguments: {}, createdAt: 1 } } });
+    expect(types(v.blocks)).toEqual(["tool", "tool"]);
+  });
+});
+
+describe("day separators", () => {
+  it("inserts one separator per local day, before the first block", () => {
+    const day = 86_400_000;
+    const t0 = new Date(2026, 10, 16, 12).getTime();
+    const s = addMessages(emptyChat, [
+      msg(user("a"), { createdAt: t0 }),
+      msg(user("b"), { createdAt: t0 + 60_000 }),
+      msg(user("c"), { createdAt: t0 + 2 * day }),
+    ]);
+    const v = build(s, {});
+    expect(types(v.blocks)).toEqual(["day", "user", "user", "day", "user"]);
+    expect(v.blocks[0]).toMatchObject({ at: t0 });
+    expect(v.blocks[1]).toMatchObject({ at: t0 });
+  });
+});
+
+describe("agent anchors", () => {
+  it("keeps the latest child metadata snapshot; {} clears it; nested anchors keep their own", () => {
+    const s = addMessages(emptyChat, [
+      msg(codex({ type: "tool-call", name: "Agent", callId: "agent-a", input: { agentId: "a", agentMetadata: { model: "gpt-5" } } })),
+      msg(codex({ type: "message", message: "hi", parentToolUseId: "agent-a", agentMetadata: { model: "gpt-5-mini", reasoningEffort: "low" } })),
+      msg(codex({ type: "tool-call", name: "Agent", callId: "agent-b", parentToolUseId: "agent-a", agentMetadata: { model: "o3" }, input: { agentId: "b" } })),
+    ]);
+    const [a] = buildView(s, {}).blocks as [ToolBlock];
+    expect(a.agentMetadata).toEqual({ model: "gpt-5-mini", reasoningEffort: "low" });
+    expect((a.children[1] as ToolBlock).agentMetadata).toEqual({ model: "o3" });
+
+    const cleared = addMessages(s, [msg(codex({ type: "tool-call-result", callId: "agent-a", output: { status: "failed" }, isError: true, agentMetadata: {} }))]);
+    const [a2] = buildView(cleared, {}).blocks as [ToolBlock];
+    expect(a2.agentMetadata).toEqual({});
+    expect(a2.result).toMatchObject({ isError: true, status: "failed" });
+  });
+
+  it("opens a synthetic anchor for child rows that precede their spawn row", () => {
+    let s = addMessages(emptyChat, [msg(codex({ type: "tool-call", name: "shell", callId: "c1", parentToolUseId: "agent-x" }))]);
+    let [a] = buildView(s, {}).blocks as [ToolBlock];
+    expect(a).toMatchObject({ type: "tool", id: "agent-x", synthetic: true, children: [{ id: "c1" }] });
+    s = addMessages(s, [msg(codex({ type: "tool-call", name: "Agent", callId: "agent-x", input: { description: "late" } }))]);
+    [a] = buildView(s, {}).blocks as [ToolBlock];
+    expect(a).toMatchObject({ id: "agent-x", name: "Agent", input: { description: "late" }, children: [{ id: "c1" }] });
+    expect(a.synthetic).toBeUndefined();
+  });
+
+  it("drops child previews whose anchor is unknown", () => {
+    const s = addPreview(emptyChat, { streamId: "p", text: "child", parent: "agent-zz", at: 1 });
+    expect(buildView(s, {}).blocks).toEqual([]);
+  });
+
+  it("records call and result times for durations", () => {
+    const s = addMessages(emptyChat, [msg(use("t", "Task"), { createdAt: 1000 }), msg(res("t", "done"), { createdAt: 6000 })]);
+    expect(buildView(s, {}).blocks[0]).toMatchObject({ at: 1000, result: { at: 6000 } });
+  });
+
+  it("reads nested-session and Har terminal statuses", () => {
+    const s = addMessages(emptyChat, [
+      msg(codex({ type: "tool-call", name: "Agent", callId: "n1", input: { subagent_type: "happy-session", sessionId: "child" } })),
+      msg(codex({ type: "tool-result", callId: "n1", status: "unknown", isError: false, result: "Still running" })),
+    ]);
+    expect(buildView(s, {}).blocks[0]).toMatchObject({ result: { status: "unknown", isError: false, output: "Still running" } });
+  });
+});
+
+describe("sameBlock", () => {
+  it("treats rebuilt views as equal and only flags the block that changed", () => {
+    let s = addMessages(emptyChat, [
+      msg(use("t", "Task")),
+      msg(claude({ type: "assistant", parent_tool_use_id: "t", message: { content: [{ type: "text", text: "sub" }] } })),
+      msg(user("hello")),
+    ]);
+    s = addPreview(s, { streamId: "x", text: "Hel", at: 1 });
+    const a = build(s, {}).blocks;
+    const b = build(s, {}).blocks;
+    expect(a.every((blk, i) => sameBlock(blk, b[i]!))).toBe(true);
+    const c = build(addPreview(s, { streamId: "x", text: "Hello", at: 1 }), {}).blocks;
+    expect(a.map((blk, i) => sameBlock(blk, c[i]!))).toEqual([true, true, true, false]);
+    const d = build(addMessages(s, [msg(res("t", "ok"))]), {}).blocks;
+    expect(sameBlock(a[1]!, d[1]!)).toBe(false);
+  });
+});
+
+describe("normalize tools", () => {
+  it("parses JSON-string arguments and keeps row metadata", () => {
+    const n = normalizeRecord(codex({ type: "tool-call", name: "mcp__gh__search", callId: "m1", arguments: '{"q":"bug"}', agentMetadata: { model: "m" } }));
+    expect(n.items).toEqual([{ kind: "tool-call", id: "m1", name: "mcp__gh__search", input: { q: "bug" }, agentMetadata: { model: "m" } }]);
+  });
+  it("ignores bare sidechain parentUuid (it is not an anchor id)", () => {
+    const n = normalizeRecord(claude({ type: "assistant", isSidechain: true, parentUuid: "u1", message: { content: [{ type: "text", text: "x" }] } }));
+    expect(n.items[0]).not.toHaveProperty("parent");
   });
 });

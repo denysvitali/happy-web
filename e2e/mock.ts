@@ -97,6 +97,12 @@ export function createMock() {
       }
       const a = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/archive$/);
       if (a) return json({ success: true });
+      const md = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/metadata$/);
+      if (md) return json({ result: "success", version: 2 });
+      const one = url.pathname.match(/^\/v1\/sessions\/([^/]+)$/);
+      const row = one && sessions.find((s) => s.id === one[1]);
+      if (row && req.method() === "DELETE") return json({ success: true });
+      if (row) return json({ session: row });
       return route.fulfill({ status: 404, contentType: "application/json", body: '{"error":"not mocked"}' });
     });
 
@@ -131,8 +137,54 @@ export function createMock() {
     abort: () => ({ success: true, message: "aborted" }),
     permission: () => ({ success: true }),
     "stop-session": () => ({ message: "stopped" }),
-    "spawn-happy-session": () => ({ type: "success", sessionId: "s-new", directory: "/workspace/new" }),
+    "spawn-happy-session": (p) => {
+      const req = p as { sessionId?: string; directory?: string };
+      return { type: "success", sessionId: req.sessionId || "s-new", directory: req.directory || "/workspace/new" };
+    },
+    "repo-branches": (p) => {
+      const { repoUrl = "", ref } = p as { repoUrl?: string; ref?: string };
+      const repo = repoUrl.replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, "");
+      if (!repo.startsWith("acme/")) return { success: false, notFound: true, error: `repository ${repo} was not found, or this machine's GitHub token cannot read it` };
+      const branches = ["main", "dev", "feat/web-client", "fix/flaky-login", "release/1.4"];
+      return { success: true, repo, defaultBranch: "main", branches, truncated: false, ...(ref ? { refExists: branches.includes(ref) } : {}) };
+    },
     ping: () => ({}),
+    "get-claude-usage-limits": () => ({
+      success: true,
+      data: JSON.stringify({
+        five_hour: { utilization: 42, resets_at: new Date(Date.now() + 134 * min).toISOString() },
+        seven_day: { utilization: 63, resets_at: new Date(Date.now() + 3 * 24 * 60 * min).toISOString() },
+        seven_day_opus: { utilization: 88, resets_at: new Date(Date.now() + 3 * 24 * 60 * min).toISOString() },
+        extra_usage: { is_enabled: true, monthly_limit: 50, used_credits: 12.5, utilization: 25 },
+        limits: [
+          { group: "weekly", percent: 88, resets_at: null, scope: { model: { display_name: "Opus" } } },
+          { group: "weekly", percent: 31, resets_at: new Date(Date.now() + 5 * 24 * 60 * min).toISOString(), scope: { model: { display_name: "Fable" } } },
+        ],
+      }),
+      error: "",
+    }),
+    "get-codex-usage": () => ({
+      success: true,
+      data: {
+        plan_type: "pro",
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          primary_window: { used_percent: 18, limit_window_seconds: 18000, reset_after_seconds: 7200, reset_at: Math.floor(Date.now() / 1000) + 7200 },
+          secondary_window: { used_percent: 54, limit_window_seconds: 604800, reset_after_seconds: 259200, reset_at: Math.floor(Date.now() / 1000) + 259200 },
+        },
+        credits: { has_credits: true, unlimited: false, balance: "42.10" },
+      },
+      error: "",
+    }),
+    "get-codex-models": () => ({
+      success: true,
+      models: [
+        { slug: "gpt-5.5", display_name: "GPT-5.5", visibility: "list", supported_reasoning_levels: [{ effort: "low" }, { effort: "medium" }, { effort: "high" }, { effort: "xhigh" }], default_reasoning_level: "medium" },
+        { slug: "gpt-5.5-codex-mini", display_name: "GPT-5.5 Codex Mini", visibility: "list", supported_reasoning_levels: ["medium", "high"], default_reasoning_level: "medium" },
+        { slug: "internal-eval", display_name: "Internal", visibility: "hide" },
+      ],
+    }),
   };
 
   return { install, sent, rpcCalls, socketAuth: () => socketAuth, enc, dec, sessions, machines, secret };
@@ -147,8 +199,10 @@ export function watchCsp(page: Page): string[] {
   return violations;
 }
 
-/** Links the browser through the mock and waits for the app shell. */
-export async function linkAndOpen(page: Page) {
+/** Links the browser through the mock and waits until the account is live
+ * (socket authenticated, link screen gone). Layout-agnostic on purpose. */
+export async function linkAndOpen(page: Page, mock: { socketAuth: () => unknown }) {
   await page.goto("/");
-  await expect(page.getByText("Fix flaky login test").first()).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => mock.socketAuth(), { timeout: 15_000 }).not.toBeNull();
+  await expect(page.getByLabel("QR code")).toHaveCount(0);
 }

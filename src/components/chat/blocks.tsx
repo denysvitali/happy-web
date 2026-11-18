@@ -1,252 +1,166 @@
-import { ActionIcon, Alert, Badge, Box, Button, Code, Collapse, CopyButton, Group, Loader, Paper, Stack, Text, ThemeIcon, Tooltip, UnstyledButton } from "@mantine/core";
-import { Bot, Brain, Check, ChevronRight, CircleAlert, Copy, ShieldQuestion, Wrench } from "lucide-react";
-import { useState } from "react";
-import type { Block, PermissionView } from "@/lib/sync/chat";
+// Chat transcript blocks. `BlockView` renders one top-level block (the list
+// in routes/chat.tsx virtualizes them); `BlockList` renders a plain list.
+//
+// Every block view is memoized on `sameBlock`, so a list re-render (e.g. a
+// growing stream preview) only re-renders the block that actually changed.
+// The permission handler is made stable here, so callers may pass a fresh
+// closure on every render.
+import { UnstyledButton } from "@mantine/core";
+import { Brain, ChevronRight, ShieldQuestion } from "lucide-react";
+import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { AGENT_TOOLS, sameBlock, type Block } from "@/lib/sync/chat";
 import { Markdown } from "./markdown";
+import { PermissionBar, type PermissionHandler } from "./permission";
+import { CopyIcon, TimeLabel } from "./primitives";
+import { AgentCard } from "./tools/agent";
+import { firstLine } from "./tools/format";
+import { titleOf, viewFor } from "./tools/registry";
+import { ExploreGroup, ToolCard } from "./tools/tool-card";
 import classes from "./chat.module.css";
 
-export interface PermissionHandler {
-  (id: string, approved: boolean, decision?: "approved_for_session"): Promise<void>;
-}
+export type { PermissionHandler } from "./permission";
 
-const MAX_PREVIEW = 20_000;
-
-function asText(v: unknown): string {
-  if (v === undefined || v === null) return "";
-  if (typeof v === "string") return v;
-  if (Array.isArray(v) && v.every((b) => typeof b === "object" && b && "text" in b)) {
-    return v.map((b: { text?: unknown }) => String(b.text ?? "")).join("\n");
-  }
-  try {
-    return JSON.stringify(v, null, 2);
-  } catch {
-    return String(v);
-  }
-}
-
-const clip = (s: string) => (s.length > MAX_PREVIEW ? `${s.slice(0, MAX_PREVIEW)}\n… (${s.length - MAX_PREVIEW} more characters)` : s);
-
-function Copy_({ text }: { text: string }) {
-  return (
-    <CopyButton value={text} timeout={1200}>
-      {({ copied, copy }) => (
-        <Tooltip label={copied ? "Copied" : "Copy"} withArrow>
-          <ActionIcon size="sm" variant="subtle" color={copied ? "teal" : "gray"} onClick={copy} className={classes.copy} aria-label="Copy">
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </ActionIcon>
-        </Tooltip>
-      )}
-    </CopyButton>
-  );
-}
-
-function toolSummary(name: string, input: unknown): string {
-  if (!input || typeof input !== "object") return "";
-  const i = input as Record<string, unknown>;
-  const pick = ["description", "command", "file_path", "path", "pattern", "url", "query", "prompt"].find((k) => typeof i[k] === "string" && i[k]);
-  const v = pick ? String(i[pick]) : "";
-  return name === "Agent" && typeof i.agentId === "string" && !v ? i.agentId : v.split("\n")[0]!.slice(0, 140);
-}
-
-function PermissionBar({ id, perm, onPermission }: { id: string; perm?: PermissionView | undefined; onPermission?: PermissionHandler | undefined }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  if (!perm) return null;
-  if (perm.status !== "pending") {
-    const ok = perm.status === "approved";
-    return (
-      <Badge variant="light" color={ok ? "green" : "red"} size="sm">
-        {perm.status}
-        {"reason" in perm && perm.reason ? `: ${perm.reason}` : ""}
-      </Badge>
-    );
-  }
-  const answer = async (key: string, approved: boolean, decision?: "approved_for_session") => {
-    if (!onPermission) return;
-    setBusy(key);
-    setError("");
-    try {
-      await onPermission(id, approved, decision);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "failed");
-    } finally {
-      setBusy(null);
-    }
-  };
-  return (
-    <Alert color="yellow" variant="light" icon={<ShieldQuestion size={18} />} title="Permission required" p="sm">
-      <Group gap="xs" mt={4}>
-        <Button size="xs" loading={busy === "allow"} disabled={!!busy} onClick={() => void answer("allow", true)}>
-          Allow
-        </Button>
-        <Button size="xs" variant="default" loading={busy === "session"} disabled={!!busy} onClick={() => void answer("session", true, "approved_for_session")}>
-          Allow for session
-        </Button>
-        <Button size="xs" variant="light" color="red" loading={busy === "deny"} disabled={!!busy} onClick={() => void answer("deny", false)}>
-          Deny
-        </Button>
-      </Group>
-      {error && (
-        <Text size="xs" c="red" mt={4}>
-          {error}
-        </Text>
-      )}
-    </Alert>
-  );
-}
-
-function Pre({ label, text, error }: { label: string; text: string; error?: boolean }) {
-  if (!text) return null;
-  return (
-    <Box className={classes.hoverable}>
-      <Group justify="space-between" gap={4} mb={2}>
-        <Text size="xs" c="dimmed" fw={500}>
-          {label}
-        </Text>
-        <Copy_ text={text} />
-      </Group>
-      <Code block className={classes.pre} c={error ? "red" : undefined}>
-        {clip(text)}
-      </Code>
-    </Box>
-  );
-}
-
-function ToolBlock({ b, onPermission }: { b: Extract<Block, { type: "tool" }>; onPermission?: PermissionHandler | undefined }) {
-  const isAgent = b.name === "Agent" || b.name === "Task";
-  const [open, setOpen] = useState(isAgent || b.permission?.status === "pending");
-  const state = b.result ? (b.result.isError ? "error" : "done") : "running";
-  return (
-    <Stack gap={6}>
-      <Paper withBorder radius="md" className={isAgent ? classes.agent : undefined}>
-        <UnstyledButton onClick={() => setOpen((o) => !o)} className={classes.toolHeader} aria-expanded={open}>
-          <Group gap="xs" wrap="nowrap">
-            <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
-            <ThemeIcon size="sm" variant="light" color={isAgent ? "violet" : "gray"}>
-              {isAgent ? <Bot size={14} /> : <Wrench size={14} />}
-            </ThemeIcon>
-            <Text size="sm" fw={600}>
-              {b.name}
-            </Text>
-            <Text size="xs" c="dimmed" ff="monospace" truncate style={{ flex: 1 }}>
-              {toolSummary(b.name, b.input)}
-            </Text>
-            {state === "running" && <Loader size={14} />}
-            {state === "done" && <Check size={16} color="var(--mantine-color-green-6)" />}
-            {state === "error" && <CircleAlert size={16} color="var(--mantine-color-red-6)" />}
-          </Group>
-        </UnstyledButton>
-        <Collapse expanded={open}>
-          <Stack gap="xs" px="sm" pb="sm">
-            {!isAgent && b.input !== undefined && <Pre label="Input" text={asText(b.input)} />}
-            {!isAgent && b.result && <Pre label={b.result.isError ? "Error" : "Output"} text={asText(b.result.output)} error={b.result.isError} />}
-            {b.children.length > 0 && (
-              <Stack gap="xs" className={classes.children}>
-                <BlockList blocks={b.children} onPermission={onPermission} />
-              </Stack>
-            )}
-            {isAgent && b.children.length === 0 && (
-              <Text size="xs" c="dimmed">
-                No activity yet
-              </Text>
-            )}
-          </Stack>
-        </Collapse>
-      </Paper>
-      <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
-    </Stack>
-  );
+function useStableHandler(h: PermissionHandler | undefined): PermissionHandler | undefined {
+  const ref = useRef(h);
+  useLayoutEffect(() => {
+    ref.current = h;
+  });
+  const stable = useCallback<PermissionHandler>(async (...args) => {
+    await ref.current?.(...args);
+  }, []);
+  return h ? stable : undefined;
 }
 
 function Thinking({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div>
-      <UnstyledButton onClick={() => setOpen((o) => !o)}>
-        <Group gap={4}>
-          <Brain size={14} color="var(--mantine-color-dimmed)" />
-          <Text size="xs" c="dimmed" fs="italic">
-            Thinking
-          </Text>
-          <ChevronRight size={12} className={classes.chevron} data-open={open || undefined} color="var(--mantine-color-dimmed)" />
-        </Group>
+    <div className={classes.thinking} data-open={open || undefined}>
+      <UnstyledButton className={classes.thinkingHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <Brain size={13} />
+        <span className={classes.thinkingLabel}>Thinking</span>
+        {!open && <span className={classes.thinkingPeek}>{firstLine(text, 120)}</span>}
+        <ChevronRight size={12} className={classes.chevron} data-open={open || undefined} />
       </UnstyledButton>
-      <Collapse expanded={open}>
-        <Text size="xs" c="dimmed" className={classes.thinking}>
-          {text}
-        </Text>
-      </Collapse>
+      {open && <div className={classes.thinkingBody}>{text}</div>}
     </div>
   );
 }
 
-export function BlockView({ b, onPermission }: { b: Block; onPermission?: PermissionHandler | undefined }) {
+const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
+const dayYearFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+
+function dayLabel(at: number): string {
+  const d = new Date(at);
+  const today = new Date();
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(today) - start(d)) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return (d.getFullYear() === today.getFullYear() ? dayFmt : dayYearFmt).format(d);
+}
+
+interface ViewProps {
+  b: Block;
+  onPermission?: PermissionHandler | undefined;
+}
+
+const renderChildren = (onPermission: PermissionHandler | undefined) => (blocks: Block[]) =>
+  blocks.map((c) => <MemoBlock key={c.key} b={c} onPermission={onPermission} />);
+const childRenderers = new WeakMap<PermissionHandler, (blocks: Block[]) => ReactNode>();
+const noHandlerChildren = renderChildren(undefined);
+function childrenFor(h: PermissionHandler | undefined) {
+  if (!h) return noHandlerChildren;
+  let r = childRenderers.get(h);
+  if (!r) childRenderers.set(h, (r = renderChildren(h)));
+  return r;
+}
+
+function BlockSwitch({ b, onPermission }: ViewProps) {
   switch (b.type) {
     case "user":
       return (
-        <Group justify="flex-end" gap={4} wrap="nowrap" className={classes.hoverable} align="flex-start">
-          <Copy_ text={b.text} />
-          <Paper className={classes.user} data-pending={b.pending} radius="lg" px="md" py="xs">
-            <Text size="sm" className={classes.userText}>
-              {b.text}
-            </Text>
+        <div className={`${classes.userRow} ${classes.hoverable}`}>
+          <div className={classes.rowTools}>
+            <TimeLabel at={b.at} />
+            <CopyIcon text={b.text} reveal />
+          </div>
+          <div className={classes.user} data-pending={b.pending}>
+            <div className={classes.userText}>{b.text}</div>
+            {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
             {b.pending === "failed" && (
-              <Text size="xs" c="red.2">
+              <div className={classes.userNote} data-tone="error">
                 Not sent
-              </Text>
+              </div>
             )}
-          </Paper>
-        </Group>
+          </div>
+        </div>
       );
     case "text":
       return (
-        <Group gap={4} wrap="nowrap" align="flex-start" className={classes.hoverable}>
-          <Box style={{ flex: 1, minWidth: 0 }}>
-            <Markdown text={b.text} />
-            {b.streaming && <span className="stream-caret" />}
-          </Box>
-          <Copy_ text={b.text} />
-        </Group>
+        <div className={`${classes.agentText} ${classes.hoverable}`} data-streaming={b.streaming || undefined}>
+          <div className={classes.agentTextBody}>
+            <Markdown text={b.text} streaming={b.streaming} />
+          </div>
+          {!b.streaming && (
+            <div className={classes.rowTools}>
+              <TimeLabel at={b.at} />
+              <CopyIcon text={b.text} reveal />
+            </div>
+          )}
+        </div>
       );
     case "thinking":
       return <Thinking text={b.text} />;
     case "event":
       return (
-        <Text size="xs" c="dimmed" ta="center">
-          — {b.text} —
-        </Text>
+        <div className={classes.event} title={b.at ? new Date(b.at).toLocaleString() : undefined}>
+          <span>{b.text}</span>
+        </div>
+      );
+    case "day":
+      return (
+        <div className={classes.day} role="separator">
+          <span>{dayLabel(b.at)}</span>
+        </div>
       );
     case "unknown":
-      return (
-        <Text size="xs" c="dimmed" fs="italic">
-          Unsupported message ({b.label})
-        </Text>
-      );
+      return <div className={classes.unknown}>Unsupported message ({b.label})</div>;
+    case "explore":
+      return <ExploreGroup tools={b.tools} onPermission={onPermission} />;
     case "tool":
-      return <ToolBlock b={b} onPermission={onPermission} />;
-    case "permission":
+      if (AGENT_TOOLS.has(b.name) || b.children.length > 0) {
+        return <AgentCard b={b} onPermission={onPermission} renderChildren={childrenFor(onPermission)} />;
+      }
+      return <ToolCard b={b} onPermission={onPermission} />;
+    case "permission": {
+      const fake = { type: "tool" as const, key: b.key, id: b.id, name: b.tool, input: b.input, children: [] };
+      const view = viewFor(b.tool);
       return (
-        <Stack gap={6}>
-          <Group gap="xs">
-            <Wrench size={14} />
-            <Text size="sm" fw={600}>
-              {b.tool}
-            </Text>
-            <Text size="xs" c="dimmed" ff="monospace" truncate>
-              {toolSummary(b.tool, b.input)}
-            </Text>
-          </Group>
+        <div className={classes.toolWrap}>
+          <div className={classes.permHead}>
+            <ShieldQuestion size={14} />
+            <span className={classes.toolTitle}>{titleOf(view, fake)}</span>
+            <span className={classes.toolSummary}>{view.summary?.(fake)}</span>
+          </div>
           <PermissionBar id={b.id} perm={{ status: "pending" }} onPermission={onPermission} />
-        </Stack>
+        </div>
       );
+    }
   }
 }
 
+const MemoBlock = memo(BlockSwitch, (p, n) => p.onPermission === n.onPermission && sameBlock(p.b, n.b));
+
+export function BlockView({ b, onPermission }: ViewProps) {
+  return <MemoBlock b={b} onPermission={useStableHandler(onPermission)} />;
+}
+
 export function BlockList({ blocks, onPermission }: { blocks: Block[]; onPermission?: PermissionHandler | undefined }) {
+  const h = useStableHandler(onPermission);
   return (
     <>
       {blocks.map((b) => (
-        <BlockView key={b.key} b={b} onPermission={onPermission} />
+        <MemoBlock key={b.key} b={b} onPermission={h} />
       ))}
     </>
   );

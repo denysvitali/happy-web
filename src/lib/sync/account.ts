@@ -17,7 +17,7 @@ import {
   type MachineMetadata,
   type SessionMetadata,
 } from "./decode";
-import type { SpawnOptions } from "./spawn";
+import { buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { Store } from "./store";
 
 export interface SessionItem {
@@ -305,6 +305,33 @@ export class Account {
     return fromJson(output, (result ?? {}) as JsonObject, { ignoreUnknownFields: true });
   }
 
+  /** Untyped JSON RPC (machine usage/model calls). Returns the decrypted
+   * result as-is: callers interpret `success`/`error` themselves, because
+   * some (get-codex-models) put a notice in `error` on success. */
+  async rpcJson(scopeId: string, name: string, params: unknown, timeoutMs?: number): Promise<unknown> {
+    let cipher = this.knownCipher(scopeId);
+    if (!cipher) {
+      // Machine ciphers exist once the machine list has loaded.
+      await this.qc.ensureQueryData({ queryKey: machinesKey, queryFn: ({ signal }) => this.fetchMachines(signal) });
+      cipher = this.knownCipher(scopeId);
+    }
+    if (!cipher) throw new RpcError("unknown session or machine");
+    const c = await cipher;
+    return (await c.decrypt(await this.realtime.rpc(`${scopeId}:${name}`, await c.encrypt(params), timeoutMs))) as unknown;
+  }
+
+  claudeUsageLimits(machineId: string) {
+    return this.rpcJson(machineId, "get-claude-usage-limits", {}, 20_000);
+  }
+
+  codexUsage(machineId: string) {
+    return this.rpcJson(machineId, "get-codex-usage", {}, 20_000);
+  }
+
+  codexModels(machineId: string, directory: string | undefined) {
+    return this.rpcJson(machineId, "get-codex-models", directory ? { refresh: false, directory } : { refresh: false }, 30_000);
+  }
+
   abort(sessionId: string) {
     return this.rpc(sessionId, "abort", (p) => [p.AbortRequestSchema, p.AbortResponseSchema], { reason: "" });
   }
@@ -313,28 +340,24 @@ export class Account {
     return this.rpc(sessionId, "permission", (p) => [p.PermissionRequestSchema, p.PermissionResponseSchema], { id, approved, decision: decision ?? "" });
   }
 
+  /** Default branch, branches and (with `ref`) whether `ref` resolves, via
+   * the daemon-held GitHub token. Old daemons without the RPC read as
+   * unavailable. */
+  async repoBranches(machineId: string, repoUrl: string, ref?: string): Promise<RepoBranches> {
+    try {
+      return parseRepoBranchesReply(await this.rpcJson(machineId, "repo-branches", ref ? { repoUrl, ref } : { repoUrl }, 20_000));
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "branch lookup failed", unavailable: true, notFound: false };
+    }
+  }
+
   async spawn(o: SpawnOptions) {
-    const sessionId = `c${Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
-    const environmentVariables: Record<string, string> = {};
-    if (o.initialPrompt?.trim()) environmentVariables.HAPPY_INITIAL_PROMPT = o.initialPrompt.trim();
+    const sessionId = newSessionId();
     const call = this.rpc(
       o.machineId,
       "spawn-happy-session",
       (p) => [p.SpawnHappySessionRequestSchema, p.SpawnHappySessionResponseSchema],
-      {
-        type: "spawn-in-directory",
-        directory: o.directory,
-        sessionId,
-        agent: o.agent,
-        approvedNewDirectoryCreation: true,
-        profileId: "default",
-        environmentVariables,
-        permissionMode: o.permissionMode && o.permissionMode !== "default" ? o.permissionMode : "",
-        model: o.model?.trim() ?? "",
-        spawnBackend: o.backend ?? "",
-        repoUrl: o.repoUrl?.trim() ?? "",
-        repoRef: o.repoRef?.trim() ?? "",
-      },
+      buildSpawnRequest(o, sessionId),
       180_000,
     );
     let res;
@@ -355,6 +378,7 @@ export class Account {
       throw e;
     }
     if (res.type === "error") throw new RpcError(res.errorMessage || "spawn failed");
+    if (res.type === "requestToApproveDirectoryCreation") throw new RpcError(`${res.directory || o.directory} does not exist on that machine`);
     if (res.type !== "success") throw new RpcError(`unexpected spawn result: ${res.type}`);
     void this.qc.invalidateQueries({ queryKey: sessionsKey });
     return res.sessionId || sessionId;
@@ -377,5 +401,49 @@ export class Account {
       if (!(e instanceof Error && "status" in e && e.status === 404)) throw e;
     }
     this.patchSession(session.id, (s) => ({ ...s, archived: true, active: false }));
+  }
+
+  // ---- session management (sidebar / chat header actions) -------------------
+
+  async unarchive(session: SessionItem): Promise<void> {
+    await this.api.archiveSession(session.id, false);
+    this.patchSession(session.id, (s) => ({ ...s, archived: false }));
+  }
+
+  /** Deleting never waits on the daemon: a live process gets a best-effort,
+   * un-awaited stop, and a 404 means the row is already gone. */
+  async deleteSession(session: SessionItem): Promise<void> {
+    const machineId = session.meta.machineId;
+    if (session.active && !session.archived && machineId) void this.stopSession(machineId, session.id).catch(() => undefined);
+    try {
+      await this.api.deleteSession(session.id);
+    } catch (e) {
+      if (!(e instanceof Error && "status" in e && e.status === 404)) throw e;
+    }
+    this.qc.setQueryData<SessionItem[]>(sessionsKey, (l) => l?.filter((s) => s.id !== session.id));
+  }
+
+  /** Sets `name` and `summary` (titles prefer the summary) on the full
+   * decrypted metadata, so fields this client does not model survive.
+   * Retries version mismatches against a fresh read. */
+  async rename(sessionId: string, name: string): Promise<void> {
+    const text = name.trim();
+    if (!text) throw new Error("name is empty");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const row = await this.api.getSession(sessionId);
+      const c = await this.cipherFor(row.id, row.dataEncryptionKey);
+      const raw: unknown = await c.decrypt(row.metadata);
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("session metadata is unreadable");
+      const next = { ...(raw as Record<string, unknown>), name: text, summary: { text, updatedAt: Date.now() } };
+      const res = await this.api.updateSessionMetadata(sessionId, await c.encrypt(next), row.metadataVersion);
+      if (res.result === "success") {
+        const meta = sessionMetadata.parse(next);
+        const version = res.version ?? row.metadataVersion + 1;
+        this.patchSession(sessionId, (s) => (version >= s.metadataVersion ? { ...s, meta, metadataVersion: version } : s));
+        return;
+      }
+      if (res.result !== "version-mismatch") throw new Error(`rename failed: ${res.result}`);
+    }
+    throw new Error("session metadata kept changing; try again");
   }
 }

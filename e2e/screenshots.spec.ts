@@ -24,7 +24,7 @@ for (const vp of VIEWPORTS) {
       await shot(page, "01-link-server");
 
       await mock.install(page);
-      await linkAndOpen(page);
+      await linkAndOpen(page, mock);
       await page.waitForTimeout(400);
       await shot(page, "02-home");
 
@@ -48,14 +48,20 @@ for (const vp of VIEWPORTS) {
       if (vp.name === "mobile") await page.getByLabel("Open menu").click();
       await page.getByRole("button", { name: "New session" }).first().click();
       await expect(page.getByRole("dialog")).toBeVisible();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("button", { name: "~/src/app" }).click();
+      await dialog.getByLabel("First message").fill("Find why the login test is flaky and fix it");
       await page.waitForTimeout(300);
       await shot(page, "06-new-session");
-      const k8s = page.getByText("Kubernetes", { exact: false }).first();
-      if (await k8s.isVisible()) {
-        await k8s.click();
-        await page.waitForTimeout(200);
-        await shot(page, "07-new-session-kubernetes");
-      }
+      await dialog.getByRole("radio", { name: /Kubernetes/ }).click();
+      await dialog.getByRole("combobox", { name: "Repository" }).fill("acme/happy-web");
+      await expect(dialog.getByText(/branches · default main/)).toBeVisible();
+      await dialog.getByRole("combobox", { name: "Branch" }).click();
+      await expect(page.getByRole("option", { name: "feat/web-client" })).toBeVisible();
+      await shot(page, "07-new-session-kubernetes");
+      await dialog.getByRole("button", { name: "Advanced" }).click();
+      await page.waitForTimeout(300);
+      await shot(page, "07b-new-session-advanced");
 
       await page.goto("/#/components-demo");
       await page.waitForTimeout(300);

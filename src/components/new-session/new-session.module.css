@@ -1,0 +1,191 @@
+/* ---- mode selector ------------------------------------------------------- */
+
+.modes {
+  display: grid;
+  grid-template-columns: repeat(var(--modes, 2), minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mode {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--mantine-radius-lg);
+  border: 1px solid var(--mantine-color-default-border);
+  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+  text-align: left;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.mode:hover {
+  border-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+}
+
+.mode:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+.mode[data-checked] {
+  border-color: var(--mantine-primary-color-filled);
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.1));
+  box-shadow: 0 0 0 1px var(--mantine-primary-color-filled);
+}
+
+.modeIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mantine-radius-md);
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-0));
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+}
+
+.mode[data-checked] .modeIcon {
+  color: var(--mantine-color-white);
+  background: var(--mantine-primary-color-filled);
+}
+
+.modeTitle {
+  display: block;
+  font-weight: 600;
+  font-size: var(--mantine-font-size-md);
+  line-height: 1.2;
+}
+
+.modeText {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  line-height: 1.4;
+}
+
+.modeCheck {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--mantine-color-default-border);
+  color: var(--mantine-color-white);
+}
+
+.mode[data-checked] .modeCheck {
+  border-color: var(--mantine-primary-color-filled);
+  background: var(--mantine-primary-color-filled);
+}
+
+@media (max-width: 30em) {
+  .mode {
+    padding: 12px;
+  }
+  .modeText {
+    display: none;
+  }
+}
+
+/* ---- recent folder chips --------------------------------------------------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--mantine-color-default-border);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  font-size: var(--mantine-font-size-xs);
+  font-family: var(--mantine-font-family-monospace);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+}
+
+.chip[data-active] {
+  border-color: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-filled);
+}
+
+/* ---- sections, summary ------------------------------------------------------- */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.toggle:hover {
+  color: var(--mantine-color-text);
+}
+
+.chevron {
+  transition: transform 150ms ease;
+}
+
+.toggle[data-expanded] .chevron {
+  transform: rotate(90deg);
+}
+
+.mcp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--mantine-radius-md);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7));
+  border: 1px dashed var(--mantine-color-default-border);
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.summary strong {
+  color: var(--mantine-color-text);
+  font-weight: 600;
+}
+
+.summary > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.mono {
+  font-family: var(--mantine-font-family-monospace);
+}

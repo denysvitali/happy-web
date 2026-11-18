@@ -4,17 +4,30 @@
 // `session` protocol and user text. Anything else becomes an `unknown` item
 // (shown collapsed) rather than being dropped silently.
 
+/** Child-thread settings reported by the agent (model, role, effort…). A
+ * present map replaces the previous snapshot; `{}` clears it. Never filled
+ * from coordinator defaults. */
+export type AgentMetadata = Record<string, unknown>;
+
 export type Item =
   | { kind: "text"; role: "user" | "agent"; text: string; streamId?: string }
   | { kind: "thinking"; text: string }
   | { kind: "tool-call"; id: string; name: string; input: unknown; agentId?: string }
-  | { kind: "tool-result"; id: string; output: unknown; isError: boolean }
+  | {
+      kind: "tool-result";
+      id: string;
+      output: unknown;
+      isError: boolean;
+      /** Reported terminal status (`completed`, `failed`, `unknown`, …). */
+      status?: string;
+    }
   | { kind: "event"; text: string }
   | { kind: "ready" }
   | { kind: "unknown"; type: string };
 
-/** An item plus the Agent anchor (tool-call id) it belongs under, if any. */
-export type Placed = Item & { parent?: string };
+/** An item plus the Agent anchor (tool-call id) it belongs under, if any,
+ * and the child-thread metadata snapshot carried on its row. */
+export type Placed = Item & { parent?: string; agentMetadata?: AgentMetadata };
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -27,17 +40,40 @@ const first = (o: Obj, ...keys: string[]): string | undefined => {
   return undefined;
 };
 
-/** wire_parsers.dart: parent id and sidechain flags. */
+/** wire_parsers.dart: the Agent anchor (tool-call id) a row belongs under.
+ * Only explicit tool ids count: a bare sidechain `parentUuid` chains to the
+ * previous transcript row, not to an anchor. */
 function parentOf(o: Obj): string | undefined {
-  const p = first(o, "parent_tool_use_id", "parentToolUseId", "parent_toolUseId");
-  if (p) return p;
-  const sidechain = o.isSidechain === true || o.is_sidechain === true;
-  return sidechain ? first(o, "parentUuid") : undefined;
+  return first(o, "parent_tool_use_id", "parentToolUseId", "parent_toolUseId");
 }
 
-function place(items: Item[], parent: string | undefined): Placed[] {
-  return parent ? items.map((i) => ({ ...i, parent })) : items;
+function metadataOf(o: Obj): AgentMetadata | undefined {
+  return isObj(o.agentMetadata) ? o.agentMetadata : undefined;
 }
+
+function place(items: Item[], parent: string | undefined, agentMetadata?: AgentMetadata): Placed[] {
+  if (!parent && !agentMetadata) return items;
+  return items.map((i) => {
+    const p: Placed = { ...i };
+    if (parent) p.parent = parent;
+    if (agentMetadata) p.agentMetadata = agentMetadata;
+    return p;
+  });
+}
+
+/** Tool arguments sometimes arrive as a JSON string (Responses-style). */
+function toolInput(v: unknown): unknown {
+  if (typeof v !== "string") return v;
+  const t = v.trim();
+  if (!t.startsWith("{") && !t.startsWith("[")) return v;
+  try {
+    return JSON.parse(t) as unknown;
+  } catch {
+    return v;
+  }
+}
+
+const FAILED = new Set(["failed", "error", "interrupted", "cancelled", "canceled"]);
 
 function blocksText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -63,7 +99,7 @@ function claudeOutput(data: Obj): Placed[] {
         if (b.type === "text" && s(b.text)) items.push({ kind: "text", role: "agent", text: b.text as string });
         else if (b.type === "thinking" && s(b.thinking)) items.push({ kind: "thinking", text: b.thinking as string });
         else if (["tool_use", "server_tool_use", "mcp_tool_use", "toolCall"].includes(String(b.type)) && s(b.id))
-          items.push({ kind: "tool-call", id: b.id as string, name: s(b.name) ?? "tool", input: b.input });
+          items.push({ kind: "tool-call", id: b.id as string, name: s(b.name) ?? "tool", input: toolInput(b.input) });
       }
       break;
     }
@@ -97,7 +133,7 @@ function claudeOutput(data: Obj): Placed[] {
     default:
       items.push({ kind: "unknown", type: `output/${String(data.type)}` });
   }
-  return place(items, parent);
+  return place(items, parent, metadataOf(data));
 }
 
 // ---- Codex / ACP style events ---------------------------------------------
@@ -112,7 +148,7 @@ function toolEvent(data: Obj): Item | undefined {
       kind: "tool-call",
       id,
       name: first(src, "name", "toolName", "title") ?? "tool",
-      input: src.input ?? src.args ?? src.arguments ?? src.rawInput,
+      input: toolInput(src.input ?? src.args ?? src.arguments ?? src.rawInput),
     };
     const input = isObj(item.input) ? item.input : undefined;
     const agentId = input && s(input.agentId);
@@ -122,12 +158,18 @@ function toolEvent(data: Obj): Item | undefined {
   if (t === "tool-call-result" || t === "tool-result" || t === "tool_result") {
     const id = first(data, "callId", "toolCallId", "tool_use_id", "id");
     if (!id) return undefined;
-    return {
+    const output = data.output ?? data.result ?? data.content;
+    // Codex child threads report `{result: {status}}`; nested sessions and Har
+    // report a top-level `status`.
+    const status = s(data.status) ?? (isObj(output) ? s(output.status) : undefined);
+    const item: Item = {
       kind: "tool-result",
       id,
-      output: data.output ?? data.result ?? data.content,
-      isError: data.isError === true || data.is_error === true || data.status === "failed",
+      output,
+      isError: data.isError === true || data.is_error === true || (status !== undefined && FAILED.has(status)),
     };
+    if (status) item.status = status;
+    return item;
   }
   return undefined;
 }
@@ -165,7 +207,7 @@ function codexLike(data: Obj): Placed[] {
     default:
       item = toolEvent(data) ?? { kind: "unknown", type: t };
   }
-  return item ? place([item], parent) : [];
+  return item ? place([item], parent, metadataOf(data)) : [];
 }
 
 // ---- events / session protocol --------------------------------------------
@@ -196,7 +238,7 @@ function sessionProtocol(ev: Obj): Placed[] {
     }
     case "tool-call-end": {
       const id = s(ev.call);
-      return id ? place([{ kind: "tool-result", id, output: ev.result, isError: false }], parent) : [];
+      return id ? place([{ kind: "tool-result", id, output: ev.result, isError: ev.isError === true || ev.error === true }], parent) : [];
     }
     default:
       return [];

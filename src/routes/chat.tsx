@@ -1,15 +1,18 @@
 import { useParams } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ActionIcon, Alert, Box, Button, Center, Group, Loader, Text, Tooltip } from "@mantine/core";
-import { modals } from "@mantine/modals";
+import { ActionIcon, Alert, Box, Button, Center, Group, Loader, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { Archive } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
 import { statusOf } from "@/app/status";
 import { BlockView, type PermissionHandler } from "@/components/chat/blocks";
 import { Composer } from "@/components/chat/composer";
+import { useSessionSwitch } from "@/components/session/hooks";
+import { SessionToolbar } from "@/components/session/SessionToolbar";
+import { UsagePill } from "@/components/session/UsagePill";
+import { SessionMenu } from "@/components/sessions/SessionMenu";
 import { StatusBadge } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
 import { buildView } from "@/lib/sync/chat";
@@ -106,6 +109,27 @@ function Messages({ store, session, onPermission }: { store: ChatStore; session:
   );
 }
 
+/** Composer plus the model/permission/context toolbar; the switch rides on
+ * the next message. */
+function ComposerArea({ session, store, canAbort, run }: { session: SessionItem; store: ChatStore | null; canAbort: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }) {
+  const account = useAccount();
+  const sw = useSessionSwitch(session);
+  const send = async (text: string) => {
+    if (!store) return;
+    const opts = sw.options();
+    await store.send(text, opts);
+    sw.markSent(opts);
+  };
+  return (
+    <Box className={classes.composer} p="sm">
+      <Box maw={860} mx="auto">
+        {!session.archived && <SessionToolbar sw={sw} store={store} />}
+        <Composer canAbort={canAbort} onAbort={() => void run(() => account.abort(session.id))} onSend={(t) => void run(() => send(t))} disabled={!store} />
+      </Box>
+    </Box>
+  );
+}
+
 export function ChatScreen() {
   const { sessionId } = useParams({ from: "/authed/s/$sessionId" });
   const account = useAccount();
@@ -141,14 +165,6 @@ export function ChatScreen() {
   const onPermission: PermissionHandler = async (id, approved, decision) => {
     await account.answerPermission(session.id, id, approved, decision);
   };
-  const confirmArchive = () =>
-    modals.openConfirmModal({
-      title: "Stop and archive?",
-      children: <Text size="sm">The session's process is stopped first, then the session is archived.</Text>,
-      labels: { confirm: "Stop and archive", cancel: "Cancel" },
-      confirmProps: { color: "red" },
-      onConfirm: () => void run(() => account.archive(session)),
-    });
 
   return (
     <>
@@ -161,26 +177,19 @@ export function ChatScreen() {
             {[displayPath(session.meta), session.meta.flavor].filter(Boolean).join(" · ")}
           </Text>
         </Box>
+        <UsagePill session={session} />
         <StatusBadge status={status} />
-        {!session.archived && (
-          <Tooltip label="Stop and archive">
-            <ActionIcon variant="subtle" color="gray" onClick={confirmArchive} aria-label="Stop and archive">
-              <Archive size={18} />
+        <SessionMenu
+          session={session}
+          target={
+            <ActionIcon variant="subtle" color="gray" aria-label="Session actions">
+              <Ellipsis size={18} />
             </ActionIcon>
-          </Tooltip>
-        )}
+          }
+        />
       </Group>
       {store ? <Messages store={store} session={session} onPermission={onPermission} /> : <div style={{ flex: 1 }} />}
-      <Box className={classes.composer} p="sm">
-        <Box maw={860} mx="auto">
-          <Composer
-            canAbort={status === "thinking"}
-            onAbort={() => void run(() => account.abort(session.id))}
-            onSend={(t) => void run(async () => store?.send(t))}
-            disabled={!store}
-          />
-        </Box>
-      </Box>
+      <ComposerArea session={session} store={store} canAbort={status === "thinking"} run={run} />
     </>
   );
 }

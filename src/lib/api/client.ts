@@ -1,4 +1,4 @@
-import type { z } from "zod/mini";
+import { z } from "zod/mini";
 import { requestJson, type RequestOptions } from "./http";
 import {
   machinesResponse,
@@ -64,4 +64,19 @@ export class ApiClient {
       body: { archived },
     });
   }
+
+  /** DELETE /v1/sessions/:id (gateway): removes the row and its messages. */
+  async deleteSession(sessionId: string): Promise<void> {
+    await requestJson(this.baseUrl, `/v1/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE", token: this.token });
+  }
+
+  /** Optimistic-concurrency metadata write; `version-mismatch` carries the current version. */
+  updateSessionMetadata(sessionId: string, metadata: string, expectedVersion: number) {
+    return this.get(metadataUpdateResponse, `/v1/sessions/${encodeURIComponent(sessionId)}/metadata`, {
+      method: "POST",
+      body: { metadata, expectedVersion },
+    });
+  }
 }
+
+const metadataUpdateResponse = z.object({ result: z.string(), version: z.optional(z.number()) });

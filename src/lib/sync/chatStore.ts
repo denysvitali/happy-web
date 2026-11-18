@@ -14,8 +14,10 @@ import {
   type ChatMessage,
   type ChatState,
 } from "./chat";
+import type { SendOptions } from "./models";
 import { normalizeRecord } from "./normalize";
 import { Store } from "./store";
+import { contextUsageOf, type ContextUsage } from "./usage";
 
 const PAGE = 200;
 
@@ -26,12 +28,29 @@ export interface ChatMeta {
   firstSeq: number;
 }
 
+/** Newest main-thread context usage reported in this chat, and its seq. */
+export type ContextSnapshot = ContextUsage & { seq: number };
+
+/** The decrypted user record `send()` writes. */
+export function userRecord(text: string, opts?: SendOptions) {
+  const meta: Record<string, unknown> = { sentFrom: "web" };
+  if (opts) {
+    meta.permissionMode = opts.permissionMode;
+    meta.model = opts.model;
+    meta.fallbackModel = null;
+    if (opts.reasoningEffort) meta.reasoning_effort = opts.reasoningEffort;
+  }
+  return { role: "user", content: { type: "text", text }, meta };
+}
+
 export class ChatStore {
   readonly state = new Store<ChatState>(emptyChat);
   readonly meta = new Store<ChatMeta>({ loading: true, firstSeq: 0 });
+  /** Derived from raw records so it does not depend on normalize/chat. */
+  readonly context = new Store<ContextSnapshot | null>(null);
   private chain: Promise<void> = Promise.resolve();
   private loaded = false;
-  private texts = new Map<string, string>();
+  private texts = new Map<string, { text: string; opts: SendOptions | undefined }>();
 
   constructor(
     readonly sessionId: string,
@@ -51,13 +70,21 @@ export class ChatStore {
       rows.map(async (r) => {
         let norm;
         try {
-          norm = normalizeRecord(await this.cipher.decrypt(r.content));
+          const rec: unknown = await this.cipher.decrypt(r.content);
+          this.noteContext(rec, r.seq);
+          norm = normalizeRecord(rec);
         } catch {
           norm = { role: "agent" as const, items: [{ kind: "unknown" as const, type: "undecryptable" }] };
         }
         return { id: r.id, seq: r.seq, localId: r.localId ?? undefined, createdAt: r.createdAt, norm };
       }),
     );
+  }
+
+  private noteContext(rec: unknown, seq: number): void {
+    if (seq <= (this.context.get()?.seq ?? -1)) return;
+    const u = contextUsageOf(rec);
+    if (u) this.context.set({ ...u, seq });
   }
 
   private apply(msgs: ChatMessage[]): void {
@@ -131,11 +158,12 @@ export class ChatStore {
     this.state.update((s) => addPreview(s, { streamId: d.streamId as string, text: d.fullText as string, parent, at: Date.now() }));
   }
 
-  async send(text: string, localId: string = crypto.randomUUID()): Promise<void> {
-    this.texts.set(localId, text);
+  /** `opts` carries the model/permission switch on the message meta. */
+  async send(text: string, opts?: SendOptions, localId: string = crypto.randomUUID()): Promise<void> {
+    this.texts.set(localId, { text, opts });
     this.state.update((s) => addPending(s, { localId, text, createdAt: Date.now() }));
     try {
-      const content = await this.cipher.encrypt({ role: "user", content: { type: "text", text }, meta: { sentFrom: "web" } });
+      const content = await this.cipher.encrypt(userRecord(text, opts));
       await this.api.sendMessage(this.sessionId, content, localId);
       this.texts.delete(localId);
       // The socket usually delivers the row; catch up in case it does not.
@@ -148,7 +176,7 @@ export class ChatStore {
 
   /** Retries reuse the localId, so the server deduplicates. */
   retry(localId: string): Promise<void> {
-    const text = this.texts.get(localId);
-    return text === undefined ? Promise.resolve() : this.send(text, localId);
+    const t = this.texts.get(localId);
+    return t === undefined ? Promise.resolve() : this.send(t.text, t.opts, localId);
   }
 }

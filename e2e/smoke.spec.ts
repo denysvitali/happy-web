@@ -15,8 +15,8 @@ test("link, list, open chat and send", async ({ page }) => {
   const violations = watchCsp(page);
   const mock = createMock();
   await mock.install(page);
-  await linkAndOpen(page);
-  await expect.poll(() => mock.socketAuth()).toEqual({ token: "test-token", clientType: "user-scoped" });
+  await linkAndOpen(page, mock);
+  expect(mock.socketAuth()).toEqual({ token: "test-token", clientType: "user-scoped" });
 
   await page.getByText("Fix flaky login test").first().click();
   await expect(page.getByText("Can you find why the login test is flaky")).toBeVisible();
