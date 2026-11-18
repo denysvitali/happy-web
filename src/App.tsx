@@ -1,14 +1,18 @@
-import { getServerUrl } from "./lib/config";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
+import { AuthProvider } from "@/app/auth";
+import { router } from "@/router";
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 2, refetchOnWindowFocus: false } },
+});
 
 export function App() {
-  const server = getServerUrl();
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 p-6 text-center">
-      <h1 className="text-2xl font-semibold">Happy</h1>
-      <p className="text-muted-foreground text-sm">
-        Lightweight web client — work in progress.
-      </p>
-      <p className="text-muted-foreground text-xs">Server: {server || "not configured"}</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

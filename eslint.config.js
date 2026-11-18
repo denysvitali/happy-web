@@ -18,6 +18,7 @@ export default tseslint.config(
         "error",
         { selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']", message: "Never render raw HTML." },
       ],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true }],
       "no-console": ["error", { allow: ["warn", "error"] }],
     },
   },

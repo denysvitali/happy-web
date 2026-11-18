@@ -31,3 +31,36 @@ body {
   @apply bg-background text-foreground antialiased;
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Markdown rendered from agent text. */
+.prose-happy {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.prose-happy > * + * { margin-top: 0.6em; }
+.prose-happy h1, .prose-happy h2, .prose-happy h3 { font-weight: 600; margin-top: 1em; }
+.prose-happy h1 { font-size: 1.25em; }
+.prose-happy h2 { font-size: 1.125em; }
+.prose-happy ul { list-style: disc; padding-left: 1.4em; }
+.prose-happy ol { list-style: decimal; padding-left: 1.4em; }
+.prose-happy a { text-decoration: underline; text-underline-offset: 2px; }
+.prose-happy blockquote { border-left: 3px solid var(--color-border); padding-left: 0.8em; color: var(--color-muted-foreground); }
+.prose-happy code { font-family: ui-monospace, monospace; font-size: 0.875em; background: var(--color-muted); border-radius: 4px; padding: 0.1em 0.3em; }
+.prose-happy pre { background: var(--color-muted); border-radius: 8px; padding: 0.75em; overflow-x: auto; }
+.prose-happy pre code { background: none; padding: 0; }
+.prose-happy table { border-collapse: collapse; display: block; overflow-x: auto; }
+.prose-happy th, .prose-happy td { border: 1px solid var(--color-border); padding: 0.25em 0.6em; }
+
+/* highlight.js tokens (rehype-highlight). */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #a626a4; }
+.hljs-string, .hljs-attr, .hljs-template-variable { color: #50a14f; }
+.hljs-number, .hljs-literal { color: #986801; }
+.hljs-comment { color: #a0a1a7; font-style: italic; }
+.hljs-title, .hljs-function { color: #4078f2; }
+@media (prefers-color-scheme: dark) {
+  .hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #c678dd; }
+  .hljs-string, .hljs-attr, .hljs-template-variable { color: #98c379; }
+  .hljs-number, .hljs-literal { color: #d19a66; }
+  .hljs-comment { color: #7f848e; }
+  .hljs-title, .hljs-function { color: #61afef; }
+}
