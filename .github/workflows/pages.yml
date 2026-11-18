@@ -11,12 +11,12 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
+  # A newer push cancels a stale build, but never a deploy mid-flight.
   build:
+    concurrency:
+      group: pages-build
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -55,6 +55,9 @@ jobs:
 
   deploy:
     needs: build
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment:
       name: github-pages
