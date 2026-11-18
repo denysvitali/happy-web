@@ -54,6 +54,8 @@ export const machineMetadata = z.catch(
     homeDir: str,
     happyCliVersion: str,
     defaultSpawnBackend: str,
+    spawnBackends: z.catch(z.optional(z.array(z.string())), undefined),
+    kubernetesCheckoutBaseDir: str,
   }),
   {},
 );

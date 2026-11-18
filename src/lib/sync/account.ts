@@ -17,6 +17,7 @@ import {
   type MachineMetadata,
   type SessionMetadata,
 } from "./decode";
+import type { SpawnOptions } from "./spawn";
 import { Store } from "./store";
 
 export interface SessionItem {
@@ -312,22 +313,47 @@ export class Account {
     return this.rpc(sessionId, "permission", (p) => [p.PermissionRequestSchema, p.PermissionResponseSchema], { id, approved, decision: decision ?? "" });
   }
 
-  async spawn(machineId: string, directory: string, agent: string) {
+  async spawn(o: SpawnOptions) {
     const sessionId = `c${Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
-    const res = await this.rpc(
-      machineId,
+    const environmentVariables: Record<string, string> = {};
+    if (o.initialPrompt?.trim()) environmentVariables.HAPPY_INITIAL_PROMPT = o.initialPrompt.trim();
+    const call = this.rpc(
+      o.machineId,
       "spawn-happy-session",
       (p) => [p.SpawnHappySessionRequestSchema, p.SpawnHappySessionResponseSchema],
       {
         type: "spawn-in-directory",
-        directory,
+        directory: o.directory,
         sessionId,
-        agent,
+        agent: o.agent,
         approvedNewDirectoryCreation: true,
         profileId: "default",
+        environmentVariables,
+        permissionMode: o.permissionMode && o.permissionMode !== "default" ? o.permissionMode : "",
+        model: o.model?.trim() ?? "",
+        spawnBackend: o.backend ?? "",
+        repoUrl: o.repoUrl?.trim() ?? "",
+        repoRef: o.repoRef?.trim() ?? "",
       },
-      90_000,
+      180_000,
     );
+    let res;
+    try {
+      res = await call;
+    } catch (e) {
+      // Slow (e.g. Kubernetes) spawns can outlive the RPC; like Flutter, look
+      // for the session we asked for before reporting failure.
+      if (!(e instanceof Error && /timeout|timed out/i.test(e.message))) throw e;
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const found = await this.api.getSession(sessionId).catch(() => null);
+        if (found) {
+          void this.qc.invalidateQueries({ queryKey: sessionsKey });
+          return sessionId;
+        }
+      }
+      throw e;
+    }
     if (res.type === "error") throw new RpcError(res.errorMessage || "spawn failed");
     if (res.type !== "success") throw new RpcError(`unexpected spawn result: ${res.type}`);
     void this.qc.invalidateQueries({ queryKey: sessionsKey });

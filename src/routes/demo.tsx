@@ -9,7 +9,9 @@ import classes from "@/components/chat/chat.module.css";
 import { Composer } from "@/components/chat/composer";
 import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
+import { openSpawnModal } from "@/components/shell/SpawnModal";
 import { OnlineDot, StatusBadge } from "@/components/status";
+import type { Account, MachineItem } from "@/lib/sync/account";
 import { buildView } from "@/lib/sync/chat";
 import type { SessionStatus } from "@/lib/sync/decode";
 
@@ -23,6 +25,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </Stack>
   );
 }
+
+const DEMO_MACHINES: MachineItem[] = [
+  { id: "m-k8s", active: true, activeAt: Date.now(), metadataVersion: 1, meta: { host: "happy-daemon", displayName: "root@happy-daemon (k8s)", homeDir: "/root", spawnBackends: ["local", "kubernetes"] } },
+  { id: "m-laptop", active: true, activeAt: Date.now(), metadataVersion: 1, meta: { host: "laptop", homeDir: "/home/me" } },
+];
+// Only spawn() is used by the modal; the demo fakes it.
+const demoAccount = {
+  spawn: async (o: unknown) => {
+    await new Promise((r) => setTimeout(r, 800));
+    notifications.show({ message: `would spawn: ${JSON.stringify(o)}`, autoClose: 8000 });
+    return "demo";
+  },
+} as unknown as Account;
 
 const SESSIONS: { title: string; sub: string; status: SessionStatus }[] = [
   { title: "Fix flaky login test", sub: "laptop · ~/src/app", status: "thinking" },
@@ -118,6 +133,14 @@ export function DemoScreen() {
               <Text size="sm" ta="center">Demo code, not a real key</Text>
             </Stack>
           </Paper>
+        </Section>
+
+        <Section title="New session">
+          <Group>
+            <Button leftSection={<Plus size={16} />} onClick={() => openSpawnModal(demoAccount, DEMO_MACHINES, () => undefined)}>
+              New session
+            </Button>
+          </Group>
         </Section>
 
         <Section title="Feedback">
