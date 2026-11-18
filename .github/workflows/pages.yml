@@ -4,9 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Redeploy with the fresh gallery once screenshots for main are done.
+  workflow_run:
+    workflows: [Screenshots]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -16,6 +22,8 @@ concurrency:
 
 jobs:
   build:
+    # Skip redeploys for failed screenshot runs; push deploys never wait.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,11 +38,16 @@ jobs:
       #                     served at https://happyw.denv.it), "/<repo>/" for
       #                     <owner>.github.io/<repo>/
       #   PAGES_CNAME       custom domain written to dist/CNAME
-      # Screenshots run against a mock-server build first; the real build
-      # below replaces dist/ and then receives the gallery.
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm screenshots
+      # Best effort: the gallery from the triggering Screenshots run, else
+      # the latest successful one on main (may lag a commit behind).
+      - name: Fetch screenshots
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          id="${RUN_ID:-$(gh run list -R "$GITHUB_REPOSITORY" -w screenshots.yml -b main -s success -L 1 --json databaseId -q '.[0].databaseId')}"
+          [ -n "$id" ] && gh run download "$id" -R "$GITHUB_REPOSITORY" -n screenshots -D screenshots
       - name: Build
         env:
           VITE_HAPPY_SERVER_URL: ${{ vars.HAPPY_SERVER_URL }}

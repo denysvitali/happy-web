@@ -1,0 +1,42 @@
+name: Screenshots
+
+# Visual snapshots of key screens against the mocked server. Kept out of CI and
+# Pages so neither waits on it; Pages picks up the gallery when this finishes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/generate
+        with:
+          token: ${{ secrets.HAPPY_CLI_GO_TOKEN }}
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots/
+          retention-days: 14
+      - name: Summary
+        if: always()
+        run: |
+          echo "### UI screenshots" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the \`screenshots\` artifact, or see https://happyw.denv.it/screenshots/ after the Pages deploy." >> "$GITHUB_STEP_SUMMARY"
+          ls screenshots/*.png 2>/dev/null | sed 's#^#- #' >> "$GITHUB_STEP_SUMMARY" || true
