@@ -2,6 +2,7 @@
 # Enabled by `pnpm install` (prepare script sets core.hooksPath=.githooks).
 # Skip once with `git commit --no-verify`.
 set -e
+if [ ! -d src/gen ]; then echo "pre-commit: src/gen missing, run: pnpm generate" >&2; exit 1; fi
 if command -v pnpm >/dev/null 2>&1; then run="pnpm"; else run="mise exec -- pnpm"; fi
 $run run -s lint
 $run run -s typecheck

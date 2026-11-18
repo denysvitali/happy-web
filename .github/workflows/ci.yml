@@ -20,22 +20,10 @@ jobs:
       - uses: jdx/mise-action@v3
       - run: pnpm install --frozen-lockfile
 
-      # happy-cli-go is private: buf clones it with a read-only token
-      # (repository secret HAPPY_CLI_GO_TOKEN, contents: read). Without the
-      # secret the freshness check is skipped, not failed.
-      - name: Check generated protobuf code is up to date
-        env:
-          HAPPY_CLI_GO_TOKEN: ${{ secrets.HAPPY_CLI_GO_TOKEN }}
-        run: |
-          if [ -z "$HAPPY_CLI_GO_TOKEN" ]; then
-            echo "::warning::HAPPY_CLI_GO_TOKEN not set; skipping buf generate diff check"
-            exit 0
-          fi
-          git config --global url."https://x-access-token:${HAPPY_CLI_GO_TOKEN}@github.com/".insteadOf "https://github.com/"
-          pnpm exec buf generate
-          git config --global --unset-all url."https://x-access-token:${HAPPY_CLI_GO_TOKEN}@github.com/".insteadOf
-          git diff --exit-code -- src/gen || { echo "::error::src/gen is stale; run pnpm generate"; exit 1; }
-
+      # src/gen is not committed; buf clones the private happy-cli-go protos.
+      - uses: ./.github/actions/generate
+        with:
+          token: ${{ secrets.HAPPY_CLI_GO_TOKEN }}
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

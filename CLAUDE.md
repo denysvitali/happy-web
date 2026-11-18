@@ -6,13 +6,13 @@ initial JS ≤ 250 KB gzip).
 
 ## Commands
 `mise install`, then `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`,
-`pnpm test`, `pnpm build`, `pnpm size`, `pnpm generate` (buf, needs access to
-happy-cli-go), `pnpm vectors` (regenerates crypto vectors from a sibling
+`pnpm test`, `pnpm build`, `pnpm size`, `pnpm generate` (buf; run after clone
+and after bumping the pinned `ref` in buf.gen.yaml; needs access to happy-cli-go), `pnpm vectors` (regenerates crypto vectors from a sibling
 happy-cli-go checkout).
 
 ## Wire-format sources of truth
 Server wins over Flutter; record every discrepancy in README.md.
-- Protos: happy-cli-go `proto/server/v1`, `proto/rpc/v1` → `src/gen` (generated, committed, never edit).
+- Protos: happy-cli-go `proto/server/v1`, `proto/rpc/v1` → `src/gen` (generated, gitignored, CI generates it with secret `HAPPY_CLI_GO_TOKEN`).
 - HTTP: grpc-gateway (`internal/server/server.go`) for auth; most session/machine/message
   routes are compat handlers (`internal/server/compat_handlers_*.go`) with non-proto JSON → zod.
 - Realtime: `internal/server/ws/`, `internal/wsapi`.

@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: jdx/mise-action@v3
       - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/generate
+        with:
+          token: ${{ secrets.HAPPY_CLI_GO_TOKEN }}
       # Repository variables (all optional):
       #   HAPPY_SERVER_URL  default server (https://...)
       #   PAGES_BASE        URL base path; "/" for a custom domain (the default,

@@ -1,0 +1,21 @@
+name: Generate protobuf code
+description: Runs buf generate against the private happy-cli-go protos.
+inputs:
+  token:
+    description: Read-only token for denysvitali/happy-cli-go (contents read)
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        HAPPY_CLI_GO_TOKEN: ${{ inputs.token }}
+      run: |
+        if [ -z "$HAPPY_CLI_GO_TOKEN" ]; then
+          echo "::error::Repository secret HAPPY_CLI_GO_TOKEN is not set (needs contents:read on happy-cli-go)"
+          exit 1
+        fi
+        rewrite="url.https://x-access-token:${HAPPY_CLI_GO_TOKEN}@github.com/.insteadOf"
+        git config --global "$rewrite" "https://github.com/"
+        trap 'git config --global --unset-all "$rewrite" || true' EXIT
+        pnpm generate
