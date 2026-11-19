@@ -148,6 +148,19 @@ export function parseCodexUsage(res: unknown, now = Date.now()): UsageSummary | 
 }
 
 /** "resets in 2h 14m", "resets in 3d 4h", "resets soon". */
+/** The window closest to its limit (first wins ties): what the toolbar shows. */
+export function headlineWindow(u: UsageSummary): UsageWindow | undefined {
+  let best: UsageWindow | undefined;
+  for (const w of u.windows) if (!best || w.percent > best.percent) best = w;
+  return best;
+}
+
+/** "5-Hour" → "5h", "7-Day Opus" → "7d", "30-Min" → "30m"; else the label. */
+export function shortWindowLabel(label: string): string {
+  const m = /^(\d+)-(Hour|Day|Min)/i.exec(label);
+  return m ? `${m[1]}${m[2]![0]!.toLowerCase()}` : label;
+}
+
 export function formatResetIn(resetsAt: number | undefined, now: number): string | undefined {
   if (resetsAt === undefined) return undefined;
   const mins = Math.round((resetsAt - now) / 60_000);
@@ -211,36 +224,103 @@ export function contextUsageOf(record: unknown): ContextUsage | null {
   }
 }
 
-/** Default context window when the agent does not report one. */
-export function defaultContextWindow(model: string | undefined): number {
-  const m = (model ?? "").toLowerCase();
+/** Context windows Claude reports per model on its `result` record
+ * (`modelUsage[model].contextWindow`): the authoritative size, including
+ * 1M tiers and gateway overrides. Sidechain results are ignored. */
+export function reportedWindowsOf(record: unknown): Record<string, number> | null {
+  if (!isObj(record) || record.role !== "agent" || !isObj(record.content)) return null;
+  const { type, data } = record.content;
+  if (type !== "output" || !isObj(data) || data.type !== "result" || !isObj(data.modelUsage)) return null;
+  if (data.isSidechain === true || str(data.parent_tool_use_id)) return null;
+  const out: Record<string, number> = {};
+  for (const [model, u] of Object.entries(data.modelUsage)) {
+    const w = isObj(u) ? num(u.contextWindow) : undefined;
+    if (w && w > 0) out[model] = w;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+const modelKey = (m: string) => m.trim().toLowerCase().replace(/\[1m\]$/, "");
+
+/** The reported window for `model`: exact id, then a containing id; with no
+ * model to match, the largest (the main model outsizes its helpers). */
+function reportedFor(reported: Record<string, number> | undefined, model: string | undefined): number | undefined {
+  if (!reported) return undefined;
+  const entries = Object.entries(reported).map(([k, w]) => [modelKey(k), w] as const);
+  if (entries.length === 0) return undefined;
+  if (model) {
+    const m = modelKey(model);
+    const hit = entries.find(([k]) => k === m) ?? entries.find(([k]) => k.includes(m) || m.includes(k));
+    if (hit) return hit[1];
+  }
+  return Math.max(...entries.map(([, w]) => w));
+}
+
+/** Assumed when nobody reports or configures a window. */
+const ASSUMED_WINDOW = 190_000;
+
+/** A known window for model ids that carry it (happy_flutter
+ * defaultContextWindowForModel), else undefined. */
+export function knownContextWindow(model: string | undefined): number | undefined {
+  const m = (model ?? "").trim().toLowerCase().split("/").pop() ?? "";
+  if (!m) return undefined;
   if (m.endsWith("[1m]")) return 1_000_000;
   if ((m.includes("claude") || /^(opus|sonnet|haiku|fable)\b/.test(m)) && m.includes("1m")) return 1_000_000;
-  if (/^gpt-(4\.1|5)/.test(m) || /gemini-(2\.5|3)/.test(m)) return 1_000_000;
-  if (/^o[34]\b/.test(m) || /^o[34]-/.test(m)) return 200_000;
-  return 190_000;
+  if (/^grok-4\.[5-9]/.test(m)) return 500_000;
+  if (/^gemini-(2\.5|3)/.test(m) || /^gpt-(4\.1|5)/.test(m)) return 1_000_000;
+  if (/^o[34](\b|-)/.test(m) || /^(minimax-m3|kimi-k2)/.test(m)) return 200_000;
+  return undefined;
+}
+
+/** Default context window when the agent does not report one. */
+export function defaultContextWindow(model: string | undefined): number {
+  return knownContextWindow(model) ?? ASSUMED_WINDOW;
 }
 
 export type ContextLevel = "ok" | "warn" | "critical";
+/** Where the window size came from, for the meter's explanation. */
+export type WindowSource = "reported" | "profile" | "model" | "assumed";
 
 export interface ContextMeter {
   used: number;
   window: number;
+  source: WindowSource;
   /** 0–1, clamped. */
   fraction: number;
   level: ContextLevel;
 }
 
-/** Warn at ≤15% remaining, critical at ≤5%. `fallbackModel` is the
- * session's selected model, used when the usage row names none. */
-export function contextMeter(u: ContextUsage, fallbackModel?: string): ContextMeter {
-  // The selection's `[1m]` marker is not in the reported model id, so take
-  // the larger of both defaults.
-  const window = u.window ?? Math.max(defaultContextWindow(u.model), defaultContextWindow(fallbackModel));
+export interface WindowHints {
+  /** Per-model windows Claude reported (`reportedWindowsOf`). */
+  reported?: Record<string, number> | undefined;
+  /** The provider profile's window for the session's model. */
+  profile?: number | undefined;
+}
+
+/** Warn at ≤15% remaining, critical at ≤5%. The window comes from, in
+ * order: the usage row, Claude's reported window for the model, the
+ * provider profile, a known model default, then a conservative budget.
+ * `fallbackModel` is the session's selected model, used when the usage row
+ * names none. */
+export function contextMeter(u: ContextUsage, fallbackModel?: string, hints: WindowHints = {}): ContextMeter {
+  const model = u.model ?? fallbackModel;
+  let window: number | undefined = u.window;
+  let source: WindowSource = "reported";
+  if (!window) window = reportedFor(hints.reported, model);
+  if (!window && hints.profile && hints.profile > 0) {
+    window = hints.profile;
+    source = "profile";
+  }
+  if (!window) {
+    // The selection's `[1m]` marker is not in the reported model id: take the larger.
+    const known = Math.max(knownContextWindow(u.model) ?? 0, knownContextWindow(fallbackModel) ?? 0);
+    window = known || ASSUMED_WINDOW;
+    source = known ? "model" : "assumed";
+  }
   const fraction = Math.min(1, Math.max(0, u.used / window));
   const remaining = Math.max(0, window - u.used) / window;
   const level: ContextLevel = remaining <= 0.05 ? "critical" : remaining <= 0.15 ? "warn" : "ok";
-  return { used: u.used, window, fraction, level };
+  return { used: u.used, window, source, fraction, level };
 }
 
 /** 950 → "950", 62_400 → "62k", 1_250_000 → "1.25M". */

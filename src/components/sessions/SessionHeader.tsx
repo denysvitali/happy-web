@@ -1,7 +1,6 @@
 import { Ellipsis } from "lucide-react";
 import { useMemo } from "react";
 import { useMachines, useNow } from "@/app/hooks";
-import { UsagePill } from "@/components/session/UsagePill";
 import { NavButton } from "@/components/shell/NavButton";
 import { AgentAvatar, PodBadge } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
@@ -37,7 +36,6 @@ export function SessionHeader({ session, status }: { session: SessionItem; statu
       </div>
       <div className={classes.headerTrailing}>
         <PodBadge pod={v.pod} />
-        <UsagePill session={session} />
         <SessionMenu session={session} target={<IconButton label="Session actions" icon={<Ellipsis size={18} />} />} />
       </div>
     </header>

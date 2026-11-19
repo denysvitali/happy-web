@@ -58,7 +58,7 @@ export function createMock() {
   });
 
   const sessions = [
-    mkSession("s1", { path: "/home/denys/src/app", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", model: "sonnet", permissionMode: "default", clientProfileId: "anthropic", summary: { text: "Fix flaky login test" }, claudeModels: [{ id: "default", name: "Default", efforts: [] }, { id: "opus", name: "Opus", efforts: ["low", "medium", "high"] }, { id: "sonnet", name: "Sonnet", efforts: ["low", "medium", "high"] }, { id: "haiku", name: "Haiku", efforts: [] }] }, { lastSeq: demoRecords.length, agentState: demoAgentState }),
+    mkSession("s1", { path: "/home/denys/src/app", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", model: "sonnet", permissionMode: "default", clientProfileId: "anthropic", summary: { text: "Fix flaky login test" }, claudeModels: [{ id: "default", name: "Default", efforts: [] }, { id: "opus", name: "Opus", efforts: ["low", "medium", "high"] }, { id: "sonnet", name: "Sonnet", efforts: ["low", "medium", "high"] }, { id: "haiku", name: "Haiku", efforts: [] }] }, { lastSeq: demoRecords.length + 1, agentState: demoAgentState }),
     mkSession("s2", { path: "/workspace/happy-web", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", model: "gpt-5.5", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/happy-web", summary: { text: "Build the web client" } }, { ago: 2 * min }),
     mkSession("s3", { path: "/workspace/infra", host: "happy-daemon", machineId: "m-k8s", flavor: "claude", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/infra", summary: { text: "Terraform drift report" } }, { ago: 40 * min, active: false }),
     mkSession("s4", { path: "/home/denys/notes", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", summary: { text: "Weekly notes cleanup" } }, { archived: true, active: false, ago: 2 * 24 * 60 * min }),
@@ -69,6 +69,9 @@ export function createMock() {
   ];
 
   // The ops session runs close to a full context window (the meter's red state).
+  // The demo session ends its turn with Claude's result: its modelUsage
+  // reports the real window (the meter's "reported" source).
+  const demo = [...demoRecords, { role: "agent", content: { type: "output", data: { type: "result", subtype: "success", modelUsage: { "claude-sonnet-4-5": { contextWindow: 1_000_000 }, "claude-haiku-4-5": { contextWindow: 200_000 } } } } }];
   const ops = [...opsRecords, { role: "agent", content: { type: "output", data: { type: "assistant", message: { model: "claude-opus-4-5", content: [], usage: { input_tokens: 1_200, cache_read_input_tokens: 182_000 } } } } }];
   function realisticSessions() {
     const web = { host: "happy-daemon", machineId: "m-k8s", runtimeType: "kubernetes", repoUrl: "git@github.com:acme/happy-web.git" };
@@ -90,7 +93,7 @@ export function createMock() {
   }
 
   const messages: Record<string, { id: string; seq: number; localId: string | null; createdAt: number; content: string }[]> = {
-    s1: demoRecords.map((r, i) => ({ id: `m${i + 1}`, seq: i + 1, localId: null, createdAt: now - (demoRecords.length - i) * 20_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
+    s1: demo.map((r, i) => ({ id: `m${i + 1}`, seq: i + 1, localId: null, createdAt: now - (demo.length - i) * 20_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
     s6: ops.map((r, i) => ({ id: `o${i + 1}`, seq: i + 1, localId: null, createdAt: now - (ops.length - i) * 15_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
   };
 

@@ -627,7 +627,9 @@ export function modelForProfile(o: { profile: ProviderProfile | undefined; agent
   return normalizeModelForProfile(fav || (p ? inferredDefaultModel(p) : undefined) || "default", p, agent);
 }
 
-function contextWindowFor(p: ProviderProfile, model: string): number | undefined {
+/** The window a profile pins for `model` (`id@tokens`), else its
+ * profile-wide window. */
+export function contextWindowFor(p: ProviderProfile, model: string): number | undefined {
   const m = model.trim();
   if (m && m !== "default") {
     for (const e of p.models) {

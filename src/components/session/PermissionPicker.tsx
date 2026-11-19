@@ -33,7 +33,7 @@ export function PermissionPicker({ sw }: { sw: SessionSwitch }) {
           title={current.description}
         >
           <Icon size={14} className={classes.chipIcon} />
-          <span className={classes.chipLabel}>{current.label}</span>
+          <span className={`${classes.chipLabel} ${classes.wideOnly}`}>{current.label}</span>
           <ChevronDown size={12} className={classes.chevron} />
         </button>
       </Menu.Target>

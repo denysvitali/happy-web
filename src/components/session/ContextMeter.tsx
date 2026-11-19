@@ -1,6 +1,6 @@
 import { Popover } from "@mantine/core";
 import { useState } from "react";
-import { contextMeter, formatTokens, type ContextUsage } from "@/lib/sync/usage";
+import { contextMeter, formatTokens, type ContextUsage, type WindowHints, type WindowSource } from "@/lib/sync/usage";
 import classes from "./session.module.css";
 
 const R = 6;
@@ -34,11 +34,19 @@ const ADVICE = {
   critical: "Almost full: older turns get compacted into a summary next. Starting a new session keeps details sharp.",
 } as const;
 
+const SOURCE: Record<WindowSource, string> = {
+  reported: "window reported by the agent",
+  profile: "window set by the provider profile",
+  model: "window known for this model",
+  assumed: "window assumed: the agent has not reported one yet",
+};
+
 /** Context window used by the session's main thread: ring + "42%"; tap for
  * tokens and what it means. Orange at ≤15% left, red at ≤5%. */
-export function ContextMeter({ usage, model }: { usage: ContextUsage; model?: string | undefined }) {
+export function ContextMeter({ usage, model, hints }: { usage: ContextUsage; model?: string | undefined; hints?: WindowHints }) {
   const [opened, setOpened] = useState(false);
-  const m = contextMeter(usage, model);
+  const m = contextMeter(usage, model, hints);
+  const shownModel = usage.model ?? (model && model !== "default" ? model : undefined);
   const pct = Math.round(m.fraction * 100);
   return (
     <Popover opened={opened} onChange={setOpened} position="top-end" width={260} shadow="md" radius="md" withinPortal>
@@ -67,7 +75,9 @@ export function ContextMeter({ usage, model }: { usage: ContextUsage; model?: st
             </div>
             <span className={classes.usageRowReset}>
               {formatTokens(m.used)} of {formatTokens(m.window)} tokens
+              {shownModel ? ` · ${shownModel}` : ""}
             </span>
+            <span className={classes.usageRowReset}>{SOURCE[m.source]}</span>
           </div>
           <span className={classes.contextAdvice}>{ADVICE[m.level]}</span>
         </div>

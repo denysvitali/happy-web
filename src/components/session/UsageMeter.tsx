@@ -1,8 +1,9 @@
 import { Popover } from "@mantine/core";
+import { Gauge } from "lucide-react";
 import { useState } from "react";
 import { useNow } from "@/app/hooks";
 import type { SessionItem } from "@/lib/sync/account";
-import { formatResetIn, usageLevel, type UsageSummary, type UsageWindow } from "@/lib/sync/usage";
+import { formatResetIn, headlineWindow, shortWindowLabel, usageLevel, type UsageSummary, type UsageWindow } from "@/lib/sync/usage";
 import { useUsageLimits } from "./hooks";
 import classes from "./session.module.css";
 
@@ -33,7 +34,7 @@ function UsageCard({ u }: { u: UsageSummary }) {
   return (
     <div className={classes.usageCard}>
       <div className={classes.usageHead}>
-        <span className={classes.usageTitle}>{u.provider === "codex" ? "Codex usage" : "Claude usage"}</span>
+        <span className={classes.usageTitle}>{u.provider === "codex" ? "Codex plan usage" : "Claude plan usage"}</span>
         {u.limitReached && <span className={classes.badge}>Limit reached</span>}
       </div>
       {u.windows.map((w) => (
@@ -50,27 +51,31 @@ function UsageCard({ u }: { u: UsageSummary }) {
   );
 }
 
-/** Header pill with the primary (5-hour) window; click for all windows. */
-export function UsagePill({ session }: { session: SessionItem }) {
+/** Toolbar chip with the plan limit closest to running out ("5h 42%");
+ * tap for every window and when it resets. Account-wide, not per session. */
+export function UsageMeter({ session }: { session: SessionItem }) {
   const q = useUsageLimits(session);
   const [opened, setOpened] = useState(false);
   const u = q.data;
-  const primary = u?.windows[0];
-  if (!u || !primary) return null;
-  const level = u.limitReached ? "critical" : usageLevel(primary.percent);
+  const head = u ? headlineWindow(u) : undefined;
+  if (!u || !head) return null;
+  const pct = Math.round(head.percent);
+  const level = u.limitReached ? "critical" : usageLevel(head.percent);
+  const who = u.provider === "codex" ? "Codex" : "Claude";
   return (
-    <Popover opened={opened} onChange={setOpened} position="bottom-end" width={280} shadow="md" radius="md" withinPortal>
+    <Popover opened={opened} onChange={setOpened} position="top-end" width={280} shadow="md" radius="md" withinPortal>
       <Popover.Target>
         <button
           type="button"
-          className={`${classes.chip} ${classes.pill}`}
+          className={`${classes.chip} ${classes.meter}`}
           data-level={level}
           data-open={opened || undefined}
           onClick={() => setOpened((o) => !o)}
-          aria-label={`${primary.label} usage ${Math.round(primary.percent)}%`}
+          aria-label={`${who} ${head.label} usage ${pct}%`}
         >
-          <Bar percent={primary.percent} />
-          <span>{Math.round(primary.percent)}%</span>
+          <Gauge size={15} strokeWidth={2} className={classes.meterIcon} />
+          <span className={`${classes.meterLabel} ${classes.wideOnly}`}>{shortWindowLabel(head.label)}</span>
+          <span>{pct}%</span>
         </button>
       </Popover.Target>
       <Popover.Dropdown>

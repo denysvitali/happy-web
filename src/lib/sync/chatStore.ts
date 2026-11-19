@@ -17,7 +17,7 @@ import {
 import type { SendOptions } from "./models";
 import { normalizeRecord } from "./normalize";
 import { Store } from "./store";
-import { contextUsageOf, type ContextUsage } from "./usage";
+import { contextUsageOf, reportedWindowsOf, type ContextUsage } from "./usage";
 
 const PAGE = 200;
 
@@ -60,6 +60,8 @@ export class ChatStore {
   readonly meta = new Store<ChatMeta>({ loading: true, firstSeq: 0 });
   /** Derived from raw records so it does not depend on normalize/chat. */
   readonly context = new Store<ContextSnapshot | null>(null);
+  /** Context windows Claude reported per model (`result.modelUsage`). */
+  readonly windows = new Store<Record<string, number>>({});
   private chain: Promise<void> = Promise.resolve();
   private loaded = false;
   private texts = new Map<string, { text: string; opts: SendOptions | undefined; images: readonly OutgoingImage[] }>();
@@ -94,6 +96,8 @@ export class ChatStore {
   }
 
   private noteContext(rec: unknown, seq: number): void {
+    const w = reportedWindowsOf(rec);
+    if (w) this.windows.update((cur) => ({ ...cur, ...w }));
     if (seq <= (this.context.get()?.seq ?? -1)) return;
     const u = contextUsageOf(rec);
     if (u) this.context.set({ ...u, seq });

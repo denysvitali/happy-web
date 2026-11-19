@@ -5,7 +5,10 @@ import {
   defaultContextWindow,
   formatResetIn,
   formatTokens,
+  headlineWindow,
   parseClaudeUsage,
+  reportedWindowsOf,
+  shortWindowLabel,
   parseCodexUsage,
   usageProvider,
 } from "./usage";
@@ -149,5 +152,37 @@ describe("context usage", () => {
     expect(formatTokens(200_000)).toBe("200k");
     expect(formatTokens(1_000_000)).toBe("1M");
     expect(formatTokens(1_250_000)).toBe("1.25M");
+  });
+});
+
+describe("context window sources", () => {
+  const result = (modelUsage: object, extra: object = {}) => ({ role: "agent", content: { type: "output", data: { type: "result", modelUsage, ...extra } } });
+
+  it("reads Claude's per-model windows from result records, main thread only", () => {
+    expect(reportedWindowsOf(result({ "claude-opus-5-5": { contextWindow: 1_000_000 }, "claude-haiku-5-5": { contextWindow: 200_000 } }))).toEqual({
+      "claude-opus-5-5": 1_000_000,
+      "claude-haiku-5-5": 200_000,
+    });
+    expect(reportedWindowsOf(result({ x: { contextWindow: 5 } }, { parent_tool_use_id: "t1" }))).toBeNull();
+    expect(reportedWindowsOf(result({ x: {} }))).toBeNull();
+  });
+
+  it("prefers usage row, then reported, then profile, then known model, then assumed", () => {
+    const reported = { "claude-opus-5-5": 1_000_000, "claude-haiku-5-5": 200_000 };
+    expect(contextMeter({ used: 10, window: 50_000 }, "opus", { reported, profile: 300_000 })).toMatchObject({ window: 50_000, source: "reported" });
+    expect(contextMeter({ used: 250_000, model: "claude-opus-5-5" }, undefined, { reported })).toMatchObject({ window: 1_000_000, source: "reported", level: "ok" });
+    // No model on the row: the largest reported window is the main model's.
+    expect(contextMeter({ used: 1 }, "opus", { reported })).toMatchObject({ window: 1_000_000 });
+    expect(contextMeter({ used: 1, model: "glm-5" }, undefined, { profile: 128_000 })).toMatchObject({ window: 128_000, source: "profile" });
+    expect(contextMeter({ used: 1, model: "gemini-3-pro" })).toMatchObject({ window: 1_000_000, source: "model" });
+    expect(contextMeter({ used: 1, model: "claude-opus-5-5" })).toMatchObject({ window: 190_000, source: "assumed" });
+  });
+
+  it("headlines the window closest to its limit, with a short label", () => {
+    const u = { provider: "claude" as const, facts: [], limitReached: false, windows: [{ label: "5-Hour", percent: 12 }, { label: "7-Day Opus", percent: 91 }] };
+    expect(headlineWindow(u)?.label).toBe("7-Day Opus");
+    expect(shortWindowLabel("5-Hour")).toBe("5h");
+    expect(shortWindowLabel("7-Day Opus")).toBe("7d");
+    expect(shortWindowLabel("Primary")).toBe("Primary");
   });
 });

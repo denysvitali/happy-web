@@ -77,22 +77,13 @@
 .context[data-level="critical"] { color: var(--happy-red); }
 .contextAdvice { font-size: var(--happy-text-footnote); line-height: 1.4; color: var(--happy-label-2); }
 
-/* ---- header usage pill ---------------------------------------------------- */
+/* ---- meters: context and plan usage, at the toolbar's right ---------------- */
 
-.pill {
-  height: 26px;
-  padding: 0 9px;
-  gap: 7px;
-  border-color: var(--happy-separator-strong);
-  font-variant-numeric: tabular-nums;
-}
-.pill .track { width: 36px; height: 5px; }
-@media (max-width: $mantine-breakpoint-sm) {
-  /* On phones the header stays quiet: usage lives in the transcript toolbar. */
-  .pill { display: none; }
-}
-.pill[data-level="warn"] { color: var(--happy-orange); }
-.pill[data-level="critical"] { color: var(--happy-red); }
+.meter { flex-shrink: 0; gap: 5px; padding: 0 8px; font-variant-numeric: tabular-nums; color: var(--happy-label-2); }
+.meterIcon { flex-shrink: 0; color: var(--happy-label-3); }
+.meterLabel { color: var(--happy-label-3); }
+.meter[data-level="warn"], .meter[data-level="warn"] .meterIcon { color: var(--happy-orange); }
+.meter[data-level="critical"], .meter[data-level="critical"] .meterIcon { color: var(--happy-red); }
 
 .usageCard { display: flex; flex-direction: column; gap: 12px; }
 .usageHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -181,7 +172,7 @@
 
 @media (max-width: $mantine-breakpoint-sm) {
   .chipLabel { max-width: 110px; }
-  /* Phones: icon + value; the dropdown is one tap away. */
+  /* Phones: icon + value; the dropdown is one tap away. The permission
+     mode is icon-only (red when risky) so the model name keeps its room. */
   .chevron, .wideOnly { display: none; }
-  .pill .track { display: none; }
 }

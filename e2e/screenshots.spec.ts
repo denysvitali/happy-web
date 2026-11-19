@@ -57,13 +57,15 @@ for (const vp of VIEWPORTS) {
       await shot(page, "04h-provider-confirm");
       await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
-      if (vp.name === "desktop") {
-        // The usage pill lives in the header on desktop only.
-        await page.getByRole("button", { name: /usage \d+%/ }).click();
-        await page.waitForTimeout(250);
-        await shot(page, "04c-usage");
-        await page.keyboard.press("Escape");
-      }
+      // Plan usage and context sit at the toolbar's right, on every screen.
+      await page.getByRole("button", { name: /usage \d+%/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "04c-usage");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: /^Context \d+% used/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "04c2-context");
+      await page.keyboard.press("Escape");
       await page.getByRole("main").getByRole("button", { name: "Session actions" }).click();
       await page.waitForTimeout(250);
       await shot(page, "04d-session-menu");
