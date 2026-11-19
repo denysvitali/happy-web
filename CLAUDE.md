@@ -2,7 +2,7 @@
 
 `happy-web`: small React client for the Happy server. Companion, not a
 feature-parity rewrite of `happy_flutter`. Keep it fast and small (CI budget:
-initial JS ≤ 250 KB gzip).
+initial JS soft guardrail 400 KB gzip; lazy-load heavy, rarely used UI).
 
 ## Commands
 `mise install`, then `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`,
