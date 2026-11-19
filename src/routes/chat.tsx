@@ -323,6 +323,7 @@ export function ChatScreen() {
   const status = session ? statusOf(session, presence, now) : "idle";
   const link = useStore(account.status);
   const history = useMemo(() => (view ? sentHistory(view.blocks) : []), [view]);
+  const starting = useStore(account.spawning).get(sessionId);
   const sid = session?.id;
   const resend = useCallback((text: string) => sid && prefill(sid, text), [sid]);
 
@@ -341,6 +342,12 @@ export function ChatScreen() {
         <div className={classes.empty}>
           {sessions.isPending ? (
             <LoaderCircle size={18} className={classes.spinner} aria-label="Loading" />
+          ) : starting ? (
+            <EmptyState
+              icon={<LoaderCircle size={22} className={classes.spinner} />}
+              title="Starting session…"
+              message={starting.kubernetes ? "Waiting for the Pod to schedule, pull its image and clone the repository. This can take a minute." : "Waiting for the agent to connect."}
+            />
           ) : (
             <EmptyState
               icon={<SearchX size={22} />}

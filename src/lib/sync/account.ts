@@ -65,11 +65,23 @@ export const sessionsKey = ["sessions"] as const;
 export const machinesKey = ["machines"] as const;
 export const accountSettingsKey = ["account-settings"] as const;
 
+export interface Spawning {
+  startedAt: number;
+  kubernetes: boolean;
+}
+
+/** How long a just-spawned session may take to appear (Pod scheduling,
+ * image pull, clone). */
+const SPAWN_WAIT_MS = 5 * 60_000;
+
 export class Account {
   readonly api: ApiClient;
   readonly realtime: Realtime;
   readonly status = new Store<RealtimeStatus>("connecting");
   readonly presence = new Store<ReadonlyMap<string, Presence>>(new Map());
+  /** Sessions this tab spawned that the server does not list yet (a
+   * Kubernetes Pod registers its session only once it runs). */
+  readonly spawning = new Store<ReadonlyMap<string, Spawning>>(new Map());
   private ciphers = new Map<string, Promise<Cipher>>();
   private chats = new Map<string, { store: ChatStore; refs: number }>();
 
@@ -160,6 +172,7 @@ export class Account {
       if (m && m.seq === it.lastSeq) it.lastMessage = m;
     }
     void this.stampLastMessages(items);
+    this.settleSpawns(items.map((s) => s.id));
     return items.sort((a, b) => activityAt(b) - activityAt(a));
   }
 
@@ -431,8 +444,37 @@ export class Account {
     if (res.type === "error") throw new RpcError(res.errorMessage || "spawn failed");
     if (res.type === "requestToApproveDirectoryCreation") throw new RpcError(`${res.directory || o.directory} does not exist on that machine`);
     if (res.type !== "success") throw new RpcError(`unexpected spawn result: ${res.type}`);
+    const id = res.sessionId || sessionId;
+    this.watchSpawn(id, o.backend === "kubernetes");
+    return id;
+  }
+
+  /** Marks `id` as starting until the session list has it, polling the row
+   * in case the `new-session` update is missed. Gives up after SPAWN_WAIT_MS
+   * (the chat then reads "not found"). */
+  private watchSpawn(id: string, kubernetes: boolean): void {
+    const startedAt = Date.now();
+    this.spawning.update((m) => new Map(m).set(id, { startedAt, kubernetes }));
     void this.qc.invalidateQueries({ queryKey: sessionsKey });
-    return res.sessionId || sessionId;
+    const poll = async () => {
+      while (this.spawning.get().has(id)) {
+        if (Date.now() - startedAt > SPAWN_WAIT_MS) return this.settleSpawns([id]);
+        await new Promise((r) => setTimeout(r, 2000));
+        if (await this.api.getSession(id).then(() => true, () => false)) {
+          await this.qc.refetchQueries({ queryKey: sessionsKey });
+          return this.settleSpawns([id]);
+        }
+      }
+    };
+    void poll();
+  }
+
+  private settleSpawns(ids: readonly string[]): void {
+    const cur = this.spawning.get();
+    if (!ids.some((id) => cur.has(id))) return;
+    const next = new Map(cur);
+    for (const id of ids) next.delete(id);
+    this.spawning.set(next);
   }
 
   /** Restarts a session on another provider profile. One spawn-happy-session

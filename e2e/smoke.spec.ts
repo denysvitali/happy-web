@@ -88,4 +88,7 @@ test("new session sends the chosen provider", async ({ page }) => {
   const spawn = mock.rpcCalls.find((c) => c.method === "m-laptop:spawn-happy-session")!;
   expect(spawn.params).toMatchObject({ profileId: "zai", model: "GLM-5.1", environmentVariables: { ANTHROPIC_BASE_URL: "${Z_AI_BASE_URL:-https://api.z.ai/api/anthropic}" } });
   expect((spawn.params as { isRestore?: boolean }).isRestore).toBeFalsy();
+  // Until the daemon's session shows up the chat says it is starting, not missing.
+  await expect(page.getByText("Starting session…")).toBeVisible();
+  await expect(page.getByText("Session not found")).toHaveCount(0);
 });
