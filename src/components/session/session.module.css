@@ -1,25 +1,26 @@
 /* In-session usage, context and model/permission controls. Static CSS only
    (CSP style-src 'self'); per-value widths go through inline style props. */
 
+/* One row: controls on the left, status on the right. Nothing scrolls out of
+   sight; labels truncate instead. */
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 32px;
+  gap: 2px;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  margin: 0 -4px;
 }
-.toolbar::-webkit-scrollbar { display: none; }
-.spacer { flex: 1; min-width: 4px; }
+.spacer { flex: 1 1 0; min-width: 2px; }
 
 /* Shared quiet chip button. */
 .chip {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 8px;
   border: 1px solid transparent;
   border-radius: var(--happy-radius-pill);
   background: transparent;
@@ -29,26 +30,21 @@
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), border-color var(--happy-dur-fast) var(--happy-ease-out);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), color var(--happy-dur-fast) var(--happy-ease-out);
 }
 .chip:hover { background: var(--happy-hover); }
 .chip:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
-.chip[data-open] { background: var(--happy-fill-3); }
-.chip[data-danger] { color: var(--happy-red); }
-.chip[data-danger]:hover, .chip[data-danger][data-open] { background: var(--happy-red-tint); }
-.chip[data-pending] { border-color: transparent; color: var(--happy-accent); background: var(--happy-accent-tint); }
-.chipIcon { flex-shrink: 0; opacity: 0.8; }
-.chipLabel { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
-.chevron { flex-shrink: 0; opacity: 0.5; }
-
-.notice {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--happy-text-caption);
-  color: var(--happy-accent);
-  white-space: nowrap;
-}
+.chip[data-open] { background: var(--happy-fill-3); color: var(--happy-label); }
+/* Danger (Bypass, YOLO) is the house default: flag it in the glyph rather
+   than with a red label that shouts on every screen. */
+.chip[data-danger] .chipIcon { color: var(--happy-red); opacity: 1; }
+.chip[data-pending] { color: var(--happy-accent); background: var(--happy-accent-tint); }
+.chip[data-pending] .chipIcon { opacity: 1; }
+.chipIcon { flex-shrink: 0; opacity: 0.75; }
+.chipLabel { min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.chevron { flex-shrink: 0; margin-left: -1px; opacity: 0.45; }
+.danger { color: var(--happy-red); }
 
 /* ---- meters -------------------------------------------------------------- */
 
@@ -70,15 +66,16 @@
 [data-level="critical"] .fill { background: var(--happy-red); }
 
 .ringTrack { stroke: var(--happy-fill); }
-.ringFill { stroke: var(--happy-accent); transition: stroke-dashoffset var(--happy-dur-slow) var(--happy-ease); }
+.ringFill { stroke: var(--happy-label-3); transition: stroke-dashoffset var(--happy-dur-slow) var(--happy-ease); }
 [data-level="warn"] .ringFill { stroke: var(--happy-orange); }
 [data-level="critical"] .ringFill { stroke: var(--happy-red); }
 .ringSvg { transform: rotate(-90deg); flex-shrink: 0; }
 
-.context { cursor: default; font-variant-numeric: tabular-nums; color: var(--happy-label-3); }
-.context:hover { background: transparent; }
+/* Context: quiet grey while there is room, orange/red only when it matters. */
+.context { flex-shrink: 0; gap: 4px; padding: 0 6px; font-variant-numeric: tabular-nums; color: var(--happy-label-3); }
 .context[data-level="warn"] { color: var(--happy-orange); }
 .context[data-level="critical"] { color: var(--happy-red); }
+.contextAdvice { font-size: var(--happy-text-footnote); line-height: 1.4; color: var(--happy-label-2); }
 
 /* ---- header usage pill ---------------------------------------------------- */
 
@@ -128,6 +125,15 @@
 /* ---- pickers --------------------------------------------------------------- */
 
 .options { max-height: min(360px, 55dvh); overflow-y: auto; padding: 4px; }
+.optionsNote {
+  margin: 0 0 4px;
+  padding: 6px 10px;
+  border-radius: var(--happy-radius-sm);
+  background: var(--happy-accent-tint);
+  color: var(--happy-accent);
+  font-size: var(--happy-text-caption);
+  font-weight: 500;
+}
 .option { display: flex; align-items: center; gap: 8px; }
 .optionText { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .optionLabel { font-size: var(--happy-text-subhead); }
@@ -175,6 +181,7 @@
 
 @media (max-width: $mantine-breakpoint-sm) {
   .chipLabel { max-width: 110px; }
-  .contextText { display: none; }
+  /* Phones: icon + value; the dropdown is one tap away. */
+  .chevron, .wideOnly { display: none; }
   .pill .track { display: none; }
 }

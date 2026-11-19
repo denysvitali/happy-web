@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useStore } from "@/app/hooks";
 import type { SessionItem } from "@/lib/sync/account";
 import type { ChatStore } from "@/lib/sync/chatStore";
@@ -14,15 +15,16 @@ function Context({ store, model }: { store: ChatStore; model: string }) {
   return ctx ? <ContextMeter usage={ctx} model={model} /> : null;
 }
 
-/** Slim bar above the composer: permission mode, provider, model, context meter. */
-export function SessionToolbar({ session, sw, store }: { session: SessionItem; sw: SessionSwitch; store: ChatStore | null }) {
+/** One row above the composer: controls (permission mode, provider, model)
+ * on the left, status (`children`, e.g. the plan, then context) on the right. */
+export function SessionToolbar({ session, sw, store, children }: { session: SessionItem; sw: SessionSwitch; store: ChatStore | null; children?: ReactNode }) {
   return (
     <div className={classes.toolbar}>
       <PermissionPicker sw={sw} />
       {canSwitchProvider(session) && <ProviderPicker session={session} sw={sw} />}
       <ModelPicker sw={sw} />
-      {sw.pending && <span className={classes.notice}>Model will switch with your next message</span>}
       <span className={classes.spacer} />
+      {children}
       {store && sw.kind !== "opencode" && <Context store={store} model={sw.activeModel} />}
     </div>
   );

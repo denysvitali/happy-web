@@ -62,13 +62,15 @@ export function createMock() {
     mkSession("s2", { path: "/workspace/happy-web", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", model: "gpt-5.5", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/happy-web", summary: { text: "Build the web client" } }, { ago: 2 * min }),
     mkSession("s3", { path: "/workspace/infra", host: "happy-daemon", machineId: "m-k8s", flavor: "claude", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/infra", summary: { text: "Terraform drift report" } }, { ago: 40 * min, active: false }),
     mkSession("s4", { path: "/home/denys/notes", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", summary: { text: "Weekly notes cleanup" } }, { archived: true, active: false, ago: 2 * 24 * 60 * min }),
-    mkSession("s6", { path: "/root/pmos-gt-p5110", homeDir: "/root", host: "happy", machineId: "m-laptop", flavor: "claude", model: "opus", repoUrl: "https://github.com/acme/pmos-gt-p5110", summary: { text: "pmos-galaxy" } }, { lastSeq: opsRecords.length, agentState: opsAgentState }),
+    mkSession("s6", { path: "/root/pmos-gt-p5110", homeDir: "/root", host: "happy", machineId: "m-laptop", flavor: "claude", model: "opus", repoUrl: "https://github.com/acme/pmos-gt-p5110", summary: { text: "pmos-galaxy" } }, { lastSeq: opsRecords.length + 1, agentState: opsAgentState }),
     mkSession("s5", { path: "/workspace/old", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", runtimeType: "kubernetes", summary: { text: "Spike: websocket fallback" } }, { archived: true, active: false, ago: 6 * 24 * 60 * min }),
   ];
 
+  // The ops session runs close to a full context window (the meter's red state).
+  const ops = [...opsRecords, { role: "agent", content: { type: "output", data: { type: "assistant", message: { model: "claude-opus-4-5", content: [], usage: { input_tokens: 1_200, cache_read_input_tokens: 182_000 } } } } }];
   const messages: Record<string, { id: string; seq: number; localId: string | null; createdAt: number; content: string }[]> = {
     s1: demoRecords.map((r, i) => ({ id: `m${i + 1}`, seq: i + 1, localId: null, createdAt: now - (demoRecords.length - i) * 20_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
-    s6: opsRecords.map((r, i) => ({ id: `o${i + 1}`, seq: i + 1, localId: null, createdAt: now - (opsRecords.length - i) * 15_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
+    s6: ops.map((r, i) => ({ id: `o${i + 1}`, seq: i + 1, localId: null, createdAt: now - (ops.length - i) * 15_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
   };
 
   // Account settings as the Happy app syncs them (Flutter Settings.toJson):

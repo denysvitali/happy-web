@@ -11,15 +11,21 @@ import classes from "./chat.module.css";
 const MAX_HEIGHT = 200;
 const MAX_IMAGES = 6;
 
+/** Touch keyboards have no Shift+Enter: there Enter is a newline and the
+ * send button sends. */
+const touchKeyboard = () => window.matchMedia("(pointer: coarse)").matches;
+
 /** Message capsule with image attachments and an optional toolbar
  * (permissions, model, context) above it. `canAttach` is false for agents
- * that only take text (Har, OpenCode). */
+ * that only take text (Har, OpenCode). While a turn runs, Stop takes the
+ * send button's place until there is something to send. */
 export function Composer({
   onSend,
   onAbort,
   canAbort,
   canAttach = true,
   disabled,
+  placeholder,
   tools,
 }: {
   onSend: (text: string, images: OutgoingImage[]) => void;
@@ -27,6 +33,7 @@ export function Composer({
   canAbort: boolean;
   canAttach?: boolean;
   disabled?: boolean | undefined;
+  placeholder?: string | undefined;
   tools?: ReactNode;
 }) {
   const [text, setText] = useState("");
@@ -72,6 +79,7 @@ export function Composer({
   };
 
   const ready = !disabled && !busy && (text.trim() !== "" || images.length > 0);
+  const stoppable = canAbort && !!onAbort;
   const send = () => {
     if (!ready) return;
     onSend(text.trim(), images.map(({ mime, data }) => ({ mime, data })));
@@ -79,7 +87,7 @@ export function Composer({
     setImages([]);
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !touchKeyboard()) {
       e.preventDefault();
       send();
     }
@@ -144,7 +152,7 @@ export function Composer({
             ref={ref}
             className={classes.composerInput}
             rows={1}
-            placeholder="Message the agent…"
+            placeholder={placeholder ?? "Message the agent…"}
             value={text}
             onChange={(e) => setText(e.currentTarget.value)}
             onKeyDown={onKey}
@@ -153,12 +161,14 @@ export function Composer({
             aria-label="Message"
           />
           <div className={classes.composerActions}>
-            {canAbort && onAbort && (
+            {stoppable && (
               <Tooltip label="Stop the current turn" openDelay={300}>
-                <IconButton label="Abort" icon={<Square size={12} fill="currentColor" />} variant="tinted" tone="danger" onClick={onAbort} />
+                <IconButton label="Abort" icon={<Square size={11} fill="currentColor" />} variant={ready ? "tinted" : "filled"} tone="danger" onClick={onAbort} />
               </Tooltip>
             )}
-            <IconButton label="Send" icon={<ArrowUp size={17} strokeWidth={2.25} />} variant="filled" onClick={send} disabled={!ready} />
+            {(ready || !stoppable) && (
+              <IconButton label="Send" icon={<ArrowUp size={17} strokeWidth={2.25} />} variant="filled" onClick={send} disabled={!ready} />
+            )}
           </div>
         </div>
       </div>

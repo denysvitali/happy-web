@@ -44,9 +44,8 @@ export function PermissionPicker({ sw }: { sw: SessionSwitch }) {
           return (
             <Menu.Item
               key={m.value}
-              color={m.danger ? "red" : undefined}
-              leftSection={<MIcon size={16} />}
-              rightSection={m.value === current.value ? <Check size={14} className={m.danger ? undefined : classes.check} /> : null}
+              leftSection={<MIcon size={16} className={m.danger ? classes.danger : undefined} />}
+              rightSection={m.value === current.value ? <Check size={14} className={classes.check} /> : null}
               onClick={() => sw.setPermissionMode(m.value)}
             >
               <div className={classes.optionText}>

@@ -80,7 +80,7 @@ export function ProviderPicker({ session, sw }: { session: SessionItem; sw: Sess
   const list = profilesForAgent(custom, agent);
   const current = sessionProfileId(session.meta);
   const currentKey = current === NO_PROFILE ? NO_PROFILE : current;
-  const label = providerLabel(current, custom) ?? "Provider";
+  const label = providerLabel(current, custom);
 
   const choose = (id: string) => {
     combobox.closeDropdown();
@@ -139,11 +139,12 @@ export function ProviderPicker({ session, sw }: { session: SessionItem; sw: Sess
           data-pending={switching ? true : undefined}
           disabled={!!switching}
           onClick={() => combobox.toggleDropdown()}
-          aria-label={switching ? `Provider: switching to ${switching}` : `Provider: ${label}`}
-          title={current ? undefined : "No app chose this session's provider; the daemon's routing applies"}
+          aria-label={switching ? `Provider: switching to ${switching}` : `Provider: ${label ?? "daemon routing"}`}
+          title={label ? `Provider: ${label}` : "No app chose this session's provider; the daemon's routing applies"}
         >
           {switching ? <Loader size={12} color="currentColor" /> : <Server size={14} className={classes.chipIcon} />}
-          <span className={classes.chipLabel}>{switching ? `Switching to ${switching}…` : label}</span>
+          {/* Phones show the glyph only: the model chip already names what runs. */}
+          {(switching || label) && <span className={`${classes.chipLabel} ${classes.wideOnly}`}>{switching ? `Switching to ${switching}…` : label}</span>}
           <ChevronDown size={12} className={classes.chevron} />
         </button>
       </Combobox.Target>
