@@ -8,6 +8,7 @@
 // highlighter is loaded lazily on first fenced block.
 import { memo, useEffect, useState, type ComponentProps, type ReactElement } from "react";
 import renderMarkdown, { type Components, type ExtraProps, type Options } from "react-markdown";
+import { Check } from "lucide-react";
 import remarkGfm from "remark-gfm";
 import { splitStable } from "./markdown-split";
 import { CopyIcon } from "./primitives";
@@ -61,7 +62,7 @@ function CodeBlock({ node, children, ...rest }: ComponentProps<"pre"> & ExtraPro
   return (
     <div className={classes.code}>
       <div className={classes.codeHead}>
-        <span className={classes.codeLang}>{lang ?? "text"}</span>
+        <span className={classes.codeLang}>{lang}</span>
         <CopyIcon text={text} label="Copy code" reveal />
       </div>
       <pre {...rest}>{children}</pre>
@@ -72,6 +73,13 @@ function CodeBlock({ node, children, ...rest }: ComponentProps<"pre"> & ExtraPro
 const components: Components = {
   a: ({ node: _node, ...p }) => <a {...p} target="_blank" rel="noopener noreferrer nofollow" />,
   pre: CodeBlock,
+  // GFM task items: a drawn box (native disabled checkboxes ignore accent-color).
+  input: ({ node: _node, type, checked }) =>
+    type === "checkbox" ? (
+      <span className={classes.check} role="img" aria-label={checked ? "Done" : "Not done"} data-checked={checked || undefined}>
+        {checked && <Check size={11} strokeWidth={3} />}
+      </span>
+    ) : null,
   table: ({ node: _node, ...p }) => (
     <div className={classes.tableWrap}>
       <table {...p} />

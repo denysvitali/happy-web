@@ -215,33 +215,33 @@
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 .errIcon { flex-shrink: 0; color: var(--happy-red); }
 
-/* Per-message time + copy. Pointer devices: a floating capsule revealed on
-   hover/focus that takes no layout space. Touch: a quiet row under it. */
-.rowTools { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
-@media (hover: hover) {
-  .rowTools {
-    position: absolute;
-    z-index: 1;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--happy-dur-fast) var(--happy-ease-out);
-  }
-  .hoverable:hover > .rowTools, .hoverable:focus-within > .rowTools { opacity: 1; pointer-events: auto; }
-  .agentText > .rowTools {
-    top: -16px;
-    right: 0;
-    padding: 1px 1px 1px 6px;
-    border-radius: var(--happy-radius-pill);
-    background: var(--happy-material-raised);
-    backdrop-filter: var(--happy-backdrop);
-    -webkit-backdrop-filter: var(--happy-backdrop);
-    box-shadow: var(--happy-shadow-md);
-  }
-  .userInner > .rowTools { top: 50%; right: calc(100% + 6px); transform: translateY(-50%); }
+/* Per-message time + copy: a floating capsule that takes no layout space.
+   Pointer devices reveal it on hover; touch reveals it on tap (the message
+   is focusable, tabIndex -1), so phones never get a row under every message. */
+.hoverable { -webkit-tap-highlight-color: transparent; }
+.hoverable:focus { outline: none; }
+.rowTools {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  top: -15px;
+  right: 0;
+  padding: 1px 1px 1px 6px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-material-raised);
+  backdrop-filter: var(--happy-backdrop);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  box-shadow: var(--happy-shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--happy-dur-fast) var(--happy-ease-out);
 }
-@media (hover: none) {
-  .rowTools { margin-top: 2px; opacity: 0.8; }
-  .agentText > .rowTools { margin-left: -4px; }
+.hoverable:focus-within > .rowTools { opacity: 1; pointer-events: auto; }
+@media (hover: hover) {
+  .hoverable:hover > .rowTools { opacity: 1; pointer-events: auto; }
+  /* Beside the bubble, there is room on its left. */
+  .userInner > .rowTools { top: 50%; right: calc(100% + 6px); padding: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; transform: translateY(-50%); }
 }
 
 /* ---- user / assistant / thinking --------------------------------------------- */
@@ -255,24 +255,47 @@
   border-radius: 18px 18px 6px 18px;
   background: var(--happy-accent);
   color: var(--happy-on-accent);
-  font-size: var(--happy-text-body);
-  line-height: 1.45;
   transition: opacity var(--happy-dur) var(--happy-ease-out);
 }
-.user[data-pending="sending"] { opacity: 0.55; }
-.user[data-pending="failed"] { background: color-mix(in srgb, var(--happy-accent) 55%, var(--happy-fill)); }
-.userText { white-space: pre-wrap; overflow-wrap: anywhere; }
-.userNote {
+.user[data-pending="sending"] { opacity: 0.6; }
+.user[data-pending="failed"] { background: var(--happy-fill); color: var(--happy-label); }
+.userText[data-clamped] {
+  max-height: calc(var(--happy-text-body) * 1.45 * 12);
+  overflow: hidden;
+  mask-image: linear-gradient(#000 70%, transparent);
+  -webkit-mask-image: linear-gradient(#000 70%, transparent);
+}
+.userMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   margin-top: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--happy-radius-xs);
+  background: none;
+  cursor: pointer;
+  font-size: var(--happy-text-footnote);
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.85;
+}
+.userMore:hover { opacity: 1; }
+.userMore:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--happy-on-accent) 70%, transparent); }
+.userMore > svg { transition: transform var(--happy-dur) var(--happy-ease); }
+.userMore > svg[data-open] { transform: rotate(180deg); }
+.userNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
   padding-right: 4px;
   font-size: var(--happy-text-footnote);
   color: var(--happy-label-3);
-  text-align: right;
 }
 .userNote[data-tone="error"] { color: var(--happy-red); font-weight: 500; }
 
-.agentText { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
-.agentTextBody { width: 100%; min-width: 0; }
+.agentText { position: relative; min-width: 0; }
 
 .thinking { min-width: 0; }
 .thinkingHead {
@@ -303,54 +326,75 @@
   overflow-wrap: anywhere;
 }
 
-.event, .day {
+.day {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 4px 0;
   font-size: var(--happy-text-footnote);
-  color: var(--happy-label-3);
-  text-align: center;
+  font-weight: 600;
+  color: var(--happy-label-2);
 }
-.event > span, .day > span { max-width: 70%; overflow-wrap: anywhere; }
-.day { padding: 4px 0; font-weight: 600; color: var(--happy-label-2); }
 .day::before, .day::after { content: ""; flex: 1; border-top: 0.5px solid var(--happy-separator-strong); }
-.event { justify-content: center; }
-.unknown { font-size: var(--happy-text-footnote); font-style: italic; color: var(--happy-label-3); }
+/* Session events ("Context compacted") and unknown records: a quiet capsule. */
+.event { display: flex; justify-content: center; }
+.event > span {
+  max-width: 85%;
+  padding: 2px 10px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-fill-3);
+  font-size: var(--happy-text-footnote);
+  line-height: 18px;
+  text-align: center;
+  color: var(--happy-label-2);
+  overflow-wrap: anywhere;
+}
+.event[data-tone="unknown"] > span { background: none; font-style: italic; color: var(--happy-label-3); }
 
 /* ---- markdown --------------------------------------------------------------- */
 
-.prose { font-size: var(--happy-text-body); line-height: 1.55; color: var(--happy-label); overflow-wrap: anywhere; }
+.prose { font-size: var(--happy-text-body); line-height: 1.5; color: var(--happy-label); overflow-wrap: anywhere; }
 .prose > :first-child, .chunk > :first-child { margin-top: 0; }
 .prose > :last-child, .chunk > :last-child { margin-bottom: 0; }
-.chunk + .chunk { margin-top: 0.65em; }
-.prose p, .prose ul, .prose ol, .prose blockquote { margin: 0.65em 0; }
-.prose .code, .prose .tableWrap { margin: 0.9em 0; }
-.prose h1, .prose h2, .prose h3, .prose h4 {
-  margin: 1.4em 0 0.45em;
+.chunk + .chunk { margin-top: 0.6em; }
+.prose p, .prose ul, .prose ol, .prose blockquote { margin: 0.6em 0; }
+.prose .code, .prose .tableWrap { margin: 0.8em 0; }
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  margin: 1.2em 0 0.4em;
   font-family: var(--happy-font-display);
+  font-size: 1em;
   font-weight: 600;
   line-height: 1.3;
-  letter-spacing: -0.012em;
 }
-.prose h1 { font-size: var(--happy-text-title3); letter-spacing: var(--happy-tracking-tight); }
-.prose h2 { font-size: 17px; letter-spacing: -0.016em; }
-.prose h3 { font-size: 1em; }
-.prose h4 { font-size: 1em; color: var(--happy-label-2); }
+.prose h1 { font-size: 1.27em; letter-spacing: -0.016em; }
+.prose h2 { font-size: 1.13em; letter-spacing: -0.012em; }
+.prose h4, .prose h5, .prose h6 { color: var(--happy-label-2); }
 .prose strong { font-weight: 600; }
-.prose ul, .prose ol { padding-left: 1.5em; }
-.prose li { margin: 0.25em 0; padding-left: 0.15em; }
-.prose li > p { margin: 0.25em 0; }
-.prose li > ul, .prose li > ol { margin: 0.25em 0; }
+.prose ul, .prose ol { padding-left: 1.35em; }
+.prose li { margin: 0.2em 0; padding-left: 0.1em; }
+.prose li > p { margin: 0.2em 0; }
+.prose li > ul, .prose li > ol { margin: 0.2em 0; padding-left: 1.15em; }
 .prose ul > li::marker { color: var(--happy-label-3); }
 .prose ol > li::marker { color: var(--happy-label-2); font-variant-numeric: tabular-nums; }
-.prose input[type="checkbox"] { margin: 0 0.45em 0 0; vertical-align: -0.1em; accent-color: var(--happy-accent); }
-.prose li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3em; }
+.prose :global(.contains-task-list) { padding-left: 0.1em; list-style: none; }
+.check {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  margin-right: 0.5em;
+  vertical-align: -0.15em;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1.5px var(--happy-label-4);
+  color: var(--happy-on-accent);
+}
+.check[data-checked] { background: var(--happy-accent); box-shadow: none; }
 .prose a { color: var(--happy-accent); text-decoration: none; }
 .prose a:hover { text-decoration: underline; text-underline-offset: 2px; }
-.prose hr { margin: 1.5em 0; border: 0; border-top: 0.5px solid var(--happy-separator-strong); }
-.prose blockquote { padding: 0.1em 0 0.1em 1em; border-left: 3px solid var(--happy-separator-strong); color: var(--happy-label-2); }
+.prose hr { margin: 1.2em 0; border: 0; border-top: 0.5px solid var(--happy-separator-strong); }
+.prose blockquote { padding: 0 0 0 0.85em; border-left: 2px solid var(--happy-separator-strong); color: var(--happy-label-2); }
 .prose :not(pre) > code {
-  padding: 0.12em 0.4em;
+  padding: 0.1em 0.35em;
   border-radius: var(--happy-radius-xs);
   background: var(--happy-fill-2);
   font-family: var(--happy-font-mono);
@@ -358,12 +402,35 @@
   overflow-wrap: anywhere;
 }
 
-/* Tables: hairlines, no boxes. */
+/* Tables: hairlines, no boxes; too wide scrolls instead of breaking words. */
 .tableWrap { max-width: 100%; overflow-x: auto; }
-.prose table { border-collapse: collapse; font-size: var(--happy-text-subhead); font-variant-numeric: tabular-nums; }
-.prose th, .prose td { padding: 0.5em 1.2em 0.5em 0; text-align: left; vertical-align: top; border-bottom: 0.5px solid var(--happy-separator); }
-.prose th { font-weight: 600; color: var(--happy-label-2); border-bottom-color: var(--happy-separator-strong); }
+.prose table { border-collapse: collapse; font-size: var(--happy-text-subhead); font-variant-numeric: tabular-nums; overflow-wrap: normal; }
+.prose th, .prose td { min-width: 4em; max-width: 22em; padding: 0.45em 1em 0.45em 0; text-align: left; vertical-align: top; border-bottom: 0.5px solid var(--happy-separator); }
+.prose th:last-child, .prose td:last-child { padding-right: 0; }
+.prose th { font-weight: 600; white-space: nowrap; color: var(--happy-label-2); border-bottom-color: var(--happy-separator-strong); }
+.prose td code { white-space: nowrap; }
 .prose tr:last-child td { border-bottom: 0; }
+
+/* User bubbles: the same markdown, inverted onto the accent and compact.
+   Typed line breaks are kept (users don't write markdown soft breaks). */
+.user .prose { font-size: var(--happy-text-body); line-height: 1.45; color: inherit; }
+.user .prose p { white-space: pre-line; }
+.user .prose :is(p, ul, ol, blockquote) { margin: 0.45em 0; }
+.user .prose :is(h1, h2, h3, h4, h5, h6) { margin: 0.7em 0 0.25em; font-size: 1em; letter-spacing: 0; color: inherit; }
+.user .prose > :first-child { margin-top: 0; }
+.user .prose > :last-child { margin-bottom: 0; }
+.user .prose :is(ul > li, ol > li)::marker, .user .prose blockquote { color: inherit; opacity: 0.8; }
+.user .prose blockquote { border-left-color: color-mix(in srgb, currentColor 45%, transparent); }
+.user .prose a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 55%, transparent); text-underline-offset: 2px; }
+.user .prose :not(pre) > code { background: color-mix(in srgb, currentColor 18%, transparent); }
+.user .prose hr { border-top-color: color-mix(in srgb, currentColor 35%, transparent); }
+.user .prose :is(th, td) { border-bottom-color: color-mix(in srgb, currentColor 25%, transparent); }
+.user .prose th { color: inherit; }
+.user .code { background: color-mix(in srgb, currentColor 12%, transparent); box-shadow: none; }
+.user .code :is(.codeLang, .codeHead > *) { --ib-color: currentColor; color: inherit; opacity: 0.8; }
+.user .code :global([class*="hljs-"]) { color: inherit; font-style: normal; }
+.user .check { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 60%, transparent); }
+.user .check[data-checked] { background: var(--happy-on-accent); color: var(--happy-accent); }
 
 /* Code cards. */
 .code {
@@ -377,8 +444,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  height: 30px;
-  padding: 0 3px 0 12px;
+  height: 28px;
+  padding: 0 2px 0 12px;
 }
 .codeLang {
   font-size: var(--happy-text-caption);
@@ -389,11 +456,11 @@
 }
 .code pre {
   margin: 0;
-  padding: 0 14px 12px;
+  padding: 0 12px 10px;
   overflow-x: auto;
   font-family: var(--happy-font-mono);
   font-size: 12.5px;
-  line-height: 1.6;
+  line-height: 1.55;
   tab-size: 2;
 }
 .code pre code { font: inherit; background: none; padding: 0; }
