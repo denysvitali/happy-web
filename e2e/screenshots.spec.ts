@@ -3,7 +3,7 @@
 // scripts/screenshot-gallery.mjs. Run: pnpm screenshots
 import { expect, test, type Page } from "@playwright/test";
 import { DEMO_IMAGE } from "../src/components/chat/fixtures";
-import { createMock, linkAndOpen, watchCsp } from "./mock";
+import { createMock, linkAndOpen, MOCK_SERVER, watchCsp } from "./mock";
 
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
@@ -116,7 +116,12 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await page.goto("/#/components-demo");
       await page.waitForTimeout(300);
-      await page.screenshot({ path: `screenshots/${vp.name}-08-components-demo.png`, fullPage: true });
+      // The demo scrolls inside its own box: grow the viewport to fit it all.
+      const demoHeight = await page.getByTestId("demo").evaluate((el) => el.scrollHeight);
+      await page.setViewportSize({ width: vp.width, height: demoHeight });
+      await page.waitForTimeout(300);
+      await shot(page, "08-components-demo");
+      await page.setViewportSize({ width: vp.width, height: vp.height });
 
       expect(violations).toEqual([]);
     });
@@ -201,6 +206,20 @@ for (const vp of VIEWPORTS) {
       await page.emulateMedia({ colorScheme: "dark" });
       await page.waitForTimeout(300);
       await shot(page, "16b-chat-prose-dark");
+      expect(violations).toEqual([]);
+    });
+
+    // First run: the QR step while the server keeps the request pending.
+    test("link", async ({ page }) => {
+      const violations = watchCsp(page);
+      await page.route(`${MOCK_SERVER}/**`, (route) => route.fulfill({ json: { state: "requested" } }));
+      await page.goto("/#/");
+      await expect(page.getByLabel("QR code")).toBeVisible();
+      await shot(page, "01b-link-qr");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.getByRole("button", { name: /Can't scan/ }).click();
+      await page.waitForTimeout(300);
+      await shot(page, "01c-link-qr-dark");
       expect(violations).toEqual([]);
     });
   });

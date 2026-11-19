@@ -1,12 +1,12 @@
-/* Popovers: raised translucent material, soft deep shadow, no border. */
+/* Popovers (and the Combobox dropdowns built on them): opaque raised surface,
+   soft deep shadow, no border. Opaque because they open over form fields and
+   busy transcripts, where see-through text hurts. */
 .dropdown {
   padding: 12px;
   border: 0;
   border-radius: var(--happy-radius-lg);
   color: var(--happy-label);
-  background: var(--happy-material-raised);
-  -webkit-backdrop-filter: var(--happy-backdrop);
-  backdrop-filter: var(--happy-backdrop);
+  background: var(--happy-surface-raised);
   box-shadow: var(--happy-shadow-lg);
 }
 .arrow { border: 0; background: var(--happy-surface-raised); }

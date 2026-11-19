@@ -1,11 +1,15 @@
-import { Alert, Anchor, Button, Center, Code, Group, Loader, Paper, Stack, Stepper, Text, TextInput, Title } from "@mantine/core";
-import { Pencil, RefreshCw } from "lucide-react";
+import { Button, Loader, TextInput, UnstyledButton } from "@mantine/core";
+import { RefreshCw, Server } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/app/auth";
 import { BrandMark } from "@/components/brand";
 import { QrCode } from "@/components/qr";
 import { startLink, type LinkRequest } from "@/lib/auth/link";
 import { defaultServerUrl, getServerUrl, isAllowedServerUrl, normalizeServerUrl, setServerUrl } from "@/lib/config";
+import { Callout } from "@/ui/Callout";
+import { CopyButton } from "@/ui/CopyButton";
+import { Disclosure } from "@/ui/Disclosure";
+import classes from "./link.module.css";
 
 function ServerStep({ onDone }: { onDone: () => void }) {
   const current = getServerUrl();
@@ -24,26 +28,27 @@ function ServerStep({ onDone }: { onDone: () => void }) {
     location.reload();
   };
   return (
-    <form onSubmit={submit}>
-      <Stack>
-        <TextInput
-          label="Happy server URL"
-          description="Saved in this browser. Only this origin will be reachable."
-          type="url"
-          inputMode="url"
-          autoComplete="url"
-          placeholder="https://happy.example.com"
-          value={value}
-          onChange={(e) => {
-            setValue(e.currentTarget.value);
-            setError("");
-          }}
-          error={error || undefined}
-          data-autofocus
-          autoFocus
-        />
-        <Button type="submit">Continue</Button>
-      </Stack>
+    <form onSubmit={submit} className={classes.stack}>
+      <TextInput
+        label="Happy server URL"
+        description="Saved in this browser. Only this origin will be reachable."
+        type="url"
+        inputMode="url"
+        autoComplete="url"
+        placeholder="https://happy.example.com"
+        leftSection={<Server size={16} />}
+        value={value}
+        onChange={(e) => {
+          setValue(e.currentTarget.value);
+          setError("");
+        }}
+        error={error || undefined}
+        data-autofocus
+        autoFocus
+      />
+      <Button type="submit" size="md" fullWidth>
+        Continue
+      </Button>
     </form>
   );
 }
@@ -66,87 +71,76 @@ function LinkAttempt({ server, onRetry }: { server: string; onRetry: () => void 
 
   if (error) {
     return (
-      <Stack align="center">
-        <Alert color="red" w="100%">
+      <div className={classes.stack}>
+        <Callout tone="danger" title="Linking failed">
           {error}
-        </Alert>
-        <Button variant="default" leftSection={<RefreshCw size={16} />} onClick={onRetry}>
+        </Callout>
+        <Button variant="default" size="md" fullWidth leftSection={<RefreshCw size={16} />} onClick={onRetry}>
           Try again
         </Button>
-      </Stack>
+      </div>
     );
   }
   return (
-    <Stack align="center" gap="sm">
-      <Paper withBorder p="xs" radius="md" bg="white">
-        <QrCode value={req.qrUrl} size={220} />
-      </Paper>
-      <Text size="sm" ta="center">
-        In the Happy app, open <b>Settings → Account → Link New Device</b> and scan this code.
-      </Text>
-      <Group gap="xs">
-        <Loader size="xs" type="dots" />
-        <Text size="xs" c="dimmed">
-          Waiting for approval…
-        </Text>
-      </Group>
-      <details style={{ width: "100%" }}>
-        <summary>
-          <Text span size="xs" c="dimmed">
-            Can't scan? Copy the link
-          </Text>
-        </summary>
-        <Code block mt="xs" style={{ wordBreak: "break-all", whiteSpace: "pre-wrap", userSelect: "all" }}>
-          {req.qrUrl}
-        </Code>
-      </details>
-    </Stack>
+    <div className={classes.stack}>
+      <div className={classes.qr}>
+        <QrCode value={req.qrUrl} size={200} />
+      </div>
+      <ol className={classes.steps}>
+        <li>Open the Happy app on your phone.</li>
+        <li>
+          Go to <strong>Settings → Account → Link New Device</strong>.
+        </li>
+        <li>Scan this code and approve.</li>
+      </ol>
+      <div className={classes.waiting} role="status">
+        <Loader size={14} />
+        Waiting for approval…
+      </div>
+      <Disclosure header="Can't scan? Copy the link">
+        <div className={classes.linkRow}>
+          <code className={classes.link}>{req.qrUrl}</code>
+          <CopyButton value={req.qrUrl} label="Copy link" />
+        </div>
+      </Disclosure>
+    </div>
   );
 }
 
 export function LinkScreen({ note }: { note?: string | undefined }) {
   const server = getServerUrl();
-  const [step, setStep] = useState(server ? 1 : 0);
+  const [editing, setEditing] = useState(!server);
   const [attempt, setAttempt] = useState(0);
+  const linking = !editing && !!server;
   return (
-    <Center mih="100dvh" p="md" style={{ overflow: "auto" }}>
-      <Stack w="100%" maw={440} gap="lg">
-        <Stack align="center" gap={10}>
-          <BrandMark size={44} />
-          <div style={{ textAlign: "center" }}>
-            <Title order={3} style={{ letterSpacing: "-0.02em" }}>
-              Welcome to Happy
-            </Title>
-            <Text c="dimmed" size="sm" mt={2}>
-              Link this browser to your account to see your sessions.
-            </Text>
-          </div>
-        </Stack>
-        {note && <Alert color="yellow">{note}</Alert>}
-        <Paper withBorder shadow="md" p="xl" radius="lg">
-          <Stepper active={step} onStepClick={(s) => s === 0 && setStep(0)} size="sm" mb="lg" allowNextStepsSelect={false}>
-            <Stepper.Step label="Server" description={step > 0 ? new URL(server).host : "Choose"} />
-            <Stepper.Step label="Approve" description="Scan with the app" />
-          </Stepper>
-          {step === 0 || !server ? (
-            <ServerStep onDone={() => setStep(1)} />
-          ) : (
-            <Stack>
-              <Group justify="space-between" wrap="nowrap">
-                <Text size="xs" c="dimmed" truncate>
-                  {server}
-                </Text>
-                <Anchor component="button" size="xs" onClick={() => setStep(0)}>
-                  <Group gap={4}>
-                    <Pencil size={12} /> Change
-                  </Group>
-                </Anchor>
-              </Group>
+    <main className={classes.screen}>
+      <div className={classes.column}>
+        <header className={classes.hero}>
+          <BrandMark size={48} />
+          <h1 className={classes.title}>Welcome to Happy</h1>
+          <p className={classes.subtitle}>{linking ? "Scan the code with the Happy app to link this browser to your account." : "Link this browser to your account to see and drive your sessions."}</p>
+        </header>
+        {note && <Callout tone="warning">{note}</Callout>}
+        <section className={classes.card}>
+          {linking ? (
+            <>
+              <div className={classes.server}>
+                <Server size={14} aria-hidden />
+                <span className={classes.serverHost} title={server}>
+                  {new URL(server).host}
+                </span>
+                <UnstyledButton className={classes.change} onClick={() => setEditing(true)}>
+                  Change
+                </UnstyledButton>
+              </div>
               <LinkAttempt key={attempt} server={server} onRetry={() => setAttempt((a) => a + 1)} />
-            </Stack>
+            </>
+          ) : (
+            <ServerStep onDone={() => setEditing(false)} />
           )}
-        </Paper>
-      </Stack>
-    </Center>
+        </section>
+        <p className={classes.foot}>Your account key is stored only in this browser.</p>
+      </div>
+    </main>
   );
 }

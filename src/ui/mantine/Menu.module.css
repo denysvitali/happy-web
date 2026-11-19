@@ -1,4 +1,6 @@
-/* Popover menus, macOS-style: translucent material, accent row highlight. */
+/* Popover menus, macOS-style: raised material, accent row highlight.
+   Destructive items (color="red") highlight in their own colour. Rows grow
+   to a 40px touch target on touch screens. */
 .dropdown {
   min-width: 200px;
   padding: 5px;
@@ -10,25 +12,33 @@
   box-shadow: var(--happy-shadow-lg);
 }
 .item {
-  --menu-item-hover: var(--happy-accent);
-  min-height: 28px;
+  min-height: 30px;
   padding: 4px 10px;
   border-radius: var(--happy-radius-xs);
   font-size: var(--happy-text-subhead);
   color: var(--menu-item-color, var(--happy-label));
 }
 .item:where(:hover, :focus, [data-menu-active]):not(:disabled, [data-disabled]) {
-  background-color: var(--happy-accent);
+  background-color: var(--menu-item-color, var(--happy-accent));
   color: var(--happy-on-accent);
 }
 .item:where(:hover, :focus, [data-menu-active]):not(:disabled, [data-disabled]) .itemSection { color: inherit; }
+.item:where(:disabled, [data-disabled]) { color: var(--happy-label-3); }
 .itemSection { color: var(--happy-label-2); }
-.itemSection[data-position="left"] { margin-inline-end: 8px; }
+.item[style*="--menu-item-color"] .itemSection { color: inherit; }
+.itemSection[data-position="left"] { margin-inline-end: 10px; }
 .label {
   padding: 6px 10px 2px;
   font-size: var(--happy-text-caption);
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--happy-label-3);
+  color: var(--happy-label-2);
 }
-.divider { margin: 5px 10px; border-color: var(--happy-separator); }
+.divider { margin: 4px 10px; border-color: var(--happy-separator); }
+
+@media (pointer: coarse) {
+  .dropdown { min-width: 220px; padding: 6px; border-radius: var(--happy-radius-lg); }
+  .item { min-height: 40px; padding-inline: 12px; font-size: var(--happy-text-body); border-radius: var(--happy-radius-sm); }
+  .itemSection[data-position="left"] { margin-inline-end: 12px; }
+  .divider { margin: 4px 12px; }
+}

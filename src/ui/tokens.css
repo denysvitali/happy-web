@@ -20,6 +20,8 @@ body {
   --happy-accent: var(--happy-blue);
   --happy-accent-hover: light-dark(#0066d6, #409cff);
   --happy-on-accent: #fff;
+  /* Orange as text (on tints or white): the hue itself is too light in light mode. */
+  --happy-orange-ink: light-dark(#b25c00, #ff9f0a);
 
   /* Tints: a hue at low alpha, for tinted buttons, pills and highlights. */
   --happy-accent-tint: color-mix(in srgb, var(--happy-accent) 12%, transparent);
@@ -39,8 +41,9 @@ body {
   --happy-material: light-dark(rgba(255, 255, 255, 0.84), rgba(22, 22, 24, 0.82));
   --happy-material-sidebar: light-dark(rgba(245, 245, 247, 0.8), rgba(28, 28, 30, 0.8));
   --happy-backdrop: saturate(180%) blur(20px);
-  /* Raised translucent material: menus, toasts. */
-  --happy-material-raised: light-dark(rgba(255, 255, 255, 0.82), rgba(44, 44, 46, 0.84));
+  /* Raised material: menus, popovers, toasts. Nearly opaque: they float over
+     busy transcripts on phones, where legibility beats see-through. */
+  --happy-material-raised: light-dark(rgba(255, 255, 255, 0.94), rgba(44, 44, 46, 0.94));
   /* Sheets holding grouped forms: grouped bg there, groups use --happy-surface-raised. */
   --happy-bg-grouped-elevated: light-dark(#f2f2f7, #1c1c1e);
   /* Scrim behind modals. */
@@ -53,8 +56,8 @@ body {
 
   /* Text. */
   --happy-label: light-dark(#1d1d1f, #f5f5f7);
-  --happy-label-2: light-dark(rgba(60, 60, 67, 0.62), rgba(235, 235, 245, 0.62));
-  --happy-label-3: light-dark(rgba(60, 60, 67, 0.36), rgba(235, 235, 245, 0.34));
+  --happy-label-2: light-dark(rgba(60, 60, 67, 0.72), rgba(235, 235, 245, 0.64)); /* ≥ 4.5:1 on every surface */
+  --happy-label-3: light-dark(rgba(60, 60, 67, 0.46), rgba(235, 235, 245, 0.42)); /* placeholders, meta */
   --happy-label-4: light-dark(rgba(60, 60, 67, 0.18), rgba(235, 235, 245, 0.18));
 
   /* Fills for controls (search fields, gray buttons, code). */
@@ -79,12 +82,12 @@ body {
   /* Depth: soft, layered; dark mode leans on hairlines instead. */
   --happy-shadow-sm: light-dark(0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4));
   --happy-shadow-md: light-dark(
-    0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06),
-    0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4)
+    0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.07), 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4)
   );
   --happy-shadow-lg: light-dark(
-    0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.12), 0 32px 64px rgba(0, 0, 0, 0.12),
-    0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.5), 0 32px 64px rgba(0, 0, 0, 0.5)
+    0 0 0 1px rgba(0, 0, 0, 0.07), 0 4px 12px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.09), 0 4px 12px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.5)
   );
   --happy-focus-ring: 0 0 0 3px color-mix(in srgb, var(--happy-accent) 40%, transparent);
 
@@ -172,6 +175,7 @@ body {
   --mantine-color-red-light-hover: color-mix(in srgb, var(--happy-red) 18%, transparent);
   --mantine-color-red-light-color: var(--happy-red);
   --mantine-color-red-text: var(--happy-red);
+  --mantine-color-red-6: var(--happy-red); /* Menu.Item color="red" */
   --mantine-color-green-filled: var(--happy-green);
   --mantine-color-green-light: var(--happy-green-tint);
   --mantine-color-green-light-color: var(--happy-green);
@@ -181,7 +185,7 @@ body {
   --mantine-color-gray-light-hover: var(--happy-fill);
   --mantine-color-gray-light-color: var(--happy-label);
   --mantine-color-yellow-light: var(--happy-orange-tint);
-  --mantine-color-yellow-light-color: var(--happy-orange);
+  --mantine-color-yellow-light-color: var(--happy-orange-ink);
   --mantine-color-violet-light: var(--happy-purple-tint);
   --mantine-color-violet-light-color: var(--happy-purple);
 }

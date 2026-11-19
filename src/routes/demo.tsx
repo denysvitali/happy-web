@@ -1,10 +1,10 @@
 // /components-demo: the design system's building blocks with sample data, no
 // account needed. Every src/ui piece appears here with its states.
-import { ActionIcon, Badge, Box, Button, Code, Group, Loader, SegmentedControl, Select, Stack, Switch, Text, TextInput, Title, Tooltip, useMantineColorScheme } from "@mantine/core";
+import { ActionIcon, Autocomplete, Badge, Box, Button, Checkbox, Code, Group, Kbd, Loader, Menu, Popover, SegmentedControl, Select, Stack, Switch, TagsInput, Text, Textarea, TextInput, Tooltip, useMantineColorScheme } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { Link } from "@tanstack/react-router";
-import { Activity, Archive, Bell, CircleAlert, Folder, History, Laptop, Plus, Search, Server, ShieldQuestion, Sparkles, SquarePen, Terminal } from "lucide-react";
+import { Activity, Archive, Bell, ChevronDown, CircleAlert, Copy, Folder, GitBranch, History, Laptop, Pencil, Plus, Sparkles, SquarePen, Trash2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { BlockList } from "@/components/chat/blocks";
 import { Composer } from "@/components/chat/composer";
@@ -28,24 +28,25 @@ import { SectionHeader } from "@/ui/SectionHeader";
 import { openSheet, SheetBody, SheetFooter } from "@/ui/Sheet";
 import { StatCard } from "@/ui/StatCard";
 import { PresenceDot, StatusPill } from "@/ui/Status";
+import classes from "./demo.module.css";
 
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
-    <Stack gap="sm">
-      <div>
-        <Title order={3} size="h5" fw={600}>
-          {title}
-        </Title>
-        {note && (
-          <Text size="xs" c="dimmed">
-            {note}
-          </Text>
-        )}
-      </div>
+    <section className={classes.section}>
+      <header>
+        <h2 className={classes.sectionTitle}>{title}</h2>
+        {note && <p className={classes.sectionNote}>{note}</p>}
+      </header>
       {children}
-    </Stack>
+    </section>
   );
 }
+
+const HUES = ["accent", "green", "orange", "red", "yellow", "purple", "indigo", "teal", "gray"];
+const SURFACES = ["bg", "bg-grouped", "sidebar", "surface", "surface-raised", "fill", "fill-2", "fill-3"];
+const LABELS = ["label", "label-2", "label-3", "label-4"];
+const TYPE = ["large", "title1", "title2", "title3", "headline", "body", "subhead", "footnote", "caption"];
+const RADII = ["xs", "sm", "md", "lg", "xl"];
 
 const DEMO_MACHINES: MachineItem[] = [
   { id: "m-k8s", active: true, activeAt: Date.now(), metadataVersion: 1, meta: { host: "happy-daemon", displayName: "root@happy-daemon (k8s)", homeDir: "/root", spawnBackends: ["local", "kubernetes"] } },
@@ -84,11 +85,9 @@ export function DemoScreen() {
         <>
           <SheetBody>
             <FormSection footer="Only visible to you.">
-              <FormGroup>
-                <FormRow label="Title" layout="stacked">
-                  <TextInput defaultValue="Fix flaky login test" aria-label="Title" data-autofocus />
-                </FormRow>
-              </FormGroup>
+              <FormRow label="Title" layout="stacked">
+                <TextInput defaultValue="Fix flaky login test" aria-label="Title" data-autofocus />
+              </FormRow>
             </FormSection>
           </SheetBody>
           <SheetFooter>
@@ -109,7 +108,7 @@ export function DemoScreen() {
     });
 
   return (
-    <Box style={{ height: "100dvh", overflow: "auto" }}>
+    <Box data-testid="demo" style={{ height: "100dvh", overflow: "auto" }}>
       <NavBar
         title="Components demo"
         subtitle="Happy design system"
@@ -131,21 +130,50 @@ export function DemoScreen() {
           </>
         }
       />
-      <Stack maw={860} mx="auto" p="lg" gap="xl">
-        <Title order={1} size="h3" fw={700}>
-          Components demo
-        </Title>
-        <Section title="Colour" note="Tokens in src/ui/tokens.css; every component reads from them.">
-          <Group gap="sm">
-            {["accent", "green", "orange", "red", "purple", "indigo", "teal", "gray"].map((c) => (
-              <Group key={c} gap={6}>
-                <span style={{ width: 22, height: 22, borderRadius: 6, background: `var(--happy-${c})`, boxShadow: "inset 0 0 0 0.5px var(--happy-separator)" }} />
-                <Text size="xs" c="dimmed">
-                  {c}
-                </Text>
-              </Group>
+      <Stack maw={860} mx="auto" p="md" gap={32}>
+        <header>
+          <h1 className={classes.pageTitle}>Components demo</h1>
+          <p className={classes.sectionNote}>Every src/ui building block and Mantine skin with sample data. New primitives must appear here.</p>
+        </header>
+        <Section title="Tokens" note="src/ui/tokens.css. Every colour, radius, type size and duration comes from here; switch the scheme above to check both.">
+          <div className={classes.swatches}>
+            {HUES.map((c) => (
+              <div key={c} className={classes.swatch}>
+                <span className={classes.chip} data-token={c} />
+                {c}
+              </div>
             ))}
-          </Group>
+          </div>
+          <div className={classes.swatches}>
+            {SURFACES.map((c) => (
+              <div key={c} className={classes.swatch}>
+                <span className={classes.chip} data-token={c} />
+                {c}
+              </div>
+            ))}
+          </div>
+          <div className={classes.labels}>
+            {LABELS.map((c) => (
+              <span key={c} data-token={c}>
+                {c}
+              </span>
+            ))}
+          </div>
+          <div className={classes.typeScale}>
+            {TYPE.map((t) => (
+              <div key={t} data-type={t}>
+                <span>{t}</span> Flaky login test
+              </div>
+            ))}
+          </div>
+          <div className={classes.swatches}>
+            {RADII.map((r) => (
+              <div key={r} className={classes.swatch}>
+                <span className={classes.radius} data-radius={r} />
+                radius-{r}
+              </div>
+            ))}
+          </div>
         </Section>
 
         <Section title="Buttons">
@@ -160,11 +188,26 @@ export function DemoScreen() {
             <Button loading>Loading</Button>
             <Button disabled>Disabled</Button>
           </Group>
+          <Group gap="xs" align="center">
+            <Button size="xs">xs 28</Button>
+            <Button size="sm">sm 32</Button>
+            <Button size="md">md 40</Button>
+            <Button size="lg">lg 48</Button>
+            <Button size="xs" variant="light" color="yellow">
+              Warning tint
+            </Button>
+            <Button size="xs" variant="light" color="red">
+              Danger tint
+            </Button>
+          </Group>
           <Group gap="xs">
             <IconButton label="Compose" icon={<SquarePen size={18} />} tone="accent" />
             <IconButton label="More" icon={<Plus size={18} />} variant="gray" />
             <IconButton label="Add" icon={<Plus size={18} />} variant="tinted" />
             <IconButton label="Send" icon={<Plus size={18} />} variant="filled" />
+            <IconButton label="Delete" icon={<Trash2 size={18} />} tone="danger" />
+            <IconButton label="Small" icon={<Plus size={14} />} variant="gray" size="sm" />
+            <IconButton label="Large" icon={<Plus size={20} />} variant="tinted" size="lg" />
             <ActionIcon variant="light" aria-label="Add">
               <Plus size={16} />
             </ActionIcon>
@@ -197,6 +240,69 @@ export function DemoScreen() {
           </Group>
         </Section>
 
+        <Section title="Inputs" note="Filled wells; labels above, hints and errors below. Dropdowns are opaque.">
+          <div className={classes.fields}>
+            <TextInput label="Title" placeholder="Session title" description="Only visible to you." />
+            <TextInput label="Repository" defaultValue="acme/" error="Use owner/repo or a full Git URL" leftSection={<GitBranch size={16} />} />
+            <Select label="Machine" data={DEMO_MACHINES.map((m) => ({ value: m.id, label: m.meta.displayName ?? m.meta.host ?? m.id }))} defaultValue="m-laptop" allowDeselect={false} />
+            <Autocomplete label="Model" placeholder="Account default" data={["opus", "sonnet", "haiku"]} />
+            <TextInput label="Disabled" defaultValue="read only" disabled />
+            <TagsInput label="Tags" defaultValue={["acme/api", "acme/infra"]} placeholder="owner/repo" />
+          </div>
+          <Textarea label="Message" placeholder="What should the agent do?" autosize minRows={2} />
+          <Group gap="lg">
+            <Checkbox label="Checkbox" defaultChecked />
+            <Checkbox label="Unchecked" />
+            <Switch label="Switch" defaultChecked />
+            <Switch label="Off" />
+          </Group>
+          <Group gap="sm">
+            <SegmentedControl data={["Claude", "Codex", "OpenCode"]} />
+            <Text size="sm" c="dimmed">
+              <Kbd>Ctrl/⌘</Kbd> <Kbd>Enter</Kbd> to send
+            </Text>
+          </Group>
+        </Section>
+
+        <Section title="Menus & popovers" note="Menus highlight in accent; destructive rows in red. Rows grow to 40px on touch screens.">
+          <Group gap="sm">
+            <Menu position="bottom-start">
+              <Menu.Target>
+                <Button variant="default" rightSection={<ChevronDown size={14} />}>
+                  Menu
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Session</Menu.Label>
+                <Menu.Item leftSection={<Pencil size={14} />}>Rename</Menu.Item>
+                <Menu.Item leftSection={<Copy size={14} />} rightSection={<Kbd size="xs">⌘C</Kbd>}>
+                  Copy session ID
+                </Menu.Item>
+                <Menu.Item disabled leftSection={<Archive size={14} />}>
+                  Archive (disabled)
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item color="red" leftSection={<Trash2 size={14} />}>
+                  Delete…
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+            <Popover position="bottom-start">
+              <Popover.Target>
+                <Button variant="default">Popover</Button>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Text size="sm" fw={600}>
+                  Context usage
+                </Text>
+                <Text size="xs" c="dimmed">
+                  86k of 190k tokens
+                </Text>
+              </Popover.Dropdown>
+            </Popover>
+          </Group>
+        </Section>
+
         <Section title="Lists" note="Source-list rows, an inset-grouped list, and the loading skeleton.">
           <Group align="flex-start" gap="md" wrap="wrap">
             <Box style={{ flex: "1 1 300px", minWidth: 0, padding: 8, borderRadius: "var(--happy-radius-lg)", background: "var(--happy-sidebar)" }}>
@@ -213,7 +319,7 @@ export function DemoScreen() {
               </ListSection>
               <ListSkeleton rows={2} />
             </Box>
-            <Box style={{ flex: "1 1 300px", minWidth: 0 }}>
+            <Box className={classes.grouped} style={{ flex: "1 1 300px", minWidth: 0 }}>
               <ListSection variant="inset" header="Machines" footer="Sessions start on machines that are online.">
                 <ListRow title="denys@laptop" subtitle="~/src" leading={<PresenceDot online />} chevron onClick={() => undefined} />
                 <ListRow
@@ -275,19 +381,24 @@ export function DemoScreen() {
         </Section>
 
         <Section title="Forms, sheets & alerts">
-          <FormSection title="Where" footer="The directory must exist on the machine.">
-            <FormGroup>
+          <div className={classes.grouped}>
+            <FormSection title="Where" footer="The directory must exist on the machine.">
               <FormRow label="Machine">
                 <Select data={DEMO_MACHINES.map((m) => ({ value: m.id, label: m.meta.displayName ?? m.meta.host ?? m.id }))} defaultValue="m-laptop" aria-label="Machine" comboboxProps={{ withinPortal: false }} allowDeselect={false} />
               </FormRow>
               <FormRow label="Directory" hint="Absolute path">
                 <TextInput defaultValue="/home/me/src" aria-label="Directory" leftSection={<Folder size={14} />} />
               </FormRow>
-              <FormRow label="Notifications" layout="inline">
+              <FormRow label="Notifications" trailing>
                 <Switch defaultChecked aria-label="Notifications" />
               </FormRow>
+            </FormSection>
+            <FormGroup>
+              <FormRow label="Stacked row" layout="stacked">
+                <TextInput defaultValue="A bare FormGroup, label above" aria-label="Stacked row" />
+              </FormRow>
             </FormGroup>
-          </FormSection>
+          </div>
           <Group>
             <Button leftSection={<Plus size={16} />} onClick={() => openSpawnModal(demoAccount, DEMO_MACHINES, () => undefined)}>
               New session
@@ -301,20 +412,10 @@ export function DemoScreen() {
           </Group>
         </Section>
 
-        <Section title="Link device">
-          <Group align="center" gap="lg">
-            <PaperWhite>
-              <QrCode value="happy:///account?Rm9yIGRlbW8gcHVycG9zZXMgb25seSAtIG5vdCBhIGtleQ" size={180} />
-            </PaperWhite>
-            <Stack gap={4}>
-              <Group gap={6}>
-                <ShieldQuestion size={14} /> <Text size="sm">Demo code — not a real key</Text>
-              </Group>
-              <Group gap={6} c="dimmed">
-                <Server size={14} /> <Terminal size={14} /> <Search size={14} /> <History size={14} />
-              </Group>
-            </Stack>
-          </Group>
+        <Section title="QR code" note="Always on --happy-paper (scanners need real white). Demo code, not a real key.">
+          <div className={classes.qr}>
+            <QrCode value="happy:///account?Rm9yIGRlbW8gcHVycG9zZXMgb25seSAtIG5vdCBhIGtleQ" size={160} />
+          </div>
         </Section>
 
         <Section title="Chat" note="Every block type: messages, tools, sub-agents, thinking, permissions, events.">
@@ -330,9 +431,4 @@ export function DemoScreen() {
       </Stack>
     </Box>
   );
-}
-
-/** Always-white tile behind the QR code (scanners need real white). */
-function PaperWhite({ children }: { children: ReactNode }) {
-  return <Box style={{ padding: 12, borderRadius: "var(--happy-radius-lg)", background: "#fff", boxShadow: "var(--happy-shadow-md)" }}>{children}</Box>;
 }

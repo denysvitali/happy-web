@@ -13,3 +13,4 @@
 .toggle:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
 .chevron { flex-shrink: 0; transition: transform var(--happy-dur) var(--happy-ease); }
 .chevron[data-open] { transform: rotate(90deg); }
+@media (pointer: coarse) { .toggle { min-height: 36px; } }
