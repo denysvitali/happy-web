@@ -38,6 +38,7 @@
 
 .modeIcon {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 36px;
   height: 36px;
@@ -51,8 +52,8 @@
   background: var(--mode-hue);
   box-shadow: 0 2px 6px color-mix(in srgb, var(--mode-hue) 35%, transparent);
 }
-.modeBody { display: flex; flex-direction: column; gap: 3px; }
-.modeTitle { font-size: var(--happy-text-headline); font-weight: 600; line-height: 1.25; color: var(--happy-label); }
+.modeBody { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.modeTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--happy-text-headline); font-weight: 600; line-height: 1.25; color: var(--happy-label); }
 .modeText { font-size: var(--happy-text-footnote); line-height: 1.4; color: var(--happy-label-2); }
 
 /* Radio disc, top-right: hollow ring → filled accent check. */
@@ -61,6 +62,7 @@
   top: 14px;
   right: 14px;
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 22px;
   height: 22px;
@@ -74,9 +76,12 @@
 @media (max-width: $mantine-breakpoint-xs) {
   .modes { gap: 10px; }
   .mode { flex-direction: row; align-items: center; gap: 10px; padding: 12px; }
+  .modeTitle { font-size: var(--happy-text-body); }
   .modeIcon { width: 32px; height: 32px; border-radius: 8px; }
   .modeText { display: none; }
-  .modeCheck { position: static; margin-inline-start: auto; }
+  /* The checked card's border and filled icon carry the state; the disc
+     would leave too little room for "Kubernetes". */
+  .modeCheck { display: none; }
 }
 
 /* ---- fields ---------------------------------------------------------------- */

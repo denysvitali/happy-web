@@ -128,7 +128,26 @@ function claudeOutput(data: Obj): Placed[] {
     case "result":
       if (data.is_error === true) items.push({ kind: "event", text: s(data.result) ?? "Turn failed" });
       break;
+    case "rate_limit_event": {
+      const status = isObj(data.rate_limit_info) ? data.rate_limit_info.status : undefined;
+      if (status === "rejected") items.push({ kind: "event", text: "Rate limit reached: waiting for reset" });
+      else if (status === "allowed_warning") items.push({ kind: "event", text: "Approaching rate limit" });
+      break;
+    }
+    case "error": {
+      const e = isObj(data.error) ? data.error : data;
+      items.push({ kind: "event", text: s(e.message) ?? s(data.message) ?? "Agent error" });
+      break;
+    }
+    // Progress ticks and SDK bookkeeping: the tool row already shows a live
+    // timer (happy_flutter hides these too).
     case "system":
+    case "tool_progress":
+    case "tool_use_summary":
+    case "streamlined_tool_use_summary":
+    case "auth_status":
+    case "prompt_suggestion":
+    case "stream_event":
       break;
     default:
       items.push({ kind: "unknown", type: `output/${String(data.type)}` });

@@ -2,12 +2,9 @@
    colours are limited to syntax/diff highlight pairs via light-dark().
    Rhythm: 4px grid; turns breathe (28px), runs of tool rows sit tight. */
 
-/* ---- screen: one scroller under a translucent bar and composer band ------ */
+/* ---- screen: bar, transcript scroller, composer band ---------------------- */
 
-.screen {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+.scroller {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -22,7 +19,7 @@
 }
 .transcript { flex: 1 0 auto; padding-top: 20px; padding-bottom: 28px; }
 .center { display: flex; justify-content: center; padding: 12px 0; }
-.empty { display: grid; flex: 1; place-items: center; color: var(--happy-label-2); font-size: var(--happy-text-body); }
+.empty { display: grid; flex: 1; place-items: center; padding: 48px 0; color: var(--happy-label-3); font-size: var(--happy-text-subhead); }
 
 /* Virtual rows: space above a block depends on the block before it. */
 .row { min-width: 0; }
@@ -184,8 +181,6 @@
   color: var(--happy-label-3);
 }
 .badge[data-tone="error"] { color: var(--happy-red); font-weight: 500; }
-.badge .add { color: var(--happy-green); }
-.badge .del { color: var(--happy-red); }
 
 .chevron {
   flex-shrink: 0;
@@ -824,8 +819,6 @@
   .row[data-gap="turn"] { padding-top: 22px; }
   .header { gap: 8px; padding: 0 8px 0 4px; }
   .headerTrailing { gap: 2px; }
-  .headerSub { display: none; }
-  .headerTitle { font-size: var(--happy-text-body); font-weight: 600; }
   /* Phones: one line of title; secondary chrome lives in the actions menu. */
   .headerSub { display: none; }
   .headerTitle { font-size: var(--happy-text-body); font-weight: 600; }

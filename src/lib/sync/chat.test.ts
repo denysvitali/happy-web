@@ -146,6 +146,13 @@ describe("normalizeRecord", () => {
     ]);
     expect(normalizeRecord(null).items[0]?.kind).toBe("unknown");
   });
+  it("drops Claude progress ticks instead of anchoring them under the tool", () => {
+    const s = addMessages(emptyChat, [
+      msg(use("b1", "Bash", { command: "sleep 9" })),
+      msg(claude({ type: "tool_progress", tool_use_id: "b1", parent_tool_use_id: "b1", tool_name: "Bash", elapsed_time_seconds: 3 })),
+    ]);
+    expect(buildView(s, {}).blocks).toMatchObject([{ type: "tool", id: "b1", children: [] }]);
+  });
   it("uses displayText for user messages", () => {
     expect(normalizeRecord({ role: "user", content: { type: "text", text: "raw" }, meta: { displayText: "shown" } }).items).toEqual([
       { kind: "text", role: "user", text: "shown" },

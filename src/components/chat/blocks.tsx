@@ -15,7 +15,7 @@ import { CopyIcon, TimeLabel } from "./primitives";
 import { AgentCard } from "./tools/agent";
 import { firstLine } from "./tools/format";
 import { titleOf, viewFor } from "./tools/registry";
-import { ExploreGroup, ToolCard } from "./tools/tool-card";
+import { ExploreGroup, Glyph, ToolCard } from "./tools/tool-card";
 import classes from "./chat.module.css";
 
 export type { PermissionHandler } from "./permission";
@@ -138,9 +138,9 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       const fake = { type: "tool" as const, key: b.key, id: b.id, name: b.tool, input: b.input, children: [] };
       const view = viewFor(b.tool);
       return (
-        <div className={classes.toolWrap}>
+        <div className={classes.tool} data-attention>
           <div className={classes.permHead}>
-            <ShieldQuestion size={14} />
+            <Glyph icon={ShieldQuestion} kind="attention" />
             <span className={classes.toolTitle}>{titleOf(view, fake)}</span>
             <span className={classes.toolSummary}>{view.summary?.(fake)}</span>
           </div>

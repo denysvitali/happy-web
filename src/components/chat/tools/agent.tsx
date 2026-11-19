@@ -8,9 +8,9 @@ import { memo, useEffect, useState, type ReactNode } from "react";
 import { sameBlock, type Block, type ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
 import { Clip } from "../primitives";
-import { PermissionBar, type PermissionHandler } from "../permission";
+import { PermissionBar, PermissionOutcome, type PermissionHandler } from "../permission";
 import { agentInfo, agentStatus, countTools, duration, type AgentStatus } from "./format";
-import { StatusIcon } from "./tool-card";
+import { Glyph, StatusIcon } from "./tool-card";
 import classes from "../chat.module.css";
 
 function Elapsed({ since }: { since: number }) {
@@ -42,19 +42,16 @@ export const AgentCard = memo(
     const running = status === "running";
     const [userOpen, setUserOpen] = useState<boolean | null>(null);
     // Expanded while running, collapsed once finished (unless the user chose).
-    const open = userOpen ?? (running || b.permission?.status === "pending");
+    const pending = b.permission?.status === "pending";
+    const open = userOpen ?? (running || pending);
     const tools = countTools(b.children);
     const ended = b.result?.at;
     const time = b.at && ended && ended >= b.at ? duration(ended - b.at) : undefined;
-    const Icon = info.session ? Layers : Bot;
     return (
       <div className={classes.toolWrap}>
-        <div className={classes.agent} data-status={status} data-open={open || undefined}>
+        <div className={classes.agent} data-status={status} data-open={open || undefined} data-attention={pending || undefined}>
           <UnstyledButton className={classes.agentHead} onClick={() => setUserOpen(!open)} aria-expanded={open}>
-            <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
-            <span className={classes.agentIcon}>
-              <Icon size={14} />
-            </span>
+            <Glyph icon={info.session ? Layers : Bot} kind={pending ? "attention" : status === "failed" ? "error" : "agent"} size={15} />
             <span className={classes.agentMain}>
               <span className={classes.agentTitle}>{info.title}</span>
               <span className={classes.agentMeta}>
@@ -84,6 +81,8 @@ export const AgentCard = memo(
                 )}
               </span>
             </span>
+            <PermissionOutcome perm={b.permission} />
+            <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
           </UnstyledButton>
           {open && (
             <div className={classes.agentBody}>
@@ -119,8 +118,8 @@ export const AgentCard = memo(
               )}
             </div>
           )}
+          <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
         </div>
-        <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
       </div>
     );
   },

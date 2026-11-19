@@ -1,5 +1,5 @@
 import { Button } from "@mantine/core";
-import { Check, ShieldQuestion, X } from "lucide-react";
+import { ShieldQuestion, X } from "lucide-react";
 import { useState } from "react";
 import type { PermissionView } from "@/lib/sync/chat";
 import classes from "./chat.module.css";
@@ -8,20 +8,25 @@ export interface PermissionHandler {
   (id: string, approved: boolean, decision?: "approved_for_session"): Promise<void>;
 }
 
+/** Outcome of an answered request, for the tool header. Approval is the
+ * norm (and implied by the tool having run), so only refusals show. */
+export function PermissionOutcome({ perm }: { perm?: PermissionView | undefined }) {
+  if (!perm || perm.status === "pending" || perm.status === "approved") return null;
+  const label = perm.status.charAt(0).toUpperCase() + perm.status.slice(1);
+  const reason = "reason" in perm && perm.reason ? perm.reason : "";
+  return (
+    <span className={classes.permDone} title={reason || undefined}>
+      <X size={12} />
+      {label}
+    </span>
+  );
+}
+
+/** Allow/deny band for a pending request, embedded at the foot of its card. */
 export function PermissionBar({ id, perm, onPermission }: { id: string; perm?: PermissionView | undefined; onPermission?: PermissionHandler | undefined }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  if (!perm) return null;
-  if (perm.status !== "pending") {
-    const ok = perm.status === "approved";
-    return (
-      <span className={classes.permDone} data-ok={ok || undefined}>
-        {ok ? <Check size={12} /> : <X size={12} />}
-        {ok ? "Approved" : perm.status.charAt(0).toUpperCase() + perm.status.slice(1)}
-        {"reason" in perm && perm.reason ? `: ${perm.reason}` : ""}
-      </span>
-    );
-  }
+  if (perm?.status !== "pending") return null;
   const answer = async (key: string, approved: boolean, decision?: "approved_for_session") => {
     if (!onPermission) return;
     setBusy(key);
@@ -35,7 +40,7 @@ export function PermissionBar({ id, perm, onPermission }: { id: string; perm?: P
     }
   };
   return (
-    <div className={classes.perm} role="group" aria-label="Permission required">
+    <div className={classes.perm} data-embedded role="group" aria-label="Permission required">
       <span className={classes.permTitle}>
         <ShieldQuestion size={16} className={classes.permIcon} />
         Permission required

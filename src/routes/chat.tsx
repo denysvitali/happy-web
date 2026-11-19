@@ -1,8 +1,8 @@
 import { useParams } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ActionIcon, Alert, Box, Button, Center, Loader, Text } from "@mantine/core";
+import { UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { Ellipsis } from "lucide-react";
+import { CircleAlert, Ellipsis, History, LoaderCircle, RotateCcw } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
@@ -21,6 +21,7 @@ import type { ChatStore } from "@/lib/sync/chatStore";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
 import { agentOf } from "@/lib/sync/sessionList";
 import type { SessionItem } from "@/lib/sync/account";
+import { IconButton } from "@/ui/IconButton";
 
 function useChat(session: SessionItem | undefined): ChatStore | null {
   const account = useAccount();
@@ -46,8 +47,17 @@ function useChat(session: SessionItem | undefined): ChatStore | null {
   return store;
 }
 
-// Runs of tool cards sit closer together than conversational turns.
-const blockPadding = (b: Block) => (b.type === "tool" || b.type === "explore" || b.type === "permission" ? "4px 0" : "8px 0");
+const TOOLISH = new Set<Block["type"]>(["tool", "explore", "permission"]);
+
+/** Space above a block, from what precedes it: a speaker change is a new
+ * turn, runs of tool rows sit tight, everything else is one block apart. */
+function gapOf(prev: Block | undefined, b: Block): "tight" | "block" | "turn" | undefined {
+  if (!prev) return undefined;
+  if (prev.type === "day" || b.type === "day") return "block";
+  if ((b.type === "user") !== (prev.type === "user")) return "turn";
+  if (TOOLISH.has(b.type) && TOOLISH.has(prev.type)) return "tight";
+  return "block";
+}
 
 function Messages({ store, session, onPermission }: { store: ChatStore; session: SessionItem; onPermission: PermissionHandler }) {
   const state = useStore(store.state);
@@ -67,49 +77,65 @@ function Messages({ store, session, onPermission }: { store: ChatStore; session:
     if (stick.current && view.blocks.length > 0) v.scrollToIndex(view.blocks.length - 1, { align: "end" });
   }, [view.blocks, v]);
 
+  const failed = view.blocks.some((b) => b.type === "user" && b.pending === "failed");
   return (
     <div
       ref={parentRef}
-      style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+      className={classes.scroller}
       onScroll={(e) => {
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       }}
     >
-      <Box maw={860} mx="auto" px="md" py="sm">
-        {meta.firstSeq > 1 && (
-          <Center py="xs">
-            <Button variant="subtle" size="xs" onClick={() => void store.loadOlder()}>
-              Load earlier messages
-            </Button>
-          </Center>
+      <div className={`${classes.column} ${classes.transcript}`}>
+        {meta.firstSeq > 1 && !meta.loading && (
+          <div className={classes.center}>
+            <UnstyledButton className={classes.pillButton} onClick={() => void store.loadOlder()}>
+              <History size={13} /> Load earlier messages
+            </UnstyledButton>
+          </div>
         )}
         {meta.loading && (
-          <Center py="xl">
-            <Loader size="sm" />
-          </Center>
+          <div className={classes.center}>
+            <LoaderCircle size={18} className={classes.spinner} aria-label="Loading" />
+          </div>
         )}
-        {meta.error && <Alert color="red" my="xs">{meta.error}</Alert>}
+        {meta.error && (
+          <div className={classes.callout} role="alert">
+            <CircleAlert size={15} />
+            <span>{meta.error}</span>
+          </div>
+        )}
+        {!meta.loading && !meta.error && view.blocks.length === 0 && <div className={classes.empty}>No messages yet.</div>}
         <div style={{ height: v.getTotalSize(), position: "relative" }}>
-          {v.getVirtualItems().map((item) => (
-            <div
-              key={item.key}
-              data-index={item.index}
-              ref={v.measureElement}
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", padding: blockPadding(view.blocks[item.index]!), transform: `translateY(${item.start}px)` }}
-            >
-              <BlockView b={view.blocks[item.index]!} onPermission={onPermission} />
-            </div>
-          ))}
+          {v.getVirtualItems().map((item) => {
+            const b = view.blocks[item.index]!;
+            return (
+              <div
+                key={item.key}
+                data-index={item.index}
+                ref={v.measureElement}
+                className={classes.row}
+                data-gap={gapOf(view.blocks[item.index - 1], b)}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${item.start}px)` }}
+              >
+                <BlockView b={b} onPermission={onPermission} />
+              </div>
+            );
+          })}
         </div>
-        {view.blocks.some((b) => b.type === "user" && b.pending === "failed") && (
-          <Center py="xs">
-            <Button variant="light" color="red" size="xs" onClick={() => state.pending.filter((p) => p.failed).forEach((p) => void store.retry(p.localId))}>
-              Retry failed messages
-            </Button>
-          </Center>
+        {failed && (
+          <div className={classes.center}>
+            <UnstyledButton
+              className={classes.pillButton}
+              data-tone="danger"
+              onClick={() => state.pending.filter((p) => p.failed).forEach((p) => void store.retry(p.localId))}
+            >
+              <RotateCcw size={13} /> Retry failed messages
+            </UnstyledButton>
+          </div>
         )}
-      </Box>
+      </div>
     </div>
   );
 }
@@ -127,7 +153,7 @@ function ComposerArea({ session, store, canAbort, run }: { session: SessionItem;
   };
   return (
     <div className={classes.composer}>
-      <Box maw={828} mx="auto">
+      <div className={classes.column}>
         <Composer
           tools={session.archived ? undefined : <SessionToolbar sw={sw} store={store} />}
           canAbort={canAbort}
@@ -135,7 +161,7 @@ function ComposerArea({ session, store, canAbort, run }: { session: SessionItem;
           onSend={(t) => void run(() => send(t))}
           disabled={!store}
         />
-      </Box>
+      </div>
     </div>
   );
 }
@@ -164,7 +190,7 @@ export function ChatScreen() {
         <header className={classes.header}>
           <NavButton />
         </header>
-        <Center style={{ flex: 1 }}>{sessions.isPending ? <Loader size="sm" /> : <Text c="dimmed">Session not found.</Text>}</Center>
+        <div className={classes.empty}>{sessions.isPending ? <LoaderCircle size={18} className={classes.spinner} aria-label="Loading" /> : "Session not found."}</div>
       </>
     );
   }
@@ -181,16 +207,11 @@ export function ChatScreen() {
           <div className={classes.headerTitle}>{sessionTitle(session.meta, session.id)}</div>
           <div className={classes.headerSub}>{displayPath(session.meta)}</div>
         </div>
-        <UsagePill session={session} />
-        <StatusBadge status={status} compact />
-        <SessionMenu
-          session={session}
-          target={
-            <ActionIcon variant="subtle" color="gray" aria-label="Session actions">
-              <Ellipsis size={18} />
-            </ActionIcon>
-          }
-        />
+        <div className={classes.headerTrailing}>
+          <UsagePill session={session} />
+          <StatusBadge status={status} compact />
+          <SessionMenu session={session} target={<IconButton label="Session actions" icon={<Ellipsis size={18} />} />} />
+        </div>
       </header>
       {store ? <Messages store={store} session={session} onPermission={onPermission} /> : <div style={{ flex: 1 }} />}
       <ComposerArea session={session} store={store} canAbort={status === "thinking"} run={run} />

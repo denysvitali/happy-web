@@ -206,3 +206,10 @@
   .row[data-active] { --avatar-ring: var(--happy-surface); }
   .rowActions { right: 22px; }
 }
+
+/* Touch phones: long-press opens the actions menu (and the chat header has
+   it too), so rows stay clean instead of ending in a column of "⋯". */
+@media (width < $mantine-breakpoint-sm) and (hover: none) {
+  .rowActions:not([data-open]) { opacity: 0; pointer-events: none; }
+  .rowLink { padding-right: 16px; -webkit-touch-callout: none; user-select: none; }
+}

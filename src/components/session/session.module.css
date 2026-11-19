@@ -21,21 +21,21 @@
   height: 28px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--happy-radius-pill);
   background: transparent;
-  color: light-dark(#4a4e5a, var(--mantine-color-dark-1));
+  color: var(--happy-label-2);
   font: inherit;
-  font-size: var(--mantine-font-size-xs);
+  font-size: var(--happy-text-footnote);
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 120ms, border-color 120ms;
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), border-color var(--happy-dur-fast) var(--happy-ease-out);
 }
-.chip:hover { background: var(--mantine-color-default-hover); }
-.chip:focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: 1px; }
-.chip[data-open] { background: var(--mantine-color-default-hover); border-color: var(--mantine-color-default-border); }
-.chip[data-danger] { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
-.chip[data-danger]:hover, .chip[data-danger][data-open] { background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.12)); }
+.chip:hover { background: var(--happy-hover); }
+.chip:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.chip[data-open] { background: var(--happy-fill-3); }
+.chip[data-danger] { color: var(--happy-red); }
+.chip[data-danger]:hover, .chip[data-danger][data-open] { background: var(--happy-red-tint); }
 .chip[data-pending] { border-color: transparent; color: var(--happy-accent); background: var(--happy-accent-tint); }
 .chipIcon { flex-shrink: 0; opacity: 0.8; }
 .chipLabel { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
@@ -45,7 +45,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--happy-text-caption);
   color: var(--happy-accent);
   white-space: nowrap;
 }
@@ -55,30 +55,30 @@
 .track {
   position: relative;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--happy-radius-pill);
   overflow: hidden;
-  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  background: var(--happy-fill-2);
 }
 .fill {
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: inherit;
   background: var(--happy-accent);
-  transition: width 400ms ease;
+  transition: width var(--happy-dur-slow) var(--happy-ease);
 }
-[data-level="warn"] .fill { background: var(--mantine-color-orange-5); }
-[data-level="critical"] .fill { background: var(--mantine-color-red-6); }
+[data-level="warn"] .fill { background: var(--happy-orange); }
+[data-level="critical"] .fill { background: var(--happy-red); }
 
-.ringTrack { stroke: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)); }
-.ringFill { stroke: var(--happy-accent); transition: stroke-dashoffset 400ms ease; }
-[data-level="warn"] .ringFill { stroke: var(--mantine-color-orange-5); }
-[data-level="critical"] .ringFill { stroke: var(--mantine-color-red-6); }
+.ringTrack { stroke: var(--happy-fill); }
+.ringFill { stroke: var(--happy-accent); transition: stroke-dashoffset var(--happy-dur-slow) var(--happy-ease); }
+[data-level="warn"] .ringFill { stroke: var(--happy-orange); }
+[data-level="critical"] .ringFill { stroke: var(--happy-red); }
 .ringSvg { transform: rotate(-90deg); flex-shrink: 0; }
 
-.context { cursor: default; font-variant-numeric: tabular-nums; color: var(--mantine-color-dimmed); }
+.context { cursor: default; font-variant-numeric: tabular-nums; color: var(--happy-label-3); }
 .context:hover { background: transparent; }
-.context[data-level="warn"] { color: light-dark(var(--mantine-color-orange-8), var(--mantine-color-orange-4)); }
-.context[data-level="critical"] { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
+.context[data-level="warn"] { color: var(--happy-orange); }
+.context[data-level="critical"] { color: var(--happy-red); }
 
 /* ---- header usage pill ---------------------------------------------------- */
 
@@ -86,7 +86,7 @@
   height: 26px;
   padding: 0 9px;
   gap: 7px;
-  border-color: var(--mantine-color-default-border);
+  border-color: var(--happy-separator-strong);
   font-variant-numeric: tabular-nums;
 }
 .pill .track { width: 36px; height: 5px; }
@@ -94,35 +94,35 @@
   /* On phones the header stays quiet: usage lives in the transcript toolbar. */
   .pill { display: none; }
 }
-.pill[data-level="warn"] { color: light-dark(var(--mantine-color-orange-8), var(--mantine-color-orange-4)); }
-.pill[data-level="critical"] { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
+.pill[data-level="warn"] { color: var(--happy-orange); }
+.pill[data-level="critical"] { color: var(--happy-red); }
 
 .usageCard { display: flex; flex-direction: column; gap: 12px; }
 .usageHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.usageTitle { font-size: var(--mantine-font-size-sm); font-weight: 600; }
+.usageTitle { font-size: var(--happy-text-subhead); font-weight: 600; }
 .usageRow { display: flex; flex-direction: column; gap: 5px; }
-.usageRowTop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: var(--mantine-font-size-xs); }
+.usageRowTop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: var(--happy-text-footnote); }
 .usageRowLabel { font-weight: 500; }
 .usageRowPct { font-variant-numeric: tabular-nums; font-weight: 600; }
-.usageRowReset { font-size: 11px; color: var(--mantine-color-dimmed); }
+.usageRowReset { font-size: var(--happy-text-caption); color: var(--happy-label-3); }
 .usageFacts {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--mantine-color-default-border);
-  font-size: 11px;
-  color: var(--mantine-color-dimmed);
+  border-top: 0.5px solid var(--happy-separator);
+  font-size: var(--happy-text-caption);
+  color: var(--happy-label-3);
 }
 .badge {
-  font-size: 10px;
+  font-size: var(--happy-text-caption);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 2px 6px;
-  border-radius: 4px;
-  color: var(--mantine-color-red-7);
-  background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.15));
+  border-radius: var(--happy-radius-xs);
+  color: var(--happy-red);
+  background: var(--happy-red-tint);
 }
 
 /* ---- pickers --------------------------------------------------------------- */
@@ -130,33 +130,31 @@
 .options { max-height: min(360px, 55dvh); overflow-y: auto; padding: 4px; }
 .option { display: flex; align-items: center; gap: 8px; }
 .optionText { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.optionLabel { font-size: var(--mantine-font-size-sm); }
-.optionHint { font-size: 11px; color: var(--mantine-color-dimmed); }
-.check { flex-shrink: 0; color: var(--mantine-primary-color-filled); }
+.optionLabel { font-size: var(--happy-text-subhead); }
+.optionHint { font-size: var(--happy-text-caption); color: var(--happy-label-3); }
+.check { flex-shrink: 0; color: var(--happy-accent); }
 .checkSlot { width: 14px; flex-shrink: 0; }
 
 .efforts { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 8px 30px; }
 .effort {
   height: 22px;
   padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--happy-radius-pill);
+  border: 0.5px solid var(--happy-separator-strong);
   background: transparent;
-  color: var(--mantine-color-text);
+  color: var(--happy-label);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--happy-text-caption);
   cursor: pointer;
 }
-.effort:hover, .effort[data-combobox-selected] { background: var(--mantine-color-default-hover); }
+.effort:hover, .effort[data-combobox-selected] { background: var(--happy-hover); }
 .effort[data-active] {
-  border-color: var(--mantine-primary-color-filled);
-  color: var(--mantine-primary-color-filled);
+  border-color: var(--happy-accent);
+  color: var(--happy-accent);
   background: var(--happy-accent-tint);
 }
 
-.modeDanger { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
-
-@media (max-width: 47.99em) {
+@media (max-width: $mantine-breakpoint-sm) {
   .chipLabel { max-width: 110px; }
   .contextText { display: none; }
   .pill .track { display: none; }

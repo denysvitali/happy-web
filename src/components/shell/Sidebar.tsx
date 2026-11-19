@@ -103,10 +103,6 @@ export function Sidebar() {
           <PresenceDot online={canSpawn} />
           {onlineMachines.length} of {machines.length} machine{machines.length === 1 ? "" : "s"} online
         </span>
-        <span className={classes.keys}>
-          <kbd>/</kbd> search <kbd>↑</kbd>
-          <kbd>↓</kbd> move
-        </span>
       </div>
     </>
   );

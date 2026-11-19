@@ -1,19 +1,28 @@
 // Collapsible card shared by every tool view, plus the "Explored N files"
 // group of read-only calls.
-import { Loader, UnstyledButton } from "@mantine/core";
-import { ChevronRight, CircleAlert, ScanSearch } from "lucide-react";
+import { UnstyledButton } from "@mantine/core";
+import { ChevronRight, CircleAlert, LoaderCircle, ScanSearch, type LucideIcon } from "lucide-react";
 import { memo, useState } from "react";
 import { sameBlock, type ToolBlock } from "@/lib/sync/chat";
-import { PermissionBar, type PermissionHandler } from "../permission";
+import { PermissionBar, PermissionOutcome, type PermissionHandler } from "../permission";
 import { field, shortPath, toolState, type ToolState } from "./format";
-import { titleOf, viewFor } from "./registry";
+import { titleOf, viewFor, type ToolKind } from "./registry";
 import classes from "../chat.module.css";
 
-
 export function StatusIcon({ state }: { state: ToolState }) {
-  if (state === "running") return <Loader size={12} color="gray" aria-label="Running" />;
+  if (state === "running") return <LoaderCircle size={13} className={classes.spinner} aria-label="Running" />;
   if (state === "error") return <CircleAlert size={14} className={classes.errIcon} aria-label="Failed" />;
   return null;
+}
+
+/** Tinted glyph square; the hue says what kind of work it is, or that it
+ * needs attention / failed. */
+export function Glyph({ icon: Icon, kind, size = 13 }: { icon: LucideIcon; kind: ToolKind | "agent" | "attention" | "error"; size?: number }) {
+  return (
+    <span className={classes.glyph} data-kind={kind} aria-hidden>
+      <Icon size={size} strokeWidth={2} />
+    </span>
+  );
 }
 
 interface CardProps {
@@ -30,16 +39,14 @@ export const ToolCard = memo(
     const [userOpen, setUserOpen] = useState<boolean | null>(null);
     const open = userOpen ?? (pending || (!dense && (view.open?.(b) ?? false)));
     const state = toolState(b);
-    const Icon = view.icon;
     const chip = view.chip?.(b);
     const badge = view.badge?.(b);
     const summary = view.summary?.(b) ?? "";
     return (
       <div className={classes.toolWrap}>
-        <div className={classes.tool} data-state={state} data-dense={dense || undefined} data-open={open || undefined}>
+        <div className={classes.tool} data-state={state} data-dense={dense || undefined} data-open={open || undefined} data-attention={pending || undefined}>
           <UnstyledButton className={classes.toolHead} onClick={() => setUserOpen(!open)} aria-expanded={open}>
-            <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
-            <Icon size={14} className={classes.toolIcon} />
+            <Glyph icon={view.icon} kind={pending ? "attention" : state === "error" ? "error" : view.kind} />
             <span className={classes.toolTitle}>{titleOf(view, b)}</span>
             {chip && <span className={classes.chip}>{chip}</span>}
             <span className={classes.toolSummary}>{summary}</span>
@@ -48,15 +55,17 @@ export const ToolCard = memo(
                 {badge}
               </span>
             )}
+            <PermissionOutcome perm={b.permission} />
             <StatusIcon state={state} />
+            <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
           </UnstyledButton>
           {open && (
             <div className={classes.toolBody}>
               <view.Body b={b} />
             </div>
           )}
+          <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
         </div>
-        <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
       </div>
     );
   },
@@ -94,8 +103,7 @@ export const ExploreGroup = memo(
     return (
       <div className={classes.tool} data-state={running ? "running" : "done"} data-open={open || undefined}>
         <UnstyledButton className={classes.toolHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
-          <ScanSearch size={14} className={classes.toolIcon} />
+          <Glyph icon={ScanSearch} kind="search" />
           <span className={classes.toolTitle}>{running ? "Exploring" : "Explored"}</span>
           <span className={classes.toolSummary}>
             {exploreSummary(tools)}
@@ -107,6 +115,7 @@ export const ExploreGroup = memo(
             </span>
           )}
           <StatusIcon state={running ? "running" : "done"} />
+          <ChevronRight size={14} className={classes.chevron} data-open={open || undefined} />
         </UnstyledButton>
         {open && (
           <div className={classes.exploreList}>
