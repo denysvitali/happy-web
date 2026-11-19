@@ -74,7 +74,11 @@ for (const vp of VIEWPORTS) {
       await page.getByRole("main").getByRole("button", { name: "Session actions" }).click();
       await page.waitForTimeout(250);
       await shot(page, "04d-session-menu");
+      await page.getByRole("menuitem", { name: "Move to folder…" }).click();
+      await page.waitForTimeout(300);
+      await shot(page, "04d2-move-to-folder");
       await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       // Top of the transcript: user bubbles, thinking, tool groups.
       for (let i = 0; i < 3; i++) {
         await page.locator("main [data-index]").first().evaluate((el) => {

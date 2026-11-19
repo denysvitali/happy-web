@@ -18,6 +18,8 @@ import {
   type SessionMetadata,
 } from "./decode";
 import { normalizeRecord } from "./normalize";
+import { FolderSync } from "./folderSync";
+import { FOLDERS_KV_KEY, forgetSession } from "./folders";
 import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { Store } from "./store";
@@ -87,6 +89,9 @@ export class Account {
   readonly unread: Unread;
   private readonly seenKey: string;
   private ciphers = new Map<string, Promise<Cipher>>();
+  /** Data-key machines: the session folders' key is wrapped for each. */
+  private machineCiphers = new Map<string, Cipher>();
+  readonly folders: FolderSync;
   private chats = new Map<string, { store: ChatStore; refs: number }>();
 
   constructor(
@@ -99,6 +104,7 @@ export class Account {
     const seen = localSeenStorage(serverUrl);
     this.seenKey = seen.key;
     this.unread = new Unread(seen);
+    this.folders = new FolderSync(this.api, keys, () => this.machineCiphers);
     this.realtime = new Realtime(serverUrl, token, {
       onUpdate: (b) => void this.onUpdate(b),
       onEphemeral: (e) => this.onEphemeral(e),
@@ -111,6 +117,7 @@ export class Account {
     this.realtime.start();
     document.addEventListener("visibilitychange", this.onVisible);
     window.addEventListener("storage", this.onStorage);
+    void this.folders.load();
   }
 
   stop(): void {
@@ -266,6 +273,10 @@ export class Account {
 
   private async decodeMachine(r: MachineRow): Promise<MachineItem> {
     const cipher = await this.cipherFor(r.id, r.dataEncryptionKey);
+    if (cipher.variant === "dataKey" && !this.machineCiphers.has(r.id)) {
+      this.machineCiphers.set(r.id, cipher);
+      void this.folders.ensureWraps();
+    }
     let meta: MachineMetadata = {};
     try {
       meta = machineMetadata.parse(await cipher.decrypt(r.metadata));
@@ -293,6 +304,7 @@ export class Account {
 
   private onConnect(reconnect: boolean): void {
     if (!reconnect) return;
+    void this.folders.load();
     void this.qc.invalidateQueries({ queryKey: sessionsKey });
     void this.qc.invalidateQueries({ queryKey: machinesKey });
     for (const { store } of this.chats.values()) void store.catchUp();
@@ -347,6 +359,9 @@ export class Account {
       case "new-machine":
       case "machine-deleted":
         void this.qc.invalidateQueries({ queryKey: b.t === "new-session" ? sessionsKey : machinesKey });
+        return;
+      case "kv-batch-update":
+        for (const c of b.changes) if (c.key === FOLDERS_KV_KEY) await this.folders.onKvChange(c.value, c.version);
         return;
       case "update-machine": {
         const md = b.metadata;
@@ -603,6 +618,10 @@ export class Account {
       if (!(e instanceof Error && "status" in e && e.status === 404)) throw e;
     }
     this.qc.setQueryData<SessionItem[]>(sessionsKey, (l) => l?.filter((s) => s.id !== session.id));
+    const filed = this.folders.state.get().doc;
+    if (filed.sessions[session.id] || Object.values(filed.folders).some((f) => f.anchor === session.id)) {
+      void this.folders.update((d) => forgetSession(d, session.id)).catch(() => undefined);
+    }
   }
 
   /** Sets `name` and `summary` (titles prefer the summary) on the full

@@ -1,7 +1,8 @@
 import { z } from "zod/mini";
-import { requestJson, type RequestOptions } from "./http";
+import { HttpError, requestJson, type RequestOptions } from "./http";
 import {
   accountSettingsResponse,
+  kvEntryResponse,
   machinesResponse,
   messagesV3Response,
   sendMessagesV3Response,
@@ -83,6 +84,41 @@ export class ApiClient {
       body: { metadata, expectedVersion },
     });
   }
+
+  /** One account KV entry (value is base64); null when the key does not exist. */
+  async getKv(key: string, signal?: AbortSignal): Promise<{ value: string; version: number } | null> {
+    try {
+      const e = await this.get(kvEntryResponse, `/v1/kv/${encodeURIComponent(key)}`, { signal });
+      return e.value ? { value: e.value, version: e.version } : null;
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  /**
+   * Version-checked write (-1: must not exist). On a lost race returns the
+   * winning entry from the 409 body: a deleted key keeps its version but
+   * answers GET with 404, so callers must retry from this, not a re-read.
+   */
+  async putKv(key: string, value: string, version: number): Promise<KvWrite> {
+    try {
+      const res = kvMutateResponse.parse(
+        await requestJson(this.baseUrl, "/v1/kv", { method: "POST", token: this.token, body: { mutations: [{ key, value, version }] } }),
+      );
+      return { ok: true, version: res.results?.find((r) => r.key === key)?.version ?? version + 1 };
+    } catch (err) {
+      if (!(err instanceof HttpError) || err.status !== 409) throw err;
+      const winner = kvConflictResponse.safeParse(err.body).data?.errors?.find((e) => e.key === key);
+      if (!winner) throw err;
+      return { ok: false, value: winner.value ?? null, version: winner.version };
+    }
+  }
 }
+
+export type KvWrite = { ok: true; version: number } | { ok: false; value: string | null; version: number };
+
+const kvConflictResponse = z.object({ errors: z.optional(z.array(z.object({ key: z.string(), version: z.number(), value: z.nullish(z.string()) }))) });
+const kvMutateResponse = z.object({ results: z.optional(z.array(z.object({ key: z.string(), version: z.number() }))) });
 
 const metadataUpdateResponse = z.object({ result: z.string(), version: z.optional(z.number()) });

@@ -5,7 +5,8 @@ import { expect, type Page } from "@playwright/test";
 import nacl from "tweetnacl";
 import { demoAgentState, demoRecords, opsAgentState, opsRecords, opsTodos } from "../src/components/chat/fixtures";
 import { decodeBase64, encodeBase64 } from "../src/lib/crypto/base64";
-import { decryptLegacyJson, encryptForPublicKey, encryptLegacyJson } from "../src/lib/crypto/primitives";
+import { decryptLegacyJson, encryptDataKeyJson, encryptForPublicKey, encryptLegacyJson, importAesKey } from "../src/lib/crypto/primitives";
+import type { FolderDoc } from "../src/lib/sync/folders";
 
 export const MOCK_SERVER = "https://mock.happy.test";
 
@@ -14,7 +15,20 @@ export type RpcHandler = (params: unknown) => unknown;
 export interface MockOptions {
   /** Extra RPC handlers keyed by full method (`<id>:<name>`) or bare name. */
   rpc?: Record<string, RpcHandler>;
+  /** Session folders to start with (default: a small realistic tree; null: none). */
+  folders?: FolderDoc | null;
 }
+
+/** The folder tree the mocked account starts with. */
+export const MOCK_FOLDERS: FolderDoc = {
+  folders: {
+    fweb: { name: "Web client", parent: null, anchor: null },
+    finfra: { name: "Infra", parent: null, anchor: null },
+    fcloud: { name: "Cloud", parent: "finfra", anchor: null },
+    fhelp: { name: "Reviews", parent: null, anchor: "r1" },
+  },
+  sessions: { s2: "fweb", r1: "fweb", r3: "fweb", r5: "fweb", s3: "fcloud", r2: "fhelp" },
+};
 
 export function createMock() {
   const secret = nacl.randomBytes(32);
@@ -123,11 +137,22 @@ export function createMock() {
     codexFastMode: false,
   };
 
+  // Account KV (session folders live here); values are base64.
+  const kv = new Map<string, { value: string; version: number }>();
+  async function sealFolders(doc: FolderDoc): Promise<string> {
+    const fk = nacl.randomBytes(32);
+    const data = encodeBase64(await encryptDataKeyJson(doc, await importAesKey(fk)));
+    const env = { v: 1, keys: { legacy: encodeBase64(encryptLegacyJson({ k: encodeBase64(fk) }, secret)) }, data };
+    return encodeBase64(new TextEncoder().encode(JSON.stringify(env)));
+  }
+
   const sent: { sessionId: string; localId: string; record: unknown }[] = [];
   const rpcCalls: { method: string; params: unknown }[] = [];
   let socketAuth: unknown = null;
 
   async function install(page: Page, opts: MockOptions = {}) {
+    const seed = opts.folders === undefined ? MOCK_FOLDERS : opts.folders;
+    if (seed) kv.set("session-folders", { value: await sealFolders(seed), version: 1 });
     await page.route(`${MOCK_SERVER}/**`, async (route) => {
       const req = route.request();
       const url = new URL(req.url());
@@ -139,6 +164,22 @@ export function createMock() {
       expect(req.headers().authorization).toBe("Bearer test-token");
       if (url.pathname === "/v2/sessions") return json({ sessions, nextCursor: null, hasNext: false });
       if (url.pathname === "/v1/machines") return json(machines);
+      const kvKey = url.pathname.match(/^\/v1\/kv\/(.+)$/);
+      if (kvKey && req.method() === "GET") {
+        const e = kv.get(decodeURIComponent(kvKey[1]!));
+        return e ? json({ key: kvKey[1], ...e }) : route.fulfill({ status: 404, contentType: "application/json", body: '{"error":"not found"}' });
+      }
+      if (url.pathname === "/v1/kv" && req.method() === "POST") {
+        const { mutations } = req.postDataJSON() as { mutations: { key: string; value: string; version: number }[] };
+        const conflicts = mutations.filter((m) => (kv.get(m.key)?.version ?? -1) !== m.version);
+        if (conflicts.length) return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ success: false, errors: conflicts.map((m) => ({ key: m.key, error: "version-mismatch", ...kv.get(m.key) })) }) });
+        const results = mutations.map((m) => {
+          const version = (kv.get(m.key)?.version ?? 0) + 1;
+          kv.set(m.key, { value: m.value, version });
+          return { key: m.key, version };
+        });
+        return json({ success: true, results });
+      }
       if (url.pathname === "/v1/account/settings" && req.method() === "GET") return json({ settings: enc(accountSettings), settingsVersion: 7 });
       const m = url.pathname.match(/^\/v3\/sessions\/([^/]+)\/messages$/);
       if (m && req.method() === "GET") {
@@ -249,7 +290,7 @@ export function createMock() {
     }),
   };
 
-  return { install, sent, rpcCalls, socketAuth: () => socketAuth, enc, dec, sessions, machines, secret };
+  return { install, sent, rpcCalls, socketAuth: () => socketAuth, enc, dec, sessions, machines, secret, kv };
 }
 
 export function watchCsp(page: Page): string[] {

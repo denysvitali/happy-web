@@ -1,0 +1,12 @@
+{
+  "dataKeyDaemon": "{\"v\":1,\"keys\":{\"account\":\"AD+de0lhdjErL9Cmlyj4IFyQuCFPU7DOQhI7QDA0+2xzoTY0HmXe90vYB1nKqzll4kCGZrMAYF8lrY/fUvFOIhZrqtfZEWjsyx1CLye6aaWr0Ptm7tAdsZxu/+Iagi65qonJrjqzLd47\",\"machines\":{\"m1\":\"AD+/FCHObOwXNORUC6W/ioekGwSa2sccrDN88pjqblPpPf96pGcLwpJZxEa4X/sJX1iy83wggayiql4/xY1Gdm1XRvXRhxd7URoM8A1LOOS6\"}},\"data\":\"AEVfoWxFoZYyTM6Oug8a7NmJwO0c1Cltv4H5/qYxC+N/TEP/wAQm+rts8sdcx+wnG7kKRM8lyfT6/gvkRs71YHK+TXXE1ZKnPxEUDw6NwWuYFd+m/ZZ1csCelwhIClgg2+b4agSN2ARz5PHahx2uBtVWN9mwCcz1ooI2i1CBB+HlxkClcAj1kwzzAJ+/AtvHWgeQpX6cfo7NdjeAhzNXeOqAd+BIOqKvfbCDdaxAl3Q0j6DQuWjbm6Cg2wLPafTHhf5VpACnprNGr/yoQQJKk32U4btS85QwA1GtZte9yMWeavd0qjtpAD6WT7SPqOlpI7unIrD2ZnXa/OW7GK8xAZ401FAAbqTALqZO0Gq/axoSZP2sTFQFWLYbX3X9NGTpFPHYZ0VgwKxd5kPTUx/DUjy97EQiMZGeiDbti/uKltRLxg==\"}",
+  "folders": {
+    "sub": "f0b2b72f43b4764e3",
+    "under": "f0c61c44eaa6390ff",
+    "work": "f6825ed9950fe5948"
+  },
+  "legacyDaemon": "{\"v\":1,\"keys\":{\"legacy\":\"EHuH2AHzvkUp2sJDRsnWszU5epi+HHY2IjQL5PGSYvb+WfNlYO1mJ5/r6+LkfgpdFJSMUi32HhEBigNey07GLBqvCI6UAClYBz60TVPjNpeknTK7hN3XOyffsx0=\"},\"data\":\"AOUBPEV0feSAZKDLDo12ri7zqLsiVEuTPoCLm4UHbE59yQy83dSwdGSVMK8rs9skRrZWemVbBxVFfts2xhRhKDRDU/CddW/IArf7ZS2hKwD9YOqExzoEn48l9lL16+c8xCkWMua2kAKGI8AsyZZ415FPC48Hc14iVxfMjI3hkZxY0qtOJ+LXWWGdmOpAohfAWoCjxjrGmvNVqb86pD95H1NMiKgVggLucPxjD9LTb4HkP3iS9gIewU38jnV89zFtjmY+GtiiUXxM0RQ3WmIrB49JaEvGpL9F4ewa28JFhcYjHbBkzhBd+e9PQdmEdmss6hpNzRf4hKYBDiJ1/6RQY3Zju1HnIdF9x13VLMW2aTJfpz5dJBAbjCpsh9lm0e2r/Ldse4Oie+UwPAF8q9+La4tnm4XVOjVY330qjy2Sny1nbg==\"}",
+  "machineId": "m1",
+  "machineKeyHex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+  "masterSecretHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+}

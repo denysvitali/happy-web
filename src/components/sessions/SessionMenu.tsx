@@ -1,10 +1,14 @@
 import { Menu } from "@mantine/core";
-import { Archive, ArchiveRestore, Copy, Ellipsis, FolderOpen, Pencil, Square, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Ellipsis, FolderInput, FolderOpen, Pencil, Square, Trash2 } from "lucide-react";
 import type { ReactElement } from "react";
+import { useAccount } from "@/app/auth";
+import { useStore } from "@/app/hooks";
 import type { SessionItem } from "@/lib/sync/account";
+import { sessionTitle } from "@/lib/sync/decode";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { useSessionActions } from "./actions";
+import { useFolderActions } from "./folderActions";
 
 interface Props {
   session: SessionItem;
@@ -15,9 +19,11 @@ interface Props {
   target?: ReactElement;
 }
 
-/** Per-session actions: rename, stop, archive/unarchive, copy, delete. */
+/** Per-session actions: rename, move to folder, stop, archive/unarchive, copy, delete. */
 export function SessionMenu({ session: s, opened, onChange, target }: Props) {
   const a = useSessionActions();
+  const folders = useFolderActions();
+  const folderStatus = useStore(useAccount().folders.state).status;
   const live = isLive(s);
   return (
     <Menu position="bottom-end" width={200} opened={opened} onChange={onChange} shadow="md">
@@ -30,6 +36,11 @@ export function SessionMenu({ session: s, opened, onChange, target }: Props) {
         <Menu.Item leftSection={<Pencil size={14} />} onClick={() => a.rename(s)} disabled={s.undecryptable}>
           Rename
         </Menu.Item>
+        {(folderStatus === "ready" || folderStatus === "error") && (
+          <Menu.Item leftSection={<FolderInput size={14} />} onClick={() => folders.move(s.id, s.meta.parentSessionId || null, sessionTitle(s.meta, s.id))}>
+            Move to folder…
+          </Menu.Item>
+        )}
         {live && (
           <Menu.Item leftSection={<Square size={14} />} onClick={() => a.stop(s)}>
             Stop

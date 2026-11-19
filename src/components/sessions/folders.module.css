@@ -1,0 +1,50 @@
+/* ---- Folder rows (layered on the session row classes) ---- */
+.folderButton {
+  width: 100%;
+  gap: 6px;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chevron {
+  flex-shrink: 0;
+  color: var(--happy-label-3);
+  transition: transform var(--happy-dur-fast) var(--happy-ease-out);
+}
+.chevron[data-open] { transform: rotate(90deg); }
+.folderIcon { flex-shrink: 0; color: var(--happy-accent); }
+.folderName { font-weight: 600; }
+.folderCount { min-width: 16px; text-align: right; }
+.folderActions { top: 50%; transform: translateY(-50%); }
+
+/* ---- Folder picker ---- */
+.pickerList {
+  display: flex;
+  flex-direction: column;
+  max-height: min(50vh, 360px);
+  overflow-y: auto;
+  margin: 0 calc(var(--mantine-spacing-xs) * -1);
+}
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px 0 calc(10px + var(--depth, 0) * 18px);
+  border-radius: var(--happy-radius-md);
+  font-size: var(--happy-text-subhead);
+  color: var(--happy-label);
+}
+.pickerItem:hover { background: var(--happy-hover); }
+.pickerItem:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.pickerItem[data-selected] { color: var(--happy-accent); font-weight: 600; }
+.pickerIcon { display: inline-flex; color: var(--happy-label-2); }
+.pickerItem[data-selected] .pickerIcon { color: var(--happy-accent); }
+.pickerLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickerCheck { flex-shrink: 0; }
+
+@media (width < $mantine-breakpoint-sm) {
+  .folderButton { gap: 10px; }
+  .pickerItem { min-height: 44px; font-size: var(--happy-text-body); }
+}

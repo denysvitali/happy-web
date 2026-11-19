@@ -1,9 +1,12 @@
 import { Button, Menu, Tooltip } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, CircleAlert, Command, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { Check, CircleAlert, Command, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAccount } from "@/app/auth";
+import { useStore } from "@/app/hooks";
 import { useCompact } from "@/components/shell/nav";
 import { ProjectSwatch } from "@/components/status";
+import { folderRows, hasFolders } from "@/lib/sync/folderList";
 import { agentLabel, facets, flattenSections, groupViews, projectSections, statusSections, type Grouping, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
@@ -11,6 +14,8 @@ import { IconButton } from "@/ui/IconButton";
 import { ListSkeleton } from "@/ui/List";
 import { SearchField } from "@/ui/SearchField";
 import { SectionHeader } from "@/ui/SectionHeader";
+import { useFolderActions } from "./folderActions";
+import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow } from "./FolderRow";
 import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow } from "./SessionRow";
 import classes from "./sessions.module.css";
 
@@ -33,7 +38,29 @@ function isTyping(t: EventTarget | null): boolean {
 }
 
 function rowKey(r: ListRow): string {
-  return r.type === "header" ? `h:${r.key}` : r.view.id;
+  switch (r.type) {
+    case "header":
+      return `h:${r.key}`;
+    case "folders":
+      return "h:folders";
+    case "folder":
+      return `f:${r.id}`;
+    case "session":
+      return r.view.id;
+  }
+}
+
+const isItem = (r: ListRow | undefined) => r?.type === "session" || r?.type === "folder";
+
+// Collapsed folders survive reloads (per browser; the tree itself is synced).
+const COLLAPSED_KEY = "happy.folders.collapsed";
+function loadCollapsed(): Set<string> {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
 }
 
 interface Props {
@@ -61,12 +88,29 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const options = useMemo(() => facets(views), [views]);
   // Only badge avatars whose agent differs from the usual one.
   const usualAgent = options.agents.length > 1 ? options.agents[0] : undefined;
-  const grouped = useMemo(() => groupViews(views, { query, agent, runtime }), [views, query, agent, runtime]);
-  // Searching reaches into the archive; otherwise archived rows only render once expanded.
-  const rows = useMemo(
-    () => flattenSections(grouping === "project" ? projectSections(grouped) : statusSections(grouped), { archivedOpen: archivedOpen || searching }),
-    [grouped, grouping, archivedOpen, searching],
-  );
+  const folders = useStore(useAccount().folders.state);
+  const folderActions = useFolderActions();
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const toggleFolder = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      } catch {
+        // Private mode: the state just doesn't persist.
+      }
+      return next;
+    });
+  }, []);
+  const canEditFolders = folders.status === "ready" || folders.status === "error";
+  // Searching is flat (and reaches into the archive); folders shape the list otherwise.
+  const foldered = !searching && views.length > 0 && hasFolders(folders.doc);
+  const rows = useMemo(() => {
+    if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping });
+    const grouped = groupViews(views, { query, agent, runtime });
+    return flattenSections(grouping === "project" ? projectSections(grouped) : statusSections(grouped), { archivedOpen: archivedOpen || searching });
+  }, [foldered, views, folders.doc, query, agent, runtime, collapsed, archivedOpen, searching, grouping]);
   const setGrouping = (g: Grouping) => {
     setGroupingState(g);
     try {
@@ -87,11 +131,14 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   }, [rows]);
 
   const compact = useCompact();
-  const [rowH, headerH] = compact ? [ROW_HEIGHT_COMPACT, HEADER_HEIGHT_COMPACT] : [ROW_HEIGHT, HEADER_HEIGHT];
+  const [rowH, headerH, folderH] = compact ? [ROW_HEIGHT_COMPACT, HEADER_HEIGHT_COMPACT, FOLDER_HEIGHT_COMPACT] : [ROW_HEIGHT, HEADER_HEIGHT, FOLDER_HEIGHT];
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => (rows[i]?.type === "header" ? headerH : rowH),
+    estimateSize: (i) => {
+      const t = rows[i]?.type;
+      return t === "header" || t === "folders" ? headerH : t === "folder" ? folderH : rowH;
+    },
     getItemKey: (i) => (rows[i] ? rowKey(rows[i]) : i),
     overscan: 10,
   });
@@ -178,6 +225,11 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             onKeyDown={onSearchKey}
           />
         </div>
+        {canEditFolders && (
+          <Tooltip label="New folder" openDelay={400}>
+            <IconButton className={classes.filterButton} label="New folder" icon={<FolderPlus size={15} strokeWidth={2} />} onClick={() => void folderActions.create(null)} />
+          </Tooltip>
+        )}
         <Tooltip label={`Command palette (${PALETTE_KEY})`} openDelay={400}>
           <IconButton className={classes.filterButton} label="Command palette" icon={<Command size={15} strokeWidth={2} />} onClick={onPalette} />
         </Tooltip>
@@ -281,6 +333,12 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
               >
                 {r.type === "header" ? (
                   <GroupHeader row={r} searching={searching} onToggle={() => setArchivedOpen((o) => !o)} />
+                ) : r.type === "folders" ? (
+                  <div className={classes.groupHeader}>
+                    <SectionHeader label="Folders" count={r.count} level={3} />
+                  </div>
+                ) : r.type === "folder" ? (
+                  <FolderRow row={r} readOnly={!canEditFolders} onToggle={toggleFolder} first={!isItem(rows[vi.index - 1])} last={!isItem(rows[vi.index + 1])} />
                 ) : (
                   <SessionRow
                     view={r.view}
@@ -289,8 +347,8 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                     badgeAgent={usualAgent !== undefined && r.view.agent !== usualAgent}
                     active={r.view.id === activeId}
                     cursor={r.view.id === cursorVisible}
-                    first={rows[vi.index - 1]?.type !== "session"}
-                    last={rows[vi.index + 1]?.type !== "session"}
+                    first={!isItem(rows[vi.index - 1])}
+                    last={!isItem(rows[vi.index + 1])}
                   />
                 )}
               </div>

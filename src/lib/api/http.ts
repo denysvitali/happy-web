@@ -6,6 +6,8 @@ export class HttpError extends Error {
     readonly status: number,
     readonly path: string,
     readonly detail: string,
+    /** Parsed JSON error body, when there was one. */
+    readonly body: unknown = undefined,
   ) {
     super(`HTTP ${status} on ${path}${detail ? `: ${detail}` : ""}`);
     this.name = "HttpError";
@@ -39,13 +41,15 @@ export async function requestJson(baseUrl: string, path: string, opts: RequestOp
   });
   if (!res.ok) {
     let detail = "";
+    let body: unknown;
     try {
       const j = (await res.json()) as { error?: unknown; message?: unknown };
+      body = j;
       detail = typeof j.error === "string" ? j.error : typeof j.message === "string" ? j.message : "";
     } catch {
       /* non-JSON error body */
     }
-    throw new HttpError(res.status, url.pathname, detail.slice(0, 200));
+    throw new HttpError(res.status, url.pathname, detail.slice(0, 200), body);
   }
   if (res.status === 204) return null;
   return res.json();

@@ -43,6 +43,7 @@ import {
   type SpawnBackend,
 } from "@/lib/sync/spawn";
 import { defaultPermissionMode } from "@/lib/sync/models";
+import { assignSession, folderOptions } from "@/lib/sync/folders";
 import { KubernetesFields } from "./KubernetesFields";
 import { LocalFields } from "./LocalFields";
 import { ModePicker } from "./ModePicker";
@@ -68,6 +69,7 @@ const MODE_LABELS: Record<string, string> = {
   "safe-yolo": "Auto-approve, sandboxed",
   yolo: "Full access (yolo)",
 };
+const NO_FOLDER = "";
 const MODEL_SUGGESTIONS: Record<string, string[]> = { claude: ["opus", "sonnet", "haiku"] };
 
 export interface NewSessionOptions {
@@ -77,6 +79,8 @@ export interface NewSessionOptions {
   sessions?: SessionItem[] | undefined;
   /** Preselect this machine (and the mode it supports). */
   machineId?: string | undefined;
+  /** Preselect this account-level folder. */
+  folderId?: string | undefined;
 }
 
 function initialMode(modes: SpawnBackend[], hint: MachineItem | undefined, remembered: SpawnBackend | undefined): SpawnBackend {
@@ -144,6 +148,11 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState("");
+  const [folderChoices] = useState(() => {
+    const doc = account.folders.state.get().doc;
+    return folderOptions(doc, null).map((o) => ({ value: o.id, label: o.path }));
+  });
+  const [folderId, setFolderId] = useState(() => (opts.folderId && folderChoices.some((c) => c.value === opts.folderId) ? opts.folderId : NO_FOLDER));
 
   useEffect(() => {
     if (!busy) return;
@@ -222,6 +231,11 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
       });
       savePrefs({ mode, machineId: isK8s ? undefined : machine.id, clusterMachineId: isK8s ? machine.id : undefined, agent, permissionMode: permission, profile: usesProfiles ? profileId : undefined, repoKey: isK8s ? repo!.key : undefined, branch: isK8s ? branch.branch.trim() : undefined });
       notifications.show({ color: "green", message: "Session started" });
+      if (folderId !== NO_FOLDER) {
+        account.folders.update((d) => assignSession(d, id, folderId, null)).catch((err: unknown) =>
+          notifications.show({ color: "red", title: "Couldn't file the session", message: err instanceof Error ? err.message : String(err) }),
+        );
+      }
       onSpawned(id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Spawn failed";
@@ -325,6 +339,21 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
             </div>
           </FormRow>
         </FormSection>
+        {folderChoices.length > 0 && (
+          <FormSection>
+            <FormRow label="Folder" labelFor={`${uid}-folder`}>
+              <Select
+                id={`${uid}-folder`}
+                data={[{ value: NO_FOLDER, label: "No folder" }, ...folderChoices]}
+                value={folderId}
+                onChange={(v) => setFolderId(v ?? NO_FOLDER)}
+                allowDeselect={false}
+                searchable={folderChoices.length > 8}
+                comboboxProps={within}
+              />
+            </FormRow>
+          </FormSection>
+        )}
         <FormSection
           title={<label htmlFor={`${uid}-prompt`}>First message</label>}
           footer={

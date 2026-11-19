@@ -58,6 +58,11 @@ Server wins over Flutter; record every discrepancy in README.md.
   "Group by" in the filter menu). Avatars are identicons (`SessionAvatar`): tint from the
   project, glyph from the session id; changing `hashString` or reordering `SESSION_GLYPHS`
   re-skins every session.
+- Session folders: one E2E-encrypted KV doc shared with Flutter and agents
+  (happy-cli-go `docs/operations/session-folders.md`). `src/lib/sync/folders.ts`
+  holds the pure model, `folderSync.ts` the optimistic, version-checked sync,
+  `folderList.ts` the foldered list (search stays flat). Never write a doc you
+  can't read. `pnpm vectors` also regenerates the Go folder envelopes.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each

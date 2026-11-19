@@ -1,0 +1,60 @@
+//go:build happyweb_vectors
+
+// Copied into happy-cli-go/internal/sessionfolders by gen-crypto-vectors.sh
+// so the session-folder envelopes come from the real Go implementation.
+// Never committed there.
+package sessionfolders
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"testing"
+)
+
+func TestHappyWebFolderVectors(t *testing.T) {
+	out := os.Getenv("HAPPY_WEB_FOLDER_VECTORS_OUT")
+	if out == "" {
+		t.Skip("HAPPY_WEB_FOLDER_VECTORS_OUT not set")
+	}
+	secret := make([]byte, 32)
+	machineKey := make([]byte, 32)
+	for i := range secret {
+		secret[i] = byte(i + 1)
+		machineKey[i] = byte(0xA0 + i)
+	}
+	// The content public key derived from secret (go-vectors.json).
+	pub, _ := hex.DecodeString("38171c982d63ce12be72dbdc92fd19aa000098e6c863793aee4523074e2ad840")
+	doc := NewDoc()
+	work, err := doc.Create("Wörk ✓", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, _ := doc.Create("Client", work, "")
+	under, _ := doc.Create("Helpers", "", "s1")
+	_ = doc.Assign("s1", sub, "")
+	_ = doc.Assign("c1", under, "s1")
+	dataKey, err := seal(doc, nil, Keys{MachineID: "m1", MachineKey: machineKey, PublicKey: pub})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := seal(doc, nil, Keys{LegacySecret: secret})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := map[string]any{
+		"masterSecretHex": hex.EncodeToString(secret),
+		"machineId":       "m1",
+		"machineKeyHex":   hex.EncodeToString(machineKey),
+		"folders":         map[string]string{"work": work, "sub": sub, "under": under},
+		"dataKeyDaemon":   string(dataKey),
+		"legacyDaemon":    string(legacy),
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(out, append(b, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

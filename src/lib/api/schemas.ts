@@ -95,6 +95,9 @@ export const successResponse = z.object({ success: z.boolean() });
  * legacy-secretbox ciphertext, null when none was ever saved. */
 export const accountSettingsResponse = z.object({ settings: z.nullish(z.string()), settingsVersion: z.catch(int, 0) });
 
+/** GET /v1/kv/:key; `value` is standard base64. */
+export const kvEntryResponse = z.object({ key: z.string(), value: z.nullish(z.string()), version: int });
+
 // ---- socket.io ------------------------------------------------------------
 
 const versioned = z.object({ value: z.nullish(z.string()), version: int });
@@ -118,6 +121,10 @@ export const updateBody = z.discriminatedUnion("t", [
     daemonState: z.nullish(versioned),
   }),
   z.looseObject({ t: z.literal("machine-deleted"), machineId: z.string() }),
+  z.looseObject({
+    t: z.literal("kv-batch-update"),
+    changes: z.array(z.looseObject({ key: z.string(), value: z.nullish(z.string()), version: int })),
+  }),
 ]);
 export type UpdateBody = z.infer<typeof updateBody>;
 

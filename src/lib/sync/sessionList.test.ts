@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { MachineItem, SessionItem } from "./account";
 import { sessionStatus, type SessionMetadata } from "./decode";
+import { folderRows, hasFolders } from "./folderList";
+import type { FolderDoc } from "./folders";
 import {
   agentOf,
   deriveViews,
@@ -162,7 +164,7 @@ describe("groupViews", () => {
       mk("old", { path: "/a" }, { archived: true }),
     ]);
     const rows = flattenSections(projectSections(groupViews(v)), { archivedOpen: true });
-    expect(rows.map((r) => (r.type === "header" ? `#${r.label}` : r.view.id))).toEqual(["#Needs attention", "ask", "#a", "a2", "a1", "#b", "b1", "#Archived", "old"]);
+    expect(rows.map((r) => (r.type === "header" ? `#${r.label}` : r.type === "session" ? r.view.id : r.type))).toEqual(["#Needs attention", "ask", "#a", "a2", "a1", "#b", "b1", "#Archived", "old"]);
     expect(rows.find((r) => r.type === "session" && r.view.id === "a1")).toMatchObject({ inProject: true });
     expect(rows.find((r) => r.type === "session" && r.view.id === "ask")).toMatchObject({ inProject: false });
   });
@@ -205,5 +207,79 @@ describe("last activity", () => {
   it("falls back to updatedAt until the message time is known", () => {
     const [v] = views([mk("a", {}, { updatedAt: NOW - 5 * MIN })]);
     expect(v!.ago).toBe("5m");
+  });
+});
+
+describe("folder list", () => {
+  const rows = (items: SessionItem[], doc: FolderDoc, collapsed: string[] = []) =>
+    folderRows(views(items), doc, {}, { collapsed: new Set(collapsed), archivedOpen: false }).map((r) =>
+      r.type === "session" ? `${"  ".repeat(r.depth)}${r.view.id}` : r.type === "folder" ? `${"  ".repeat(r.depth)}[${r.name} ${r.count}${r.attention ? "!" : ""}]` : r.type === "folders" ? "#folders" : `#${r.key}`,
+    );
+  const pending: Partial<SessionItem> = { agentState: { requests: { r1: { tool: "Bash", arguments: {} } } } };
+
+  it("puts folders first, children under parents and urgency on the tree", () => {
+    const doc: FolderDoc = {
+      folders: {
+        fw: { name: "Work", parent: null, anchor: null },
+        fc: { name: "client", parent: "fw", anchor: null },
+        fh: { name: "Helpers", parent: null, anchor: "s1" },
+      },
+      sessions: { s1: "fc", c2: "fh" },
+    };
+    const items = [
+      mk("s1", { machineId: "m1" }, { active: false }),
+      mk("c1", { machineId: "m1", parentSessionId: "s1" }, pending),
+      mk("c2", { machineId: "m1", parentSessionId: "s1" }, { active: false }),
+      mk("r1", { machineId: "m1" }, { active: false }),
+      mk("r2", { machineId: "m1", parentSessionId: "r1" }, pending),
+      mk("r3", { machineId: "m1" }, { active: false, archived: true }),
+    ];
+    expect(hasFolders(doc)).toBe(true);
+    expect(rows(items, doc)).toEqual([
+      "#folders",
+      "[Work 3!]",
+      "  [client 3!]",
+      "    s1",
+      "      [Helpers 1]",
+      "        c2",
+      "      c1",
+      "#attention",
+      "r1",
+      "  r2",
+      "#archived",
+    ]);
+    expect(rows(items, doc, ["fw"]).slice(0, 3)).toEqual(["#folders", "[Work 3!]", "#attention"]);
+  });
+
+  it("degrades: a child filed outside its parent shows under the parent", () => {
+    const doc: FolderDoc = { folders: { fw: { name: "Work", parent: null, anchor: null } }, sessions: { c1: "fw" } };
+    expect(rows([mk("s1", { machineId: "m1" }, { active: false }), mk("c1", { machineId: "m1", parentSessionId: "s1" }, { active: false })], doc)).toEqual([
+      "#folders",
+      "[Work 0]",
+      "#recent",
+      "s1",
+      "  c1",
+    ]);
+  });
+});
+
+describe("folder list grouped by project", () => {
+  it("keeps folders on top and puts unfiled live trees into project sections", () => {
+    const doc: FolderDoc = { folders: { fw: { name: "Work", parent: null, anchor: null } }, sessions: { a1: "fw" } };
+    const v = views([mk("a1", { path: "/a" }), mk("a2", { path: "/a" }, { active: false }), mk("b1", { path: "/b" }, { updatedAt: NOW }), mk("old", { path: "/b" }, { archived: true })]);
+    const rows = folderRows(v, doc, {}, { collapsed: new Set(), archivedOpen: true, grouping: "project" });
+    expect(rows.map((r) => (r.type === "header" ? `#${r.label}` : r.type === "session" ? r.view.id : r.type === "folder" ? `[${r.name}]` : "#folders"))).toEqual([
+      "#folders",
+      "[Work]",
+      "a1",
+      "#b",
+      "b1",
+      "#a",
+      "a2",
+      "#Archived",
+      "old",
+    ]);
+    expect(rows.find((r) => r.type === "session" && r.view.id === "b1")).toMatchObject({ inProject: true });
+    expect(rows.find((r) => r.type === "session" && r.view.id === "a1")).toMatchObject({ inProject: false });
   });
 });
