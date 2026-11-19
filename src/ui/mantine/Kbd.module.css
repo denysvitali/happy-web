@@ -1,0 +1,17 @@
+/* Keycaps: quiet fill, hairline, no chunky bottom edge. */
+.root {
+  --kbd-fz-xs: 10px;
+  --kbd-fz-sm: 11px;
+  --kbd-fz-md: var(--happy-text-footnote);
+  display: inline-block;
+  min-width: 1.7em;
+  padding: 0.1em 0.45em;
+  border: 0;
+  border-radius: 5px;
+  font-family: var(--happy-font);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--happy-label-2);
+  background: var(--happy-fill-3);
+  box-shadow: inset 0 0 0 0.5px var(--happy-separator-strong), 0 0.5px 0 var(--happy-separator-strong);
+}

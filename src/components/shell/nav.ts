@@ -1,5 +1,9 @@
-import { createContext } from "react";
+import { useMediaQuery } from "@mantine/hooks";
 
-/** Opens the off-canvas sidebar (mobile). Screens that replace the mobile
- * app bar with their own header render a `NavButton` with it. */
-export const OpenNavContext = createContext<() => void>(() => undefined);
+/** Phones: push navigation ("/" is the session list, a session fills the screen).
+ * Matches `$mantine-breakpoint-sm` (48em) used by the CSS modules. */
+export const COMPACT_QUERY = "(max-width: 47.99em)";
+
+export function useCompact(): boolean {
+  return useMediaQuery(COMPACT_QUERY, false, { getInitialValueInEffect: false });
+}

@@ -1,17 +1,14 @@
+// Session-domain status marks (agent avatar, runtime/attention badges, dots).
+// Generic pills/presence live in @/ui/Status; these wrap them where they overlap.
 import { Bot, Braces, Feather, Hexagon, Orbit, SquareTerminal, Telescope, Workflow, Zap, type LucideIcon } from "lucide-react";
 import type { SessionStatus } from "@/lib/sync/decode";
 import { STATUS_LABEL, agentLabel, type PodState, type Runtime } from "@/lib/sync/sessionList";
-import classes from "./sessions/sessions.module.css";
+import { PresenceDot, StatusPill } from "@/ui/Status";
+import classes from "./status.module.css";
 
-/** Quiet sentence-case status pill: a dot plus the label (`compact`: dot
- * only on phones). */
+/** Status pill (`compact`: dot only on phones). */
 export function StatusBadge({ status, compact }: { status: SessionStatus; compact?: boolean }) {
-  return (
-    <span className={classes.statusPill} data-status={status} data-compact={compact || undefined} title={STATUS_LABEL[status]}>
-      <span className={classes.statusPillDot} aria-hidden />
-      <span className={classes.statusPillLabel}>{STATUS_LABEL[status]}</span>
-    </span>
-  );
+  return <StatusPill status={status} compact={compact ? "phone" : false} />;
 }
 
 type DotState = SessionStatus | "online" | "offline" | "connecting";
@@ -21,7 +18,7 @@ export function StatusDot({ status, className, label }: { status: DotState; clas
 }
 
 export function OnlineDot({ online }: { online: boolean }) {
-  return <StatusDot status={online ? "online" : "offline"} />;
+  return <PresenceDot online={online} />;
 }
 
 const POD_LABEL: Record<PodState, string> = { scheduling: "starting", ready: "", paused: "paused", failed: "failed" };
@@ -52,7 +49,7 @@ export function AttentionBadge({ count }: { count: number }) {
 }
 
 // Generic glyphs (not vendor logos) so agents are told apart at a glance;
-// each also has its own tint in sessions.module.css.
+// each also has its own tint in status.module.css.
 const AGENT_ICON: Record<string, LucideIcon> = {
   claude: Feather,
   codex: Braces,
@@ -65,7 +62,8 @@ const AGENT_ICON: Record<string, LucideIcon> = {
   "prime-agent": Hexagon,
 };
 
-/** Agent mark (glyph on a tinted tile) with an optional status dot. */
+/** Agent mark (glyph on a tinted tile) with an optional status dot. The dot's
+ * ring takes `--avatar-ring` (set it to the background behind the avatar). */
 export function AgentAvatar({ agent, status, size = 30 }: { agent: string; status?: SessionStatus | undefined; size?: number }) {
   const label = agentLabel(agent);
   const Icon = AGENT_ICON[agent] ?? Bot;

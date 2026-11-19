@@ -37,14 +37,14 @@ export function ModePicker({ modes, value, onChange }: { modes: SpawnBackend[]; 
             onKeyDown={onKeyDown}
           >
             <span className={classes.modeIcon}>
-              <Icon size={22} strokeWidth={1.75} />
+              <Icon size={20} strokeWidth={1.75} />
             </span>
-            <span>
+            <span className={classes.modeBody}>
               <span className={classes.modeTitle}>{title}</span>
               <span className={classes.modeText}>{text}</span>
             </span>
             <span className={classes.modeCheck} aria-hidden>
-              {checked && <Check size={12} strokeWidth={3} />}
+              <Check size={12} strokeWidth={3.25} />
             </span>
           </UnstyledButton>
         );

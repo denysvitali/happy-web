@@ -1,0 +1,12 @@
+/* Popovers: raised translucent material, soft deep shadow, no border. */
+.dropdown {
+  padding: 12px;
+  border: 0;
+  border-radius: var(--happy-radius-lg);
+  color: var(--happy-label);
+  background: var(--happy-material-raised);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  backdrop-filter: var(--happy-backdrop);
+  box-shadow: var(--happy-shadow-lg);
+}
+.arrow { border: 0; background: var(--happy-surface-raised); }

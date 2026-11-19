@@ -1,18 +1,19 @@
-import { Anchor, Autocomplete, Checkbox, Input, Loader, Select, Stack, TagsInput, Text, type OptionsFilter } from "@mantine/core";
-import { FolderGit2, GitBranch, Server } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { Anchor, Autocomplete, Loader, Select, Switch, TagsInput, type OptionsFilter } from "@mantine/core";
+import { Activity, FolderGit2, GitBranch, ScrollText, Server, Workflow } from "lucide-react";
+import { useId, useMemo, type ReactNode } from "react";
 import type { MachineItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
 import { MAX_ADDITIONAL_REPOS, MCP_SERVERS, repoLabel, type RepoRef } from "@/lib/sync/spawn";
+import { FormRow, FormSection } from "@/ui/FormSection";
 import classes from "./new-session.module.css";
 import type { BranchLookup } from "./useRepoBranches";
 
 const within = { withinPortal: false } as const;
 
-const MCP_LABELS: Record<(typeof MCP_SERVERS)[number], string> = {
-  "github-actions": "GitHub Actions",
-  loki: "Loki logs",
-  prometheus: "Prometheus metrics",
+const MCP: Record<(typeof MCP_SERVERS)[number], { label: string; icon: typeof Workflow; tone: string }> = {
+  "github-actions": { label: "GitHub Actions", icon: Workflow, tone: "gray" },
+  loki: { label: "Loki logs", icon: ScrollText, tone: "orange" },
+  prometheus: { label: "Prometheus metrics", icon: Activity, tone: "red" },
 };
 
 export interface BranchState {
@@ -41,6 +42,7 @@ export function KubernetesFields(p: {
   mcp: string[];
   onMcp: (v: string[]) => void;
 }) {
+  const uid = useId();
   const reply = p.lookup.reply;
   const branches = useMemo(() => (reply?.ok ? reply.branches : []), [reply]);
   // Untouched (remembered/default) value: show every branch, not just matches.
@@ -86,88 +88,115 @@ export function KubernetesFields(p: {
     }
   }
 
+  const ids = { cluster: `${uid}-cluster`, repo: `${uid}-repo`, branch: `${uid}-branch` };
+  const toggleMcp = (server: string, on: boolean) => p.onMcp(MCP_SERVERS.filter((s) => (s === server ? on : p.mcp.includes(s))));
+
   return (
-    <Stack gap="md">
-      {p.clusters.length > 1 && (
-        <Select
-          label="Cluster"
-          leftSection={<Server size={16} />}
-          data={p.clusters.map((m) => ({ value: m.id, label: machineName(m.meta, m.id) }))}
-          value={p.machine.id}
-          onChange={(v) => v && p.onCluster(v)}
-          allowDeselect={false}
-          comboboxProps={within}
-        />
-      )}
-      <Autocomplete
-        label="Repository"
-        placeholder="owner/repo or https://github.com/owner/repo"
-        leftSection={<FolderGit2 size={16} />}
-        data={p.repoOptions}
-        limit={8}
-        value={p.repoInput}
-        onChange={p.onRepo}
-        description={repoInvalid ? undefined : repoHint}
-        error={repoInvalid ? "Use owner/repo or a full Git URL" : undefined}
-        required
-        data-autofocus
-        openOnFocus={false}
-        autoComplete="off"
-        spellCheck={false}
-        comboboxProps={within}
-      />
-      <Autocomplete
-        label="Branch"
-        placeholder={reply?.ok ? reply.defaultBranch || "main" : "main"}
-        leftSection={<GitBranch size={16} />}
-        rightSection={p.lookup.loading ? <Loader size={14} /> : undefined}
-        data={branches}
-        filter={filter}
-        limit={50}
-        maxDropdownHeight={260}
-        value={p.branch.value}
-        onChange={p.onBranch}
-        description={branchError ? undefined : branchHint}
-        error={branchError}
-        required
-        autoComplete="off"
-        spellCheck={false}
-        comboboxProps={within}
-      />
-      <TagsInput
-        label="Additional repositories"
-        description={
+    <>
+      <FormSection title="Workspace">
+        {p.clusters.length > 1 && (
+          <FormRow label="Cluster" labelFor={ids.cluster}>
+            <Select
+              id={ids.cluster}
+              leftSection={<Server size={16} />}
+              data={p.clusters.map((m) => ({ value: m.id, label: machineName(m.meta, m.id) }))}
+              value={p.machine.id}
+              onChange={(v) => v && p.onCluster(v)}
+              allowDeselect={false}
+              comboboxProps={within}
+            />
+          </FormRow>
+        )}
+        <FormRow label="Repository" labelFor={ids.repo}>
+          <Autocomplete
+            id={ids.repo}
+            placeholder="owner/repo or Git URL"
+            leftSection={<FolderGit2 size={16} />}
+            data={p.repoOptions}
+            limit={8}
+            value={p.repoInput}
+            onChange={p.onRepo}
+            description={repoInvalid ? undefined : repoHint}
+            error={repoInvalid ? "Use owner/repo or a full Git URL" : undefined}
+            required
+            data-autofocus
+            openOnFocus={false}
+            autoComplete="off"
+            spellCheck={false}
+            comboboxProps={within}
+          />
+        </FormRow>
+        <FormRow label="Branch" labelFor={ids.branch}>
+          <Autocomplete
+            id={ids.branch}
+            placeholder={reply?.ok ? reply.defaultBranch || "main" : "main"}
+            leftSection={<GitBranch size={16} />}
+            rightSection={p.lookup.loading ? <Loader size={14} /> : undefined}
+            data={branches}
+            filter={filter}
+            limit={50}
+            maxDropdownHeight={260}
+            value={p.branch.value}
+            onChange={p.onBranch}
+            description={branchError ? undefined : branchHint}
+            error={branchError}
+            required
+            autoComplete="off"
+            spellCheck={false}
+            comboboxProps={within}
+          />
+        </FormRow>
+      </FormSection>
+      <FormSection
+        title="Additional repositories"
+        footer={
           p.extraRejected.length
             ? undefined
             : p.repo
               ? `Cloned next to ${repoLabel(p.repo)}, with push access. Up to ${MAX_ADDITIONAL_REPOS}.`
               : `Cloned next to the main repository. Up to ${MAX_ADDITIONAL_REPOS}.`
         }
-        error={p.extraRejected.length ? `Not a repository: ${p.extraRejected.join(", ")}` : undefined}
-        placeholder={p.extraRepos.length ? undefined : "owner/other-repo"}
-        data={p.repo ? p.repoOptions.filter((r) => r !== repoLabel(p.repo!)) : p.repoOptions}
-        value={p.extraRepos}
-        onChange={p.onExtraRepos}
-        maxTags={MAX_ADDITIONAL_REPOS}
-        splitChars={[",", " "]}
-        acceptValueOnBlur
-        clearable
-        comboboxProps={within}
-      />
-      <Input.Wrapper label="Tools (MCP servers)" description="Unselected servers are not started in the Pod.">
-        <Checkbox.Group value={p.mcp} onChange={p.onMcp} mt={8}>
-          <div className={classes.mcp}>
-            {MCP_SERVERS.map((s) => (
-              <Checkbox key={s} value={s} label={MCP_LABELS[s]} size="sm" />
-            ))}
-          </div>
-        </Checkbox.Group>
-      </Input.Wrapper>
-      {p.mcp.length === 0 && (
-        <Text size="xs" c="dimmed" mt={-8}>
-          The session starts without any default MCP server.
-        </Text>
-      )}
-    </Stack>
+      >
+        <FormRow layout="bare">
+          <TagsInput
+            aria-label="Additional repositories"
+            variant="unstyled"
+            classNames={{ input: classes.bareInput, error: classes.bareError }}
+            error={p.extraRejected.length ? `Not a repository: ${p.extraRejected.join(", ")}` : undefined}
+            placeholder={p.extraRepos.length ? undefined : "owner/other-repo"}
+            data={p.repo ? p.repoOptions.filter((r) => r !== repoLabel(p.repo!)) : p.repoOptions}
+            value={p.extraRepos}
+            onChange={p.onExtraRepos}
+            maxTags={MAX_ADDITIONAL_REPOS}
+            splitChars={[",", " "]}
+            acceptValueOnBlur
+            clearable
+            comboboxProps={within}
+          />
+        </FormRow>
+      </FormSection>
+      <FormSection title="Tools" footer={p.mcp.length ? "MCP servers started in the Pod. Switched-off servers are not started." : "The session starts without any default MCP server."}>
+        {MCP_SERVERS.map((s) => {
+          const { label, icon: Icon, tone } = MCP[s];
+          return (
+            <FormRow
+              key={s}
+              trailing
+              labelFor={`${uid}-mcp-${s}`}
+              label={
+                <>
+                  <span className={classes.toolIcon} data-tone={tone} aria-hidden>
+                    <Icon size={15} strokeWidth={2} />
+                  </span>
+                  {label}
+                </>
+              }
+            >
+              <Switch id={`${uid}-mcp-${s}`} checked={p.mcp.includes(s)} onChange={(e) => toggleMcp(s, e.currentTarget.checked)} />
+            </FormRow>
+          );
+        })}
+      </FormSection>
+    </>
   );
 }

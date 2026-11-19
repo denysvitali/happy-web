@@ -1,0 +1,36 @@
+.root {
+  --ib-size: 32px;
+  --ib-color: var(--happy-label-2);
+  --ib-bg: transparent;
+  --ib-bg-hover: var(--happy-hover);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--ib-size);
+  height: var(--ib-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--happy-radius-pill);
+  color: var(--ib-color);
+  background: var(--ib-bg);
+  cursor: pointer;
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), color var(--happy-dur-fast), transform var(--happy-dur-fast) var(--happy-ease-out), opacity var(--happy-dur-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.root:hover:not(:disabled) { background: var(--ib-bg-hover); }
+.root:active:not(:disabled) { transform: scale(0.92); }
+.root:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.root:disabled { opacity: 0.35; cursor: default; }
+
+.root[data-size="sm"] { --ib-size: 26px; }
+.root[data-size="lg"] { --ib-size: 36px; }
+
+.root[data-tone="accent"] { --ib-color: var(--happy-accent); }
+.root[data-tone="danger"] { --ib-color: var(--happy-red); }
+
+.root[data-variant="tinted"] { --ib-bg: var(--happy-accent-tint); --ib-bg-hover: var(--happy-accent-tint-hover); --ib-color: var(--happy-accent); }
+.root[data-variant="tinted"][data-tone="danger"] { --ib-bg: var(--happy-red-tint); --ib-bg-hover: color-mix(in srgb, var(--happy-red) 18%, transparent); --ib-color: var(--happy-red); }
+.root[data-variant="gray"] { --ib-bg: var(--happy-fill-2); --ib-bg-hover: var(--happy-fill); --ib-color: var(--happy-label); }
+.root[data-variant="filled"] { --ib-bg: var(--happy-accent); --ib-bg-hover: var(--happy-accent-hover); --ib-color: var(--happy-on-accent); }
+.root[data-variant="filled"][data-tone="danger"] { --ib-bg: var(--happy-red); --ib-bg-hover: color-mix(in srgb, var(--happy-red) 88%, black); }
+.root[data-variant="filled"]:disabled { --ib-bg: var(--happy-fill); --ib-color: var(--happy-label-3); opacity: 1; }

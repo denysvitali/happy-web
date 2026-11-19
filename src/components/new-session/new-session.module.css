@@ -1,4 +1,7 @@
-/* ---- mode selector ------------------------------------------------------- */
+/* New-session sheet. Sits on src/ui/Sheet + FormSection; groups use --form-group-bg. */
+.form { --form-label-width: 124px; }
+
+/* ---- mode picker: two selectable cards ---------------------------------- */
 
 .modes {
   display: grid;
@@ -7,94 +10,79 @@
 }
 
 .mode {
+  --mode-hue: var(--happy-accent);
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border-radius: var(--mantine-radius-lg);
-  border: 1px solid var(--mantine-color-default-border);
-  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
-  text-align: left;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  border-radius: var(--happy-radius-lg);
+  background: var(--form-group-bg, var(--happy-surface));
+  box-shadow: inset 0 0 0 1px var(--happy-separator);
+  text-align: start;
   transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    background-color 120ms ease;
+    box-shadow var(--happy-dur-fast) var(--happy-ease-out),
+    background-color var(--happy-dur-fast) var(--happy-ease-out),
+    transform var(--happy-dur-fast) var(--happy-ease-out);
+  -webkit-tap-highlight-color: transparent;
 }
-
-.mode:hover {
-  border-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
-}
-
-.mode:focus-visible {
-  outline: 2px solid var(--mantine-primary-color-filled);
-  outline-offset: 2px;
-}
-
+.mode[data-mode="kubernetes"] { --mode-hue: var(--happy-indigo); }
+.mode:hover:not([data-checked]) { box-shadow: inset 0 0 0 1px var(--happy-separator-strong); }
+.mode:active { transform: scale(0.985); }
+.mode:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--happy-separator-strong), var(--happy-focus-ring); }
 .mode[data-checked] {
-  border-color: var(--mantine-primary-color-filled);
-  background: var(--mantine-color-brand-light);
-  box-shadow: 0 0 0 1px var(--mantine-primary-color-filled);
+  background: color-mix(in srgb, var(--happy-accent) 5%, var(--form-group-bg, var(--happy-surface)));
+  box-shadow: inset 0 0 0 2px var(--happy-accent);
 }
+.mode[data-checked]:focus-visible { box-shadow: inset 0 0 0 2px var(--happy-accent), var(--happy-focus-ring); }
 
 .modeIcon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--mantine-radius-md);
-  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-0));
-  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  color: var(--mode-hue);
+  background: color-mix(in srgb, var(--mode-hue) 14%, transparent);
+  transition: background-color var(--happy-dur) var(--happy-ease), color var(--happy-dur) var(--happy-ease);
 }
-
 .mode[data-checked] .modeIcon {
-  color: var(--mantine-color-white);
-  background: var(--mantine-primary-color-filled);
+  color: var(--happy-on-accent);
+  background: var(--mode-hue);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--mode-hue) 35%, transparent);
 }
+.modeBody { display: flex; flex-direction: column; gap: 3px; }
+.modeTitle { font-size: var(--happy-text-headline); font-weight: 600; line-height: 1.25; color: var(--happy-label); }
+.modeText { font-size: var(--happy-text-footnote); line-height: 1.4; color: var(--happy-label-2); }
 
-.modeTitle {
-  display: block;
-  font-weight: 600;
-  font-size: var(--mantine-font-size-md);
-  line-height: 1.2;
-}
-
-.modeText {
-  display: block;
-  margin-top: 4px;
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-dimmed);
-  line-height: 1.4;
-}
-
+/* Radio disc, top-right: hollow ring → filled accent check. */
 .modeCheck {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 1.5px solid var(--mantine-color-default-border);
-  color: var(--mantine-color-white);
+  color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--happy-label-4);
+  transition: background-color var(--happy-dur-fast), box-shadow var(--happy-dur-fast), color var(--happy-dur-fast);
+}
+.mode[data-checked] .modeCheck { color: var(--happy-on-accent); background: var(--happy-accent); box-shadow: none; }
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .modes { gap: 10px; }
+  .mode { flex-direction: row; align-items: center; gap: 10px; padding: 12px; }
+  .modeIcon { width: 32px; height: 32px; border-radius: 8px; }
+  .modeText { display: none; }
+  .modeCheck { position: static; margin-inline-start: auto; }
 }
 
-.mode[data-checked] .modeCheck {
-  border-color: var(--mantine-primary-color-filled);
-  background: var(--mantine-primary-color-filled);
-}
+/* ---- fields ---------------------------------------------------------------- */
 
-@media (max-width: 30em) {
-  .mode {
-    padding: 12px;
-  }
-  .modeText {
-    display: none;
-  }
-}
-
-/* ---- recent folder chips --------------------------------------------------- */
+.mono { font-family: var(--happy-font-mono); }
+.monoInput { font-family: var(--happy-font-mono); font-size: var(--happy-text-subhead); }
 
 .chips {
   display: flex;
@@ -102,90 +90,51 @@
   gap: 6px;
   margin-top: 8px;
 }
-
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   max-width: 100%;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--mantine-color-default-border);
-  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
-  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
-  font-size: var(--mantine-font-size-xs);
-  font-family: var(--mantine-font-family-monospace);
-  transition: background-color 120ms ease, border-color 120ms ease;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-fill-3);
+  color: var(--happy-label-2);
+  font-family: var(--happy-font-mono);
+  font-size: var(--happy-text-caption);
+  transition: background-color var(--happy-dur-fast), color var(--happy-dur-fast);
 }
+.chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip:hover { background: var(--happy-fill-2); color: var(--happy-label); }
+.chip:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.chip[data-active] { background: var(--happy-accent-tint); color: var(--happy-accent); }
 
-.chip > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Field that is the whole row (no well): tags, first message. */
+.bareInput { min-height: 48px; padding: 9px 16px; }
+.bareError { padding: 0 16px 10px; margin-top: 0; }
+.message { padding: 12px 16px; font-size: var(--happy-text-body); line-height: 1.45; }
+
+.segmentRow { padding: 8px; }
+
+/* iOS Settings-style glyph tiles in tool rows. */
+.toolIcon {
+  --tone: var(--happy-gray);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: var(--happy-on-accent);
+  background: var(--tone);
 }
+.toolIcon[data-tone="orange"] { --tone: var(--happy-orange); }
+.toolIcon[data-tone="red"] { --tone: var(--happy-red); }
 
-.chip:hover {
-  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
-}
+/* ---- advanced, summary ------------------------------------------------------- */
 
-.chip[data-active] {
-  border-color: var(--mantine-primary-color-filled);
-  color: var(--mantine-primary-color-filled);
-}
+.advanced { padding-top: 8px; }
+.advancedSummary { font-weight: 400; color: var(--happy-label-3); }
 
-/* ---- sections, summary ------------------------------------------------------- */
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--mantine-font-size-sm);
-  color: var(--mantine-color-dimmed);
-  border-radius: var(--mantine-radius-sm);
-}
-
-.toggle:hover {
-  color: var(--mantine-color-text);
-}
-
-.chevron {
-  transition: transform 150ms ease;
-}
-
-.toggle[data-expanded] .chevron {
-  transform: rotate(90deg);
-}
-
-.mcp {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-}
-
-.summary {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: var(--mantine-radius-md);
-  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7));
-  border: 1px dashed var(--mantine-color-default-border);
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-dimmed);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.summary strong {
-  color: var(--mantine-color-text);
-  font-weight: 600;
-}
-
-.summary > svg {
-  flex: none;
-  margin-top: 2px;
-}
-
-.mono {
-  font-family: var(--mantine-font-family-monospace);
-}
+.summary { line-height: 1.45; overflow-wrap: anywhere; }
+.summary strong { font-weight: 600; color: var(--happy-label); }

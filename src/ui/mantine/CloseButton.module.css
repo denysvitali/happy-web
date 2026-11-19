@@ -1,0 +1,9 @@
+/* Close/clear buttons: round, gray glyph, soft hover. */
+.root {
+  border-radius: var(--happy-radius-pill);
+  color: var(--happy-label-3);
+  background: transparent;
+  transition: background-color var(--happy-dur-fast), color var(--happy-dur-fast);
+}
+.root:hover:not(:disabled) { color: var(--happy-label-2); background: var(--happy-hover); }
+.root:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }

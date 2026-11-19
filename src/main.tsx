@@ -1,5 +1,6 @@
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
+import "@mantine/core/styles.layer.css";
+import "@mantine/notifications/styles.layer.css";
+import "./ui/tokens.css";
 import "./app.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

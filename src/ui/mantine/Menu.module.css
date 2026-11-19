@@ -1,0 +1,34 @@
+/* Popover menus, macOS-style: translucent material, accent row highlight. */
+.dropdown {
+  min-width: 200px;
+  padding: 5px;
+  border: 0;
+  border-radius: var(--happy-radius-md);
+  background: var(--happy-material-raised);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  backdrop-filter: var(--happy-backdrop);
+  box-shadow: var(--happy-shadow-lg);
+}
+.item {
+  --menu-item-hover: var(--happy-accent);
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: var(--happy-radius-xs);
+  font-size: var(--happy-text-subhead);
+  color: var(--menu-item-color, var(--happy-label));
+}
+.item:where(:hover, :focus, [data-menu-active]):not(:disabled, [data-disabled]) {
+  background-color: var(--happy-accent);
+  color: var(--happy-on-accent);
+}
+.item:where(:hover, :focus, [data-menu-active]):not(:disabled, [data-disabled]) .itemSection { color: inherit; }
+.itemSection { color: var(--happy-label-2); }
+.itemSection[data-position="left"] { margin-inline-end: 8px; }
+.label {
+  padding: 6px 10px 2px;
+  font-size: var(--happy-text-caption);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--happy-label-3);
+}
+.divider { margin: 5px 10px; border-color: var(--happy-separator); }

@@ -1,0 +1,19 @@
+.root {
+  --callout-color: var(--happy-accent);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--happy-radius-md);
+  background: var(--happy-accent-tint);
+}
+.root[data-tone="success"] { --callout-color: var(--happy-green); background: var(--happy-green-tint); }
+.root[data-tone="warning"] { --callout-color: var(--happy-orange); background: var(--happy-orange-tint); }
+.root[data-tone="danger"] { --callout-color: var(--happy-red); background: var(--happy-red-tint); }
+
+.glyph { flex-shrink: 0; margin-top: 0; color: var(--callout-color); }
+.text { flex: 1; min-width: 0; padding-top: 1px; font-size: var(--happy-text-subhead); line-height: 1.4; overflow-wrap: anywhere; }
+.title { font-weight: 600; color: var(--happy-label); }
+.message { color: var(--happy-label); }
+.title + .message { margin-top: 2px; color: var(--happy-label-2); }
+.action { flex-shrink: 0; align-self: center; }

@@ -1,13 +1,15 @@
-import { Button, Text } from "@mantine/core";
+import { Button } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
-import { Activity, CircleAlert, History, Plus, ShieldQuestion } from "lucide-react";
+import { Activity, CircleAlert, History, Laptop, Plus, ShieldQuestion, Sparkles } from "lucide-react";
 import { memo, useMemo } from "react";
 import { useAccount } from "@/app/auth";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { openSpawnModal } from "@/components/shell/spawn";
 import { AgentAvatar, AttentionBadge, RuntimeBadge, StatusDot } from "@/components/status";
 import { STATUS_LABEL, groupViews, type SessionView } from "@/lib/sync/sessionList";
-import classes from "@/components/sessions/sessions.module.css";
+import { EmptyState } from "@/ui/EmptyState";
+import { StatCard } from "@/ui/StatCard";
+import classes from "./home.module.css";
 
 const RECENT_LIMIT = 8;
 const ACTIVE_LIMIT = 12;
@@ -16,6 +18,8 @@ function greeting(now: number): string {
   const h = new Date(now).getHours();
   return h < 5 ? "Working late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });
 
 function firstRequestTool(v: SessionView): string | undefined {
   const r = v.item.agentState.requests;
@@ -31,15 +35,15 @@ const SessionCard = memo(function SessionCard({ v }: { v: SessionView }) {
   return (
     <a className={classes.card} href={href(v.id)} data-attention={v.pending > 0 || undefined}>
       <div className={classes.cardHead}>
-        <AgentAvatar agent={v.agent} status={v.status} />
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <AgentAvatar agent={v.agent} status={v.status} size={32} />
+        <div className={classes.cardText}>
           <div className={classes.cardTitle}>{v.title}</div>
           {v.project && <div className={classes.cardSub}>{v.project}</div>}
         </div>
       </div>
       {tool && (
         <div className={classes.cardAsk}>
-          <ShieldQuestion size={14} className={classes.attnIcon} />
+          <ShieldQuestion size={14} strokeWidth={2} className={classes.attnIcon} />
           <span>
             Wants to use <strong>{tool}</strong>
             {v.pending > 1 ? ` and ${v.pending - 1} more` : ""}
@@ -64,11 +68,7 @@ const ActivityRow = memo(function ActivityRow({ v }: { v: SessionView }) {
       <AgentAvatar agent={v.agent} status={v.status} size={28} />
       <div className={classes.activityMain}>
         <div className={classes.activityTitle}>{v.title}</div>
-        {v.project && (
-          <Text size="xs" c="dimmed" truncate>
-            {v.project}
-          </Text>
-        )}
+        {v.project && <div className={classes.activitySub}>{v.project}</div>}
       </div>
       <RuntimeBadge runtime={v.runtime} pod={v.pod} machine={v.machine} />
       <span className={classes.activityWhen}>{v.status === "archived" ? "Archived" : v.ago}</span>
@@ -76,10 +76,23 @@ const ActivityRow = memo(function ActivityRow({ v }: { v: SessionView }) {
   );
 });
 
+function SectionTitle({ icon, tone, children, count }: { icon: React.ReactNode; tone?: "attention" | "active"; children: React.ReactNode; count?: number }) {
+  return (
+    <h2 className={classes.sectionTitle} data-tone={tone}>
+      <span className={classes.sectionIcon} aria-hidden>
+        {icon}
+      </span>
+      {children}
+      {count !== undefined && <span className={classes.sectionCount}>{count}</span>}
+    </h2>
+  );
+}
+
+/** Overview: the "/" detail pane of the split view (phones show the session list instead). */
 export function HomeScreen() {
   const account = useAccount();
   const navigate = useNavigate();
-  const { views, sessions, onlineMachines, now } = useSessionViews();
+  const { views, sessions, machines, onlineMachines, now } = useSessionViews();
   const g = useMemo(() => groupViews(views), [views]);
   const live = [...g.attention, ...g.active].filter((e) => e.view.status !== "idle");
   const thinking = live.filter((e) => e.view.status === "thinking").length;
@@ -97,54 +110,63 @@ export function HomeScreen() {
     [g.recent, g.archived],
   );
 
+  const canSpawn = onlineMachines.length > 0;
   const spawn = () => openSpawnModal(account, onlineMachines, (id) => void navigate({ to: "/s/$sessionId", params: { sessionId: id } }));
   const empty = sessions.isSuccess && views.length === 0;
 
   return (
     <div className={classes.page}>
-      <div className={classes.pageInner}>
-        <section className={classes.hero}>
-          <div style={{ minWidth: 0 }}>
-            <h1 className={classes.heroTitle}>{greeting(now)}</h1>
-            <div className={classes.heroStats}>
-              {sessions.isPending ? (
-                <span>Loading sessions…</span>
-              ) : empty ? (
-                <span>No sessions yet. Start your first one.</span>
-              ) : (
-                <>
-                  <span className={classes.heroStat}>
-                    <StatusDot status="active" /> <strong>{live.length}</strong> active
-                  </span>
-                  {thinking > 0 && (
-                    <span className={classes.heroStat}>
-                      <StatusDot status="thinking" /> <strong>{thinking}</strong> thinking
-                    </span>
-                  )}
-                  {g.attention.length > 0 && (
-                    <span className={classes.heroStat}>
-                      <CircleAlert size={13} className={classes.attnIcon} /> <strong>{g.attention.length}</strong> need
-                      {g.attention.length === 1 ? "s" : ""} approval
-                    </span>
-                  )}
-                  <span className={classes.heroStat}>
-                    <strong>{g.recent.length}</strong> idle
-                  </span>
-                </>
-              )}
-            </div>
+      <div className={classes.inner}>
+        <header className={classes.hero}>
+          <div className={classes.heroText}>
+            <div className={classes.eyebrow}>{dateFormat.format(now)}</div>
+            <h1 className={classes.title}>{greeting(now)}</h1>
+            {sessions.isPending && <p className={classes.lede}>Loading sessions…</p>}
+            {empty && <p className={classes.lede}>No sessions yet. Start your first one.</p>}
           </div>
-          {/* The sidebar has the same action on wide screens. */}
-          <Button className="mantine-hidden-from-sm" leftSection={<Plus size={16} />} onClick={spawn} disabled={onlineMachines.length === 0}>
-            New session
-          </Button>
-        </section>
+          <div className={classes.heroAction}>
+            <Button radius="xl" leftSection={<Plus size={16} strokeWidth={2.25} />} onClick={spawn} disabled={!canSpawn}>
+              New session
+            </Button>
+            {!canSpawn && machines.length > 0 && <span className={classes.hint}>No machine is online</span>}
+          </div>
+        </header>
+
+        {!sessions.isPending && !empty && (
+          <div className={classes.stats}>
+            <StatCard
+              icon={<Activity size={14} strokeWidth={2.25} />}
+              tone="green"
+              label="Active"
+              value={live.length}
+              detail={thinking > 0 ? `${thinking} thinking` : "None thinking"}
+            />
+            <StatCard
+              icon={<CircleAlert size={14} strokeWidth={2.25} />}
+              tone={g.attention.length > 0 ? "orange" : "gray"}
+              label={g.attention.length === 1 ? "Needs approval" : "Need approval"}
+              value={g.attention.length}
+            />
+            <StatCard icon={<History size={14} strokeWidth={2.25} />} tone="gray" label="Idle" value={g.recent.length} />
+            <StatCard
+              icon={<Laptop size={14} strokeWidth={2.25} />}
+              tone="accent"
+              label="Machines online"
+              value={
+                <>
+                  {onlineMachines.length}
+                  <span className={classes.of}> / {machines.length}</span>
+                </>
+              }
+            />
+          </div>
+        )}
 
         {g.attention.length > 0 && (
           <section>
-            <div className={classes.sectionTitle}>
-              <CircleAlert size={15} className={classes.attnIcon} /> Needs attention <span className={classes.sectionCount}>{g.attention.length}</span>
-            </div>
+            <SectionTitle icon={<CircleAlert size={15} strokeWidth={2.25} />} tone="attention" count={g.attention.length}>
+              Needs attention
+            </SectionTitle>
             <div className={classes.cards}>
               {g.attention.map((e) => (
                 <SessionCard key={e.view.id} v={e.view} />
@@ -154,9 +176,9 @@ export function HomeScreen() {
         )}
 
         <section>
-          <div className={classes.sectionTitle}>
-            <Activity size={15} /> Active <span className={classes.sectionCount}>{g.active.length}</span>
-          </div>
+          <SectionTitle icon={<Activity size={15} strokeWidth={2.25} />} tone="active" count={g.active.length}>
+            Active
+          </SectionTitle>
           {active.length > 0 ? (
             <div className={classes.cards}>
               {active.map((e) => (
@@ -164,25 +186,26 @@ export function HomeScreen() {
               ))}
             </div>
           ) : (
-            <div className={classes.emptyState}>
-              <span>Nothing running right now.</span>
-              <Button variant="light" size="xs" leftSection={<Plus size={14} />} onClick={spawn} disabled={onlineMachines.length === 0}>
-                Start a session
-              </Button>
+            <div className={classes.emptyCard}>
+              <EmptyState
+                size="sm"
+                tone="gray"
+                icon={<Sparkles size={18} strokeWidth={1.75} />}
+                title="Nothing running right now"
+                action={
+                  <Button variant="light" size="xs" radius="xl" leftSection={<Plus size={14} />} onClick={spawn} disabled={!canSpawn}>
+                    Start a session
+                  </Button>
+                }
+              />
             </div>
           )}
-          {g.active.length > ACTIVE_LIMIT && (
-            <Text size="xs" c="dimmed" mt="xs">
-              +{g.active.length - ACTIVE_LIMIT} more in the sidebar
-            </Text>
-          )}
+          {g.active.length > ACTIVE_LIMIT && <p className={classes.more}>+{g.active.length - ACTIVE_LIMIT} more in the sidebar</p>}
         </section>
 
         {recent.length > 0 && (
           <section>
-            <div className={classes.sectionTitle}>
-              <History size={15} /> Recent
-            </div>
+            <SectionTitle icon={<History size={15} strokeWidth={2.25} />}>Recent</SectionTitle>
             <div className={classes.activity}>
               {recent.map((v) => (
                 <ActivityRow key={v.id} v={v} />
@@ -192,8 +215,8 @@ export function HomeScreen() {
         )}
 
         <span className={classes.footnote}>
-          <StatusDot status={onlineMachines.length > 0 ? "online" : "offline"} />
-          {onlineMachines.length === 0 ? "No machines online" : `${onlineMachines.length} machine${onlineMachines.length === 1 ? "" : "s"} online`}
+          <StatusDot status={canSpawn ? "online" : "offline"} />
+          {canSpawn ? `${onlineMachines.length} machine${onlineMachines.length === 1 ? "" : "s"} online` : "No machines online"}
         </span>
       </div>
     </div>

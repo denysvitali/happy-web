@@ -1,0 +1,27 @@
+/* iOS segmented control: gray track, raised thumb. */
+.root {
+  --sc-padding-xs: 3px 10px;
+  --sc-padding-sm: 5px 12px;
+  --sc-padding-md: 7px 14px;
+  --sc-font-size: var(--happy-text-subhead);
+  padding: 2px;
+  border-radius: 9px;
+  background-color: var(--happy-fill-2);
+}
+.indicator {
+  border-radius: 7px;
+  background-color: var(--happy-thumb);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+}
+.label {
+  border-radius: 7px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--happy-label);
+  transition: color var(--happy-dur) var(--happy-ease), opacity var(--happy-dur-fast);
+}
+.label[data-active] { color: var(--happy-label); font-weight: 600; }
+.label:hover:not([data-active], [data-disabled]) { color: var(--happy-label); opacity: 0.7; }
+.control:not(:first-of-type)::before { background-color: var(--happy-separator-strong); top: 25%; bottom: 25%; }
+/* Hide hairlines touching the selected segment, as iOS does. */
+.control:has(.label[data-active])::before, .control:has(.label[data-active]) + .control::before { opacity: 0; }

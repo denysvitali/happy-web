@@ -1,9 +1,15 @@
-import { ActionIcon, CloseButton, Group, Kbd, Menu, TextInput } from "@mantine/core";
+import { Menu } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, ChevronRight, CircleAlert, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, CircleAlert, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCompact } from "@/components/shell/nav";
 import { agentLabel, facets, flattenGroups, GROUP_LABEL, groupViews, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
-import { HEADER_HEIGHT, ROW_HEIGHT, SessionRow } from "./SessionRow";
+import { EmptyState } from "@/ui/EmptyState";
+import { IconButton } from "@/ui/IconButton";
+import { ListSkeleton } from "@/ui/List";
+import { SearchField } from "@/ui/SearchField";
+import { SectionHeader } from "@/ui/SectionHeader";
+import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow } from "./SessionRow";
 import classes from "./sessions.module.css";
 
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
@@ -23,11 +29,10 @@ interface Props {
   error: Error | null;
   activeId: string | undefined;
   onOpen: (id: string) => void;
-  onNavigate: () => void;
 }
 
 /** Grouped, searchable, virtualized session list with keyboard navigation. */
-export function SessionList({ views, loading, error, activeId, onOpen, onNavigate }: Props) {
+export function SessionList({ views, loading, error, activeId, onOpen }: Props) {
   const [query, setQuery] = useState("");
   const [agent, setAgent] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
@@ -52,13 +57,20 @@ export function SessionList({ views, loading, error, activeId, onOpen, onNavigat
     return { ids, at };
   }, [rows]);
 
+  const compact = useCompact();
+  const [rowH, headerH] = compact ? [ROW_HEIGHT_COMPACT, HEADER_HEIGHT_COMPACT] : [ROW_HEIGHT, HEADER_HEIGHT];
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => (rows[i]?.type === "header" ? HEADER_HEIGHT : ROW_HEIGHT),
+    estimateSize: (i) => (rows[i]?.type === "header" ? headerH : rowH),
     getItemKey: (i) => (rows[i] ? rowKey(rows[i]) : i),
     overscan: 10,
   });
+
+  // Slot sizes are fixed per layout; re-measure when the layout flips.
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, compact]);
 
   // "/" focuses search from anywhere that is not a text field.
   useEffect(() => {
@@ -122,28 +134,31 @@ export function SessionList({ views, loading, error, activeId, onOpen, onNavigat
 
   return (
     <>
-      <Group gap={6} px="md" pb={6} wrap="nowrap">
-        <TextInput
-          ref={searchRef}
-          style={{ flex: 1 }}
-          size="sm"
-          placeholder="Search sessions"
-          aria-label="Search sessions"
-          leftSection={<Search size={14} />}
-          rightSectionPointerEvents={query ? "all" : "none"}
-          rightSection={query ? <CloseButton size="sm" aria-label="Clear search" onClick={() => setQuery("")} /> : <Kbd size="xs">/</Kbd>}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.currentTarget.value);
-            setCursor(null);
-          }}
-          onKeyDown={onSearchKey}
-        />
+      <div className={classes.toolbar}>
+        <div className={classes.search}>
+          <SearchField
+            ref={searchRef}
+            placeholder="Search"
+            label="Search sessions"
+            hint="/"
+            value={query}
+            onChange={(q) => {
+              setQuery(q);
+              setCursor(null);
+            }}
+            onKeyDown={onSearchKey}
+          />
+        </div>
         <Menu position="bottom-end" width={200} closeOnItemClick={false} shadow="md">
           <Menu.Target>
-            <ActionIcon size="lg" variant={filtered ? "light" : "default"} aria-label="Filter sessions" title="Filter">
-              <SlidersHorizontal size={15} />
-            </ActionIcon>
+            <IconButton
+              className={classes.filterButton}
+              variant={filtered ? "tinted" : "plain"}
+              tone={filtered ? "accent" : "neutral"}
+              label="Filter sessions"
+              title="Filter"
+              icon={<SlidersHorizontal size={15} strokeWidth={2} />}
+            />
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Label>Agent</Menu.Label>
@@ -173,27 +188,37 @@ export function SessionList({ views, loading, error, activeId, onOpen, onNavigat
             )}
           </Menu.Dropdown>
         </Menu>
-      </Group>
+      </div>
       {filtered && (
-        <Group gap={6} px="md" pb={6}>
+        <div className={classes.chips}>
           {agent && (
             <button type="button" className={classes.filterChip} onClick={() => setAgent(null)} aria-label={`Remove ${agentLabel(agent)} filter`}>
-              {agentLabel(agent)} <X size={12} />
+              {agentLabel(agent)} <X size={11} strokeWidth={2.5} />
             </button>
           )}
           {runtime && (
             <button type="button" className={classes.filterChip} onClick={() => setRuntime(null)} aria-label={`Remove ${RUNTIME_LABEL[runtime]} filter`}>
-              {RUNTIME_LABEL[runtime]} <X size={12} />
+              {RUNTIME_LABEL[runtime]} <X size={11} strokeWidth={2.5} />
             </button>
           )}
-        </Group>
+        </div>
       )}
 
       <div ref={scrollRef} className={classes.list} onKeyDown={onListKey} role="navigation" aria-label="Sessions">
-        {loading && <div className={classes.empty}>Loading sessions…</div>}
-        {error && <div className={classes.empty}>{error.message}</div>}
+        {loading && <ListSkeleton rows={6} />}
+        {error && (
+          <p className={classes.error} role="alert">
+            {error.message}
+          </p>
+        )}
         {!loading && !error && rows.length === 0 && (
-          <div className={classes.empty}>{searching || filtered ? "No matching sessions." : "No sessions yet. Start one above."}</div>
+          <EmptyState
+            size="sm"
+            tone="gray"
+            icon={searching || filtered ? <SearchX size={18} strokeWidth={1.75} /> : <MessagesSquare size={18} strokeWidth={1.75} />}
+            title={searching || filtered ? "No matching sessions" : "No sessions yet"}
+            message={searching || filtered ? "Try a different search or clear the filters." : "Start one with the compose button."}
+          />
         )}
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {virtualizer.getVirtualItems().map((vi) => {
@@ -207,7 +232,14 @@ export function SessionList({ views, loading, error, activeId, onOpen, onNavigat
                 {r.type === "header" ? (
                   <GroupHeader row={r} searching={searching} onToggle={() => setArchivedOpen((o) => !o)} />
                 ) : (
-                  <SessionRow view={r.view} depth={r.depth} active={r.view.id === activeId} cursor={r.view.id === cursorVisible} onNavigate={onNavigate} />
+                  <SessionRow
+                    view={r.view}
+                    depth={r.depth}
+                    active={r.view.id === activeId}
+                    cursor={r.view.id === cursorVisible}
+                    first={rows[vi.index - 1]?.type !== "session"}
+                    last={rows[vi.index + 1]?.type !== "session"}
+                  />
                 )}
               </div>
             );
@@ -219,24 +251,19 @@ export function SessionList({ views, loading, error, activeId, onOpen, onNavigat
 }
 
 function GroupHeader({ row, searching, onToggle }: { row: Extract<ListRow, { type: "header" }>; searching: boolean; onToggle: () => void }) {
-  const label = (
-    <>
-      {row.group === "attention" && <CircleAlert size={12} />}
-      {GROUP_LABEL[row.group]}
-      <span className={classes.groupCount}>{row.count}</span>
-    </>
-  );
-  if (!row.collapsible || searching) {
-    return (
-      <div className={classes.groupHeader} data-group={row.group} role="heading" aria-level={3}>
-        {label}
-      </div>
-    );
-  }
+  const attention = row.group === "attention";
+  const toggle = row.collapsible && !searching;
   return (
-    <button type="button" className={classes.groupHeader} data-group={row.group} onClick={onToggle} aria-expanded={row.open}>
-      <ChevronRight size={12} className={classes.chevron} data-open={row.open || undefined} />
-      {label}
-    </button>
+    <div className={classes.groupHeader}>
+      <SectionHeader
+        label={GROUP_LABEL[row.group]}
+        count={row.count}
+        icon={attention ? <CircleAlert size={12} strokeWidth={2.5} /> : undefined}
+        tone={attention ? "warning" : undefined}
+        level={toggle ? undefined : 3}
+        open={toggle ? row.open : undefined}
+        onToggle={toggle ? onToggle : undefined}
+      />
+    </div>
   );
 }

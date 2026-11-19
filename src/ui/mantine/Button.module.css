@@ -1,0 +1,36 @@
+/* Button: 28 / 32 / 40 / 48 tall, flat fills, soft press. Colours come from
+   Mantine's variant vars (re-pointed in tokens.css); `default` is a gray fill. */
+.root {
+  --button-height-xs: 28px;
+  --button-height-sm: 32px;
+  --button-height-md: 40px;
+  --button-height-lg: 48px;
+  --button-padding-x-xs: 10px;
+  --button-padding-x-sm: 14px;
+  --button-padding-x-md: 20px;
+  --button-padding-x-lg: 24px;
+  border: 0;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  transition:
+    background-color var(--happy-dur-fast) var(--happy-ease-out),
+    color var(--happy-dur-fast) var(--happy-ease-out),
+    box-shadow var(--happy-dur-fast) var(--happy-ease-out),
+    transform var(--happy-dur-fast) var(--happy-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.root:active:not(:disabled, [data-disabled], [data-loading]) { transform: scale(0.98); }
+.root:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.root[data-size="md"], .root[data-size="lg"] { font-weight: 600; }
+
+.root[data-variant="default"] { background: var(--happy-fill-2); color: var(--happy-label); }
+.root[data-variant="default"]:hover:not(:disabled, [data-disabled], [data-loading]) { background: var(--happy-fill); color: var(--happy-label); }
+.root[data-variant="subtle"]:hover:not(:disabled, [data-disabled], [data-loading]) { background: var(--happy-hover); }
+.root[data-variant="outline"] { box-shadow: inset 0 0 0 1px var(--happy-separator-strong); }
+
+.root:disabled:not([data-loading]), .root[data-disabled]:not([data-loading]) { background: var(--happy-fill-2); color: var(--happy-label-3); }
+.root[data-variant="subtle"]:disabled:not([data-loading]) { background: transparent; }
+/* Mantine's loading veil is a blurred sheen; a flat dim reads calmer. */
+.root[data-loading]::before { filter: none; background: transparent !important; }
+
+.section { color: inherit; }

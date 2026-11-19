@@ -1,0 +1,2 @@
+.root { background-color: var(--happy-surface); }
+.root[data-with-border] { border: 1px solid var(--happy-separator); }

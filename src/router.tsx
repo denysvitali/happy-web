@@ -1,13 +1,19 @@
-import { Center, Loader } from "@mantine/core";
 import { createHashHistory, createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
 import { useAuth } from "@/app/auth";
+import { BrandMark } from "@/components/brand";
 import { Shell } from "@/components/shell/Shell";
+import shell from "@/components/shell/shell.module.css";
 import { HomeScreen } from "@/routes/home";
 import { LinkScreen } from "@/routes/link";
 
 function Gate() {
   const { state } = useAuth();
-  if (state.status === "loading") return <Center h="100dvh"><Loader /></Center>;
+  if (state.status === "loading")
+    return (
+      <div className={shell.splash} aria-busy="true" aria-label="Loading">
+        <BrandMark size={44} />
+      </div>
+    );
   if (state.status === "unlinked") return <LinkScreen note={state.note} />;
   return <Shell />;
 }

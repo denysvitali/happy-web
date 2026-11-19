@@ -17,7 +17,7 @@ const inputOf = (b: ToolBlock): Obj => (isObj(b.input) ? b.input : {});
 function Result({ b, label = "Output" }: ToolViewProps & { label?: string }) {
   if (!b.result) return null;
   return (
-    <Section label={b.result.isError ? "Error" : label} right={<CopyIcon text={asText(b.result.output)} />}>
+    <Section label={b.result.isError ? "Error" : label} right={<CopyIcon text={asText(b.result.output)} reveal />}>
       <ResultView output={b.result.output} isError={b.result.isError} />
     </Section>
   );
@@ -45,26 +45,34 @@ export function BashBody({ b }: ToolViewProps) {
   const i = inputOf(b);
   const cwd = field(i, "cwd", "workdir");
   const out = b.result ? shellOutput(b.result.output) : undefined;
+  const failed = !!b.result?.isError;
   return (
-    <>
-      <div className={classes.terminal}>
-        <div className={classes.terminalHead}>
-          <span>{cwd ?? "shell"}</span>
-          <CopyIcon text={cmd} label="Copy command" />
-        </div>
-        <pre className={classes.command}>
-          <span className={classes.prompt}>$ </span>
-          {cmd}
-        </pre>
+    <div className={classes.terminal}>
+      <div className={classes.terminalHead}>
+        <span>{cwd ?? "shell"}</span>
+        <CopyIcon text={cmd} label="Copy command" reveal />
       </div>
-      {out && (out.stdout || out.stderr) && (
-        <Section label={b.result?.isError ? "Output (failed)" : "Output"} right={<CopyIcon text={[out.stdout, out.stderr].filter(Boolean).join("\n")} />}>
-          {out.stdout && <Clip text={out.stdout} tone={b.result?.isError && !out.stderr ? "error" : undefined} />}
-          {out.stderr && <Clip text={out.stderr} tone="error" />}
-        </Section>
+      <pre className={classes.command}>
+        <span className={classes.prompt}>$ </span>
+        {cmd}
+      </pre>
+      {out && (
+        <div className={classes.terminalOut}>
+          {out.stdout || out.stderr ? (
+            <>
+              <div className={classes.terminalHead} data-tone={failed ? "error" : undefined}>
+                <span>{failed ? "Output (failed)" : "Output"}</span>
+                <CopyIcon text={[out.stdout, out.stderr].filter(Boolean).join("\n")} reveal />
+              </div>
+              {out.stdout && <Clip text={out.stdout} tone={failed && !out.stderr ? "error" : undefined} />}
+              {out.stderr && <Clip text={out.stderr} tone="error" />}
+            </>
+          ) : (
+            <span className={classes.dim}>No output</span>
+          )}
+        </div>
       )}
-      {out && !out.stdout && !out.stderr && <span className={classes.dim}>No output</span>}
-    </>
+    </div>
   );
 }
 
@@ -139,7 +147,7 @@ export function WriteBody({ b }: ToolViewProps) {
   return (
     <>
       <FileHead b={b} />
-      <Section label="Content" right={<CopyIcon text={content} />}>
+      <Section label="Content" right={<CopyIcon text={content} reveal />}>
         <Clip text={content} />
       </Section>
       <ErrorOnly b={b} />

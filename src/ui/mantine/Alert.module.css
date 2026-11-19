@@ -1,0 +1,9 @@
+.root {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--happy-radius-lg);
+}
+.title { font-size: var(--happy-text-subhead); font-weight: 600; color: var(--alert-color); }
+.message { font-size: var(--happy-text-subhead); line-height: 1.45; color: var(--happy-label); }
+.icon { margin-inline-end: 10px; }
+.body { gap: 4px; }

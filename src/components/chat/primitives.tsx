@@ -1,27 +1,29 @@
 // Small shared building blocks for chat and tool views.
-import { ActionIcon, CopyButton, Tooltip, UnstyledButton } from "@mantine/core";
+import { CopyButton, Tooltip, UnstyledButton } from "@mantine/core";
 import { Check, Copy, Image as ImageIcon, Link2 } from "lucide-react";
 import { memo, useState, type ReactNode } from "react";
+import { IconButton } from "@/ui/IconButton";
 import { inlineValue, isObj, resultParts, type ResultPart } from "./tools/format";
 import classes from "./chat.module.css";
 
-export function CopyIcon({ text, label = "Copy" }: { text: string; label?: string }) {
+/** Copy-to-clipboard glyph button. `reveal`: shown on hover of its card
+ * (always on touch screens). */
+export function CopyIcon({ text, label = "Copy", reveal = false }: { text: string; label?: string; reveal?: boolean }) {
   return (
-    <CopyButton value={text} timeout={1200}>
+    <CopyButton value={text} timeout={1400}>
       {({ copied, copy }) => (
-        <Tooltip label={copied ? "Copied" : label} withArrow openDelay={300}>
-          <ActionIcon
+        <Tooltip label={copied ? "Copied" : label} openDelay={300}>
+          <IconButton
+            label={label}
             size="sm"
-            variant="subtle"
-            color={copied ? "teal" : "gray"}
+            className={reveal ? classes.reveal : undefined}
             onClick={(e) => {
               e.stopPropagation();
               copy();
             }}
-            aria-label={label}
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </ActionIcon>
+            style={copied ? { color: "var(--happy-green)" } : undefined}
+            icon={copied ? <Check size={14} strokeWidth={2.25} /> : <Copy size={13} strokeWidth={1.9} />}
+          />
         </Tooltip>
       )}
     </CopyButton>

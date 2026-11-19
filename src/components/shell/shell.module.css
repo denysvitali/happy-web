@@ -1,17 +1,20 @@
+/* ---- Frame: split view, or a push stack on phones. ---- */
 .root {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: var(--happy-sidebar-width) minmax(0, 1fr);
   grid-template-rows: 100%;
   height: 100dvh;
+  background: var(--happy-bg);
 }
 
 .sidebar {
-  --happy-surface: var(--happy-sidebar);
+  /* What sits behind rows: avatars ring their status dot with it. */
+  --avatar-ring: var(--happy-sidebar);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--happy-hairline);
-  background: var(--happy-surface);
+  background: var(--happy-sidebar);
+  border-right: 0.5px solid var(--happy-separator-strong);
 }
 
 .main {
@@ -19,149 +22,150 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  background: var(--happy-bg);
 }
 
-/* ---- brand / header ------------------------------------------------------ */
-
-.brandBar {
+/* ---- Sidebar bar ---- */
+.bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 56px;
-  padding: 0 12px 0 16px;
+  gap: 6px;
+  flex-shrink: 0;
+  height: var(--happy-bar-height);
+  padding: 0 10px 0 16px;
 }
-
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: inherit;
+  margin-right: 2px;
+  color: var(--happy-label);
   text-decoration: none;
-  border-radius: var(--mantine-radius-md);
+  border-radius: var(--happy-radius-xs);
 }
-
-.brand:focus-visible {
-  outline: 2px solid var(--mantine-primary-color-filled);
-  outline-offset: 2px;
+.brand:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.wordmark {
+  font-family: var(--happy-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
-
-.brandMark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(150deg, #8a90f0 0%, var(--mantine-color-brand-6) 55%, #4a3fb8 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 1px 2px rgba(49, 53, 128, 0.3);
-}
-
-.brandName {
-  font-size: 16px;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-}
+.spacer { flex: 1; }
+.bar .barButton { --ib-color: var(--happy-label-2); }
+.bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-label); }
 
 .conn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 22px;
-  padding: 0 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--mantine-color-dimmed);
+  padding: 0 6px;
+  border-radius: var(--happy-radius-pill);
+  font-size: var(--happy-text-caption);
+  font-weight: 600;
+  color: var(--happy-label-2);
 }
+.conn[data-state="offline"] { padding: 0 8px; color: var(--happy-red); background: var(--happy-red-tint); }
+.conn[data-state="connecting"] { padding: 0 8px; color: color-mix(in srgb, var(--happy-orange) 82%, var(--happy-label)); background: var(--happy-orange-tint); }
 
-.conn[data-state="offline"] {
-  color: light-dark(var(--mantine-color-red-8), var(--mantine-color-red-3));
-  background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.15));
-}
+.largeTitle { display: none; }
 
-.newSession {
-  padding: 2px 16px 10px;
-}
-
-.sidebarFooter {
+/* ---- Footer ---- */
+.footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
-  border-top: 1px solid var(--happy-hairline);
-  font-size: 11px;
-  color: var(--mantine-color-dimmed);
-}
-
-.mobileBar {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  height: 52px;
   flex-shrink: 0;
-  padding: 0 10px;
-  border-bottom: 1px solid var(--happy-hairline);
+  height: 34px;
+  padding: 0 16px;
+  border-top: 0.5px solid var(--happy-separator);
+  font-size: var(--happy-text-caption);
+  color: var(--happy-label-2);
+  font-variant-numeric: tabular-nums;
 }
-
-.backdrop {
-  display: none;
+.footerStatus { display: inline-flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; }
+.keys { display: inline-flex; align-items: center; gap: 3px; color: var(--happy-label-3); white-space: nowrap; }
+.keys kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--happy-label-2);
+  background: var(--happy-fill-3);
+  box-shadow: inset 0 -0.5px 0 var(--happy-separator-strong);
 }
+.keys kbd + kbd { margin-left: -1px; }
 
-/* ---- mobile: off-canvas sidebar -------------------------------------------- */
+/* ---- Gate splash ---- */
+.splash {
+  display: grid;
+  place-items: center;
+  height: 100dvh;
+  background: var(--happy-bg);
+}
+.splash > span { animation: splash 1.4s var(--happy-ease-out) 300ms infinite both; }
+@keyframes splash {
+  0% { opacity: 0; transform: scale(0.94); }
+  40%, 60% { opacity: 1; transform: none; }
+  100% { opacity: 0.35; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .splash > span { animation: none; } }
 
-@media (max-width: $mantine-breakpoint-sm) {
-  .root {
-    grid-template-columns: 1fr;
-  }
-  .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 200;
-    width: min(88vw, 360px);
-    transform: translateX(-100%);
-    visibility: hidden;
-    transition:
-      transform 200ms ease,
-      visibility 0s linear 200ms;
-    border-right: 0;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.22);
-  }
-  .root[data-nav-open] .sidebar {
-    transform: none;
-    visibility: visible;
-    transition: transform 200ms ease;
-  }
-  .backdrop {
+/* ---- Phone: push navigation. ---- */
+@media (width < $mantine-breakpoint-sm) {
+  .root { grid-template-columns: minmax(0, 1fr); }
+  .root[data-pane="list"] .main,
+  .root[data-pane="detail"] .sidebar { display: none; }
+  .root[data-pane="detail"] .main { animation: push var(--happy-dur-slow) var(--happy-ease); }
+  .root[data-pane="list"] .sidebar { animation: pop var(--happy-dur) var(--happy-ease-out); }
+
+  .sidebar { border-right: 0; background: var(--happy-bg-grouped); }
+
+  .bar { height: 44px; padding: 0 8px 0 16px; padding-top: env(safe-area-inset-top); box-sizing: content-box; }
+  .brand { display: none; }
+  .bar .barButton { --ib-size: 38px; --ib-color: var(--happy-accent); }
+  .bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-accent); }
+  .bar .barButton svg { width: 22px; height: 22px; }
+  .conn { margin-left: -6px; font-size: var(--happy-text-footnote); }
+
+  .largeTitle {
     display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 199;
-    background: rgba(10, 11, 14, 0.42);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms ease;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0 20px 8px;
+    font-family: var(--happy-font-display);
+    font-size: var(--happy-text-large);
+    font-weight: 700;
+    line-height: 41px;
+    letter-spacing: var(--happy-tracking-tight);
+    color: var(--happy-label);
   }
-  .root[data-nav-open] .backdrop {
-    opacity: 1;
-    pointer-events: auto;
+
+  /* A toolbar, like Mail's "Updated just now". */
+  .footer {
+    justify-content: center;
+    height: 44px;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: content-box;
+    background: var(--happy-material);
+    backdrop-filter: var(--happy-backdrop);
+    -webkit-backdrop-filter: var(--happy-backdrop);
+    font-size: var(--happy-text-footnote);
   }
-  .mobileBar {
-    display: flex;
-  }
-  .root[data-in-session] .mobileBar {
-    display: none;
-  }
+  .keys { display: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sidebar,
-  .backdrop {
-    transition: none !important;
-  }
+@keyframes push {
+  from { transform: translateX(24%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes pop {
+  from { transform: translateX(-8%); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
 }

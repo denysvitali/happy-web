@@ -1,0 +1,195 @@
+/*
+ * Design tokens. Static (CSP: no runtime <style>), so this file is also where
+ * Mantine's CSS variables are re-pointed at our palette. Every colour token
+ * resolves per scheme via light-dark(), which postcss-preset-mantine compiles to
+ * "[data-mantine-color-scheme=dark] <selector>"; so tokens live on body (a
+ * descendant of the attributed root), never on :root, or dark never matches.
+ * Use --happy-* in CSS modules; never hard-code colours elsewhere.
+ */
+body {
+  /* Palette: system-style hues, tuned per scheme. */
+  --happy-blue: light-dark(#007aff, #0a84ff);
+  --happy-green: light-dark(#28a745, #30d158);
+  --happy-red: light-dark(#ff3b30, #ff453a);
+  --happy-orange: light-dark(#ff9500, #ff9f0a);
+  --happy-yellow: light-dark(#ffcc00, #ffd60a);
+  --happy-purple: light-dark(#af52de, #bf5af2);
+  --happy-indigo: light-dark(#5856d6, #5e5ce6);
+  --happy-teal: light-dark(#30b0c7, #40c8e0);
+  --happy-gray: #8e8e93;
+  --happy-accent: var(--happy-blue);
+  --happy-accent-hover: light-dark(#0066d6, #409cff);
+  --happy-on-accent: #fff;
+
+  /* Tints: a hue at low alpha, for tinted buttons, pills and highlights. */
+  --happy-accent-tint: color-mix(in srgb, var(--happy-accent) 12%, transparent);
+  --happy-accent-tint-hover: color-mix(in srgb, var(--happy-accent) 18%, transparent);
+  --happy-green-tint: color-mix(in srgb, var(--happy-green) 14%, transparent);
+  --happy-red-tint: color-mix(in srgb, var(--happy-red) 12%, transparent);
+  --happy-orange-tint: color-mix(in srgb, var(--happy-orange) 14%, transparent);
+  --happy-purple-tint: color-mix(in srgb, var(--happy-purple) 14%, transparent);
+
+  /* Backgrounds, back to front. */
+  --happy-bg: light-dark(#ffffff, #161618); /* main content */
+  --happy-bg-grouped: light-dark(#f2f2f7, #0e0e10); /* behind inset-grouped lists */
+  --happy-sidebar: light-dark(#f5f5f7, #1c1c1e);
+  --happy-surface: light-dark(#ffffff, #1c1c1e); /* cards, grouped rows */
+  --happy-surface-raised: light-dark(#ffffff, #2c2c2e); /* sheets, popovers, menus */
+  /* Translucent material for bars over scrolling content. */
+  --happy-material: light-dark(rgba(255, 255, 255, 0.84), rgba(22, 22, 24, 0.82));
+  --happy-material-sidebar: light-dark(rgba(245, 245, 247, 0.8), rgba(28, 28, 30, 0.8));
+  --happy-backdrop: saturate(180%) blur(20px);
+  /* Raised translucent material: menus, toasts. */
+  --happy-material-raised: light-dark(rgba(255, 255, 255, 0.82), rgba(44, 44, 46, 0.84));
+  /* Sheets holding grouped forms: grouped bg there, groups use --happy-surface-raised. */
+  --happy-bg-grouped-elevated: light-dark(#f2f2f7, #1c1c1e);
+  /* Scrim behind modals. */
+  --happy-overlay: light-dark(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.5));
+  /* Segmented-control thumb, tooltips. */
+  --happy-thumb: light-dark(#ffffff, #636366);
+  --happy-tooltip-bg: light-dark(rgba(36, 36, 38, 0.92), rgba(84, 84, 88, 0.96));
+  --happy-tooltip-label: #fff;
+  --happy-paper: #fff; /* always white: behind QR codes */
+
+  /* Text. */
+  --happy-label: light-dark(#1d1d1f, #f5f5f7);
+  --happy-label-2: light-dark(rgba(60, 60, 67, 0.62), rgba(235, 235, 245, 0.62));
+  --happy-label-3: light-dark(rgba(60, 60, 67, 0.36), rgba(235, 235, 245, 0.34));
+  --happy-label-4: light-dark(rgba(60, 60, 67, 0.18), rgba(235, 235, 245, 0.18));
+
+  /* Fills for controls (search fields, gray buttons, code). */
+  --happy-fill: light-dark(rgba(120, 120, 128, 0.16), rgba(120, 120, 128, 0.32));
+  --happy-fill-2: light-dark(rgba(120, 120, 128, 0.12), rgba(120, 120, 128, 0.24));
+  --happy-fill-3: light-dark(rgba(118, 118, 128, 0.08), rgba(118, 118, 128, 0.18));
+  --happy-hover: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.06));
+  --happy-pressed: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.1));
+
+  /* Hairlines. */
+  --happy-separator: light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.09));
+  --happy-separator-strong: light-dark(rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.16));
+
+  /* Shape. */
+  --happy-radius-xs: 6px;
+  --happy-radius-sm: 8px;
+  --happy-radius-md: 10px; /* controls */
+  --happy-radius-lg: 14px; /* cards, grouped lists */
+  --happy-radius-xl: 20px; /* sheets, bubbles */
+  --happy-radius-pill: 999px;
+
+  /* Depth: soft, layered; dark mode leans on hairlines instead. */
+  --happy-shadow-sm: light-dark(0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4));
+  --happy-shadow-md: light-dark(
+    0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06),
+    0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4)
+  );
+  --happy-shadow-lg: light-dark(
+    0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.12), 0 32px 64px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.5), 0 32px 64px rgba(0, 0, 0, 0.5)
+  );
+  --happy-focus-ring: 0 0 0 3px color-mix(in srgb, var(--happy-accent) 40%, transparent);
+
+  /* Type scale (size/line-height). Weights: 400 regular, 500 medium, 600 semibold. */
+  --happy-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --happy-font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --happy-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+  --happy-text-caption: 11px; /* uppercase section headers, meta */
+  --happy-text-footnote: 12px; /* subtitles, timestamps */
+  --happy-text-subhead: 13px; /* secondary rows, controls */
+  --happy-text-body: 15px; /* primary text, messages */
+  --happy-text-headline: 15px; /* + 600 */
+  --happy-text-title3: 20px;
+  --happy-text-title2: 22px;
+  --happy-text-title1: 28px;
+  --happy-text-large: 34px;
+  --happy-tracking-tight: -0.022em; /* titles ≥ 20px */
+
+  /* Motion. */
+  --happy-ease: cubic-bezier(0.32, 0.72, 0, 1); /* sheets, pushes */
+  --happy-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --happy-dur-fast: 120ms;
+  --happy-dur: 220ms;
+  --happy-dur-slow: 380ms;
+
+  /* Layout. */
+  --happy-sidebar-width: 300px;
+  --happy-bar-height: 52px;
+  --happy-content-width: 780px;
+
+  /* ---- Mantine, re-pointed at the tokens above. ---- */
+  --mantine-font-family: var(--happy-font);
+  --mantine-font-family-headings: var(--happy-font-display);
+  --mantine-font-family-monospace: var(--happy-font-mono);
+  --mantine-heading-font-weight: 600;
+  --mantine-font-weight-bold: 600;
+  --mantine-line-height: 1.47;
+  --mantine-font-size-xs: 12px;
+  --mantine-font-size-sm: 13px;
+  --mantine-font-size-md: 15px;
+  --mantine-font-size-lg: 17px;
+  --mantine-font-size-xl: 20px;
+  --mantine-radius-xs: var(--happy-radius-xs);
+  --mantine-radius-sm: var(--happy-radius-sm);
+  --mantine-radius-md: var(--happy-radius-md);
+  --mantine-radius-lg: var(--happy-radius-lg);
+  --mantine-radius-xl: var(--happy-radius-xl);
+  --mantine-radius-default: var(--happy-radius-md);
+  --mantine-shadow-xs: var(--happy-shadow-sm);
+  --mantine-shadow-sm: var(--happy-shadow-sm);
+  --mantine-shadow-md: var(--happy-shadow-md);
+  --mantine-shadow-lg: var(--happy-shadow-lg);
+  --mantine-shadow-xl: var(--happy-shadow-lg);
+
+  --mantine-color-body: var(--happy-bg);
+  --mantine-color-text: var(--happy-label);
+  --mantine-color-bright: var(--happy-label);
+  --mantine-color-dimmed: var(--happy-label-2);
+  --mantine-color-placeholder: var(--happy-label-3);
+  --mantine-color-anchor: var(--happy-accent);
+  --mantine-color-error: var(--happy-red);
+  --mantine-color-success: var(--happy-green);
+  --mantine-color-default: var(--happy-surface-raised);
+  --mantine-color-default-hover: var(--happy-hover);
+  --mantine-color-default-color: var(--happy-label);
+  --mantine-color-default-border: var(--happy-separator-strong);
+  --mantine-color-disabled: var(--happy-fill-3);
+  --mantine-color-disabled-color: var(--happy-label-3);
+  --mantine-color-disabled-border: var(--happy-separator);
+
+  --mantine-primary-color-filled: var(--happy-accent);
+  --mantine-primary-color-filled-hover: var(--happy-accent-hover);
+  --mantine-primary-color-light: var(--happy-accent-tint);
+  --mantine-primary-color-light-hover: var(--happy-accent-tint-hover);
+  --mantine-primary-color-light-color: var(--happy-accent);
+  --mantine-color-blue-filled: var(--happy-accent);
+  --mantine-color-blue-filled-hover: var(--happy-accent-hover);
+  --mantine-color-blue-light: var(--happy-accent-tint);
+  --mantine-color-blue-light-hover: var(--happy-accent-tint-hover);
+  --mantine-color-blue-light-color: var(--happy-accent);
+  --mantine-color-blue-outline: var(--happy-accent);
+  --mantine-color-red-filled: var(--happy-red);
+  --mantine-color-red-filled-hover: color-mix(in srgb, var(--happy-red) 88%, black);
+  --mantine-color-red-light: var(--happy-red-tint);
+  --mantine-color-red-light-hover: color-mix(in srgb, var(--happy-red) 18%, transparent);
+  --mantine-color-red-light-color: var(--happy-red);
+  --mantine-color-red-text: var(--happy-red);
+  --mantine-color-green-filled: var(--happy-green);
+  --mantine-color-green-light: var(--happy-green-tint);
+  --mantine-color-green-light-color: var(--happy-green);
+  --mantine-color-teal-filled: var(--happy-green);
+  --mantine-color-gray-filled: var(--happy-gray);
+  --mantine-color-gray-light: var(--happy-fill-2);
+  --mantine-color-gray-light-hover: var(--happy-fill);
+  --mantine-color-gray-light-color: var(--happy-label);
+  --mantine-color-yellow-light: var(--happy-orange-tint);
+  --mantine-color-yellow-light-color: var(--happy-orange);
+  --mantine-color-violet-light: var(--happy-purple-tint);
+  --mantine-color-violet-light-color: var(--happy-purple);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    --happy-dur-fast: 0ms;
+    --happy-dur: 0ms;
+    --happy-dur-slow: 0ms;
+  }
+}

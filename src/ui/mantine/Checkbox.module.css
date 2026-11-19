@@ -1,0 +1,24 @@
+/* Checkbox: soft rounded square, hairline well, accent fill with a crisp check. */
+.root {
+  --checkbox-size-xs: 16px;
+  --checkbox-size-sm: 20px;
+  --checkbox-size-md: 22px;
+  --checkbox-size-lg: 26px;
+  --checkbox-color: var(--happy-accent);
+  --checkbox-icon-color: var(--happy-on-accent);
+}
+.input {
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--happy-fill-3);
+  box-shadow: inset 0 0 0 1.5px var(--happy-label-4);
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), box-shadow var(--happy-dur-fast) var(--happy-ease-out);
+}
+.input:checked, .input[data-indeterminate] { background-color: var(--checkbox-color); box-shadow: none; }
+.input:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--happy-label-4), var(--happy-focus-ring); }
+.input:checked:focus-visible { box-shadow: var(--happy-focus-ring); }
+.input:disabled { background-color: var(--happy-fill-3); box-shadow: inset 0 0 0 1.5px var(--happy-separator); }
+.icon { width: 62%; transition: transform var(--happy-dur-fast) var(--happy-ease), opacity var(--happy-dur-fast); }
+.label { font-size: var(--happy-text-body); color: var(--happy-label); padding-inline-start: 10px; }
+.description { font-size: var(--happy-text-footnote); color: var(--happy-label-2); padding-inline-start: 10px; }
+.error { font-size: var(--happy-text-footnote); color: var(--happy-red); padding-inline-start: 10px; }

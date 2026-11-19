@@ -27,10 +27,17 @@ Server wins over Flutter; record every discrepancy in README.md.
 - No CDNs, analytics or inline scripts; CSP in `index.html` + `src/lib/csp.ts`.
 - UI is Mantine (CSS modules for custom styling). CSP is `style-src 'self'`, so nothing may
   inject `<style>` at runtime: MantineProvider runs with `withCssVariables`/`withGlobalClasses`
-  off (static CSS in `src/app.css`), Modal/Drawer use `lockScroll={false}`, and avoid
-  `AppShell`, responsive style props and `SimpleGrid`/`Grid` breakpoints. The e2e smoke test
-  fails on any CSP violation. Theme values that are CSS variables (brand palette, dark
-  palette, fonts, radii, shadows) live in `src/theme.ts` and are mirrored statically in
-  `src/app.css`; change both. Use `--mantine-primary-color-*`/`--mantine-color-brand-*`
-  and the `--happy-*` surfaces in CSS modules, not hardcoded blue.
+  off, Modal/Drawer use `lockScroll={false}`, and avoid `AppShell`, responsive style props and
+  `SimpleGrid`/`Grid` breakpoints. The e2e smoke test fails on any CSP violation.
+- Design system: `src/ui/` holds app-agnostic building blocks (NavBar, List, SearchField,
+  SectionHeader, EmptyState, StatCard, FormSection, Sheet, Callout, Disclosure, StatusPill,
+  IconButton, CopyButton, …); `src/ui/mantine/*` are the global Mantine skins wired in
+  `src/theme.ts`. Colours, radii, type, motion come only from `--happy-*` tokens in
+  `src/ui/tokens.css` (Mantine's variables are re-pointed there); never hard-code them.
+  Tokens sit on `body`, not `:root`: postcss-preset-mantine rewrites `light-dark()` into
+  scheme selectors that cannot match `:root`. Mantine CSS is imported as `styles.layer.css`
+  so our CSS modules always win. Every component appears in `/components-demo`
+  (`src/routes/demo.tsx`).
+- Phones (<48em) use push navigation, not a drawer: `/` is the session list, a chat opens
+  full-screen with a back button.
 - Pinned deps (`save-exact`), Renovate keeps them fresh.

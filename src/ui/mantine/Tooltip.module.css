@@ -1,0 +1,12 @@
+.tooltip {
+  padding: 4px 8px;
+  border-radius: var(--happy-radius-xs);
+  font-size: var(--happy-text-footnote);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--happy-tooltip-label);
+  background-color: var(--happy-tooltip-bg);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  backdrop-filter: var(--happy-backdrop);
+  box-shadow: var(--happy-shadow-sm);
+}

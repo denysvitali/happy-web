@@ -1,0 +1,19 @@
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 7.5px;
+  color: var(--happy-on-accent);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--happy-accent) 62%, var(--happy-on-accent)) 0%,
+    var(--happy-accent) 52%,
+    color-mix(in srgb, var(--happy-accent) 72%, var(--happy-indigo)) 100%
+  );
+  box-shadow:
+    inset 0 0.5px 0 color-mix(in srgb, var(--happy-on-accent) 35%, transparent),
+    0 1px 2px color-mix(in srgb, var(--happy-accent) 30%, transparent);
+}

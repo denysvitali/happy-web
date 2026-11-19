@@ -1,0 +1,8 @@
+.root {
+  padding: 1px 5px;
+  border-radius: var(--happy-radius-xs);
+  font-size: 0.86em;
+  color: var(--happy-label);
+  background-color: var(--happy-fill-3);
+}
+.root[data-block] { padding: 10px 12px; border-radius: var(--happy-radius-md); }

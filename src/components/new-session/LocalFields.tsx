@@ -1,9 +1,10 @@
-import { Autocomplete, Select, Stack, UnstyledButton } from "@mantine/core";
+import { Autocomplete, Select, UnstyledButton } from "@mantine/core";
 import { Folder, FolderOpen, Laptop } from "lucide-react";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import type { MachineItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
 import { abbreviateHome, resolveHome } from "@/lib/sync/spawn";
+import { FormRow, FormSection } from "@/ui/FormSection";
 import classes from "./new-session.module.css";
 
 const within = { withinPortal: false } as const;
@@ -16,25 +17,28 @@ export function LocalFields(p: {
   directory: string;
   onDirectory: (d: string) => void;
 }) {
+  const uid = useId();
   const home = p.machine.meta.homeDir;
   const options = useMemo(() => p.folders.map((f) => abbreviateHome(f, home)), [p.folders, home]);
   const resolved = resolveHome(p.directory, home);
   return (
-    <Stack gap="md">
+    <FormSection title="Workspace">
       {p.machines.length > 1 && (
-        <Select
-          label="Computer"
-          leftSection={<Laptop size={16} />}
-          data={p.machines.map((m) => ({ value: m.id, label: machineName(m.meta, m.id) }))}
-          value={p.machine.id}
-          onChange={(v) => v && p.onMachine(v)}
-          allowDeselect={false}
-          comboboxProps={within}
-        />
+        <FormRow label="Computer" labelFor={`${uid}-machine`}>
+          <Select
+            id={`${uid}-machine`}
+            leftSection={<Laptop size={16} />}
+            data={p.machines.map((m) => ({ value: m.id, label: machineName(m.meta, m.id) }))}
+            value={p.machine.id}
+            onChange={(v) => v && p.onMachine(v)}
+            allowDeselect={false}
+            comboboxProps={within}
+          />
+        </FormRow>
       )}
-      <div>
+      <FormRow label="Directory" labelFor={`${uid}-dir`}>
         <Autocomplete
-          label="Directory"
+          id={`${uid}-dir`}
           placeholder={home ? "~/src/project" : "/path/to/project"}
           leftSection={<FolderOpen size={16} />}
           data={options}
@@ -42,6 +46,7 @@ export function LocalFields(p: {
           value={p.directory}
           onChange={p.onDirectory}
           description={resolved !== p.directory.trim() && resolved ? <span className={classes.mono}>{resolved}</span> : undefined}
+          classNames={{ input: classes.monoInput }}
           required
           data-autofocus
           openOnFocus={false}
@@ -53,13 +58,13 @@ export function LocalFields(p: {
           <div className={classes.chips} aria-label="Recent folders">
             {options.slice(0, 3).map((f) => (
               <UnstyledButton key={f} className={classes.chip} data-active={f === p.directory.trim() || undefined} onClick={() => p.onDirectory(f)} title={f}>
-                <Folder size={12} />
+                <Folder size={12} strokeWidth={2} />
                 <span>{f}</span>
               </UnstyledButton>
             ))}
           </div>
         )}
-      </div>
-    </Stack>
+      </FormRow>
+    </FormSection>
   );
 }

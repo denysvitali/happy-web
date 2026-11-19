@@ -52,8 +52,12 @@ import {
   type ToolViewProps,
 } from "./views";
 
+/** Hue of the tinted glyph square (chat.module.css `.glyph[data-kind]`). */
+export type ToolKind = "shell" | "edit" | "read" | "search" | "web" | "mcp" | "plan" | "other";
+
 export interface ToolView {
   icon: LucideIcon;
+  kind: ToolKind;
   title: string | ((b: ToolBlock) => string);
   /** One line for the collapsed header. */
   summary?: (b: ToolBlock) => string;
@@ -71,6 +75,7 @@ const pathOf = (b: ToolBlock) => field(inp(b), "file_path", "path", "notebook_pa
 
 const shell: ToolView = {
   icon: SquareTerminal,
+  kind: "shell",
   title: "Bash",
   summary: (b) => field(inp(b), "description") ?? firstLine(commandOf(b.input) ?? ""),
   badge: (b) => {
@@ -83,6 +88,7 @@ const shell: ToolView = {
 
 const read: ToolView = {
   icon: FileText,
+  kind: "read",
   title: "Read",
   summary: (b) => {
     const i = inp(b);
@@ -103,6 +109,7 @@ const diffBadge = (b: ToolBlock) => {
 
 const edit: ToolView = {
   icon: FilePen,
+  kind: "edit",
   title: "Edit",
   summary: (b) => shortPath(pathOf(b) ?? ""),
   badge: diffBadge,
@@ -112,6 +119,7 @@ const edit: ToolView = {
 
 const multiEdit: ToolView = {
   icon: FilePen,
+  kind: "edit",
   title: "Edit",
   summary: (b) => shortPath(pathOf(b) ?? ""),
   badge: (b) => {
@@ -123,6 +131,7 @@ const multiEdit: ToolView = {
 
 const write: ToolView = {
   icon: FilePlus2,
+  kind: "edit",
   title: "Write",
   summary: (b) => shortPath(pathOf(b) ?? ""),
   badge: (b) => {
@@ -134,6 +143,7 @@ const write: ToolView = {
 
 const patch: ToolView = {
   icon: FilePen,
+  kind: "edit",
   title: "Patch",
   summary: (b) => {
     const p = str(inp(b).patch) ?? str(inp(b).input) ?? (typeof b.input === "string" ? b.input : "");
@@ -145,6 +155,7 @@ const patch: ToolView = {
 
 const grep: ToolView = {
   icon: FileSearch,
+  kind: "search",
   title: "Grep",
   summary: (b) => {
     const i = inp(b);
@@ -156,15 +167,17 @@ const grep: ToolView = {
 
 const glob: ToolView = {
   icon: FolderTree,
+  kind: "search",
   title: "Glob",
   summary: (b) => [field(inp(b), "pattern"), field(inp(b), "path") && `in ${shortPath(field(inp(b), "path")!)}`].filter(Boolean).join(" "),
   Body: SearchBody,
 };
 
-const ls: ToolView = { icon: FolderTree, title: "List", summary: (b) => shortPath(pathOf(b) ?? "."), Body: SearchBody };
+const ls: ToolView = { icon: FolderTree, kind: "search", title: "List", summary: (b) => shortPath(pathOf(b) ?? "."), Body: SearchBody };
 
 const webFetch: ToolView = {
   icon: Globe,
+  kind: "web",
   title: "Fetch",
   summary: (b) => {
     const u = field(inp(b), "url") ?? "";
@@ -178,10 +191,11 @@ const webFetch: ToolView = {
   Body: WebFetchBody,
 };
 
-const webSearch: ToolView = { icon: Search, title: "Web search", summary: (b) => field(inp(b), "query") ?? "", Body: SearchBody };
+const webSearch: ToolView = { icon: Search, kind: "web", title: "Web search", summary: (b) => field(inp(b), "query") ?? "", Body: SearchBody };
 
 const todo: ToolView = {
   icon: ListChecks,
+  kind: "plan",
   title: "Todos",
   summary: (b) => {
     const t = todosOf(b.input);
@@ -197,13 +211,14 @@ const todo: ToolView = {
 
 const question: ToolView = {
   icon: CircleHelp,
+  kind: "plan",
   title: "Question",
   summary: (b) => questionsOf(b.input)[0]?.question ?? "",
   Body: QuestionBody,
   open: () => true,
 };
 
-const plan: ToolView = { icon: ClipboardList, title: "Plan", summary: () => "Ready to code?", Body: PlanBody, open: () => true };
+const plan: ToolView = { icon: ClipboardList, kind: "plan", title: "Plan", summary: () => "Ready to code?", Body: PlanBody, open: () => true };
 
 export const toolViews: Record<string, ToolView> = {
   Bash: shell,
@@ -234,6 +249,7 @@ export const toolViews: Record<string, ToolView> = {
 
 const fallback: ToolView = {
   icon: Wrench,
+  kind: "other",
   title: (b) => b.name,
   summary: (b) => {
     const i = inp(b);
@@ -245,6 +261,7 @@ const fallback: ToolView = {
 
 const mcp: ToolView = {
   icon: Plug,
+  kind: "mcp",
   title: (b) => humanize(parseMcpName(b.name)?.tool ?? b.name),
   chip: (b) => parseMcpName(b.name)?.server,
   summary: (b) => {

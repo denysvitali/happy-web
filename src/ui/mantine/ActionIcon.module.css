@@ -1,0 +1,8 @@
+/* Icon buttons: token focus ring and a soft press (colours come from the re-pointed variant vars). */
+.root {
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), color var(--happy-dur-fast), transform var(--happy-dur-fast) var(--happy-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.root[data-variant="subtle"] { --ai-hover: var(--happy-hover); }
+.root:active:not(:disabled, [data-disabled], [data-loading]) { transform: scale(0.94); }
+.root:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }

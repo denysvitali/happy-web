@@ -1,15 +1,17 @@
-import { ActionIcon, Avatar, Button, Kbd, Menu, Text, Tooltip, useMantineColorScheme } from "@mantine/core";
+import { Menu, Text, Tooltip, useMantineColorScheme } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { Check, LayoutGrid, LogOut, Monitor, Moon, Plus, Sun, UserRound, X } from "lucide-react";
+import { Check, CircleUserRound, LayoutGrid, LogOut, Monitor, Moon, SquarePen, Sun } from "lucide-react";
 import { useCallback } from "react";
 import { useAccount, useAuth } from "@/app/auth";
 import { useStore } from "@/app/hooks";
-import { StatusDot } from "@/components/status";
+import { BrandMark } from "@/components/brand";
 import { SessionList } from "@/components/sessions/SessionList";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
+import { StatusDot } from "@/components/status";
+import { IconButton } from "@/ui/IconButton";
+import { PresenceDot } from "@/ui/Status";
 import { openSpawnModal } from "./spawn";
-import { BrandMark } from "@/components/brand";
 import classes from "./shell.module.css";
 
 const CONN_LABEL = { online: "Live", connecting: "Connecting", offline: "Offline" } as const;
@@ -47,11 +49,7 @@ export function UserMenu() {
   return (
     <Menu position="bottom-end" width={210} shadow="md">
       <Menu.Target>
-        <ActionIcon variant="subtle" color="gray" size="lg" radius="xl" aria-label="Account menu">
-          <Avatar size={26} radius="xl" color="gray" variant="light">
-            <UserRound size={15} />
-          </Avatar>
-        </ActionIcon>
+        <IconButton className={classes.barButton} label="Account menu" icon={<CircleUserRound size={19} strokeWidth={1.75} />} />
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>Appearance</Menu.Label>
@@ -71,60 +69,43 @@ export function UserMenu() {
   );
 }
 
-export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
+export function Sidebar() {
   const account = useAccount();
   const navigate = useNavigate();
   const params: { sessionId?: string } = useParams({ strict: false });
   const { views, sessions, machines, onlineMachines } = useSessionViews();
 
-  const open = useCallback(
-    (id: string) => {
-      onNavigate();
-      void navigate({ to: "/s/$sessionId", params: { sessionId: id } });
-    },
-    [navigate, onNavigate],
-  );
+  const open = useCallback((id: string) => void navigate({ to: "/s/$sessionId", params: { sessionId: id } }), [navigate]);
   const spawn = () => openSpawnModal(account, onlineMachines, open);
+  const canSpawn = onlineMachines.length > 0;
 
   return (
     <>
-      <div className={classes.brandBar}>
-        <Link to="/" onClick={onNavigate} className={classes.brand} aria-label="Happy overview">
-          <BrandMark />
-          <span className={classes.brandName}>Happy</span>
+      <div className={classes.bar}>
+        <Link to="/" className={classes.brand} aria-label="Happy overview">
+          <BrandMark size={22} />
+          <span className={classes.wordmark}>Happy</span>
         </Link>
-        <ConnectionIndicator />
-        <div style={{ flex: 1 }} />
+        <ConnectionIndicator compact />
+        <div className={classes.spacer} />
         <UserMenu />
-        <ActionIcon variant="subtle" color="gray" className="mantine-hidden-from-sm" onClick={onNavigate} aria-label="Close menu">
-          <X size={18} />
-        </ActionIcon>
-      </div>
-
-      <div className={classes.newSession}>
-        <Tooltip label={onlineMachines.length === 0 ? "No machine is online" : "Start a new session"} openDelay={400}>
-          <Button leftSection={<Plus size={16} />} onClick={spawn} disabled={onlineMachines.length === 0} fullWidth variant="filled">
-            New session
-          </Button>
+        <Tooltip label={canSpawn ? "New session" : "No machine is online"} openDelay={400}>
+          <IconButton className={classes.barButton} data-compose label="New session" icon={<SquarePen size={17} strokeWidth={1.9} />} onClick={spawn} disabled={!canSpawn} />
         </Tooltip>
       </div>
 
-      <SessionList
-        views={views}
-        loading={sessions.isPending}
-        error={sessions.error}
-        activeId={params.sessionId}
-        onOpen={open}
-        onNavigate={onNavigate}
-      />
+      <h1 className={classes.largeTitle}>Sessions</h1>
 
-      <div className={classes.sidebarFooter}>
-        <span>
+      <SessionList views={views} loading={sessions.isPending} error={sessions.error} activeId={params.sessionId} onOpen={open} />
+
+      <div className={classes.footer}>
+        <span className={classes.footerStatus}>
+          <PresenceDot online={canSpawn} />
           {onlineMachines.length} of {machines.length} machine{machines.length === 1 ? "" : "s"} online
         </span>
-        <span className="mantine-visible-from-sm">
-          <Kbd size="xs">/</Kbd> search · <Kbd size="xs">↑</Kbd>
-          <Kbd size="xs">↓</Kbd> move
+        <span className={classes.keys}>
+          <kbd>/</kbd> search <kbd>↑</kbd>
+          <kbd>↓</kbd> move
         </span>
       </div>
     </>

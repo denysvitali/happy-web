@@ -1,14 +1,6 @@
-import { ActionIcon } from "@mantine/core";
-import { Menu } from "lucide-react";
-import { use } from "react";
-import { OpenNavContext } from "./nav";
+import { BackButton } from "@/ui/NavBar";
 
-/** Hamburger for headers that stand in for the mobile app bar. */
+/** Phone back affordance ("‹ Sessions" → "/") for pane headers; hidden in the split view. */
 export function NavButton() {
-  const open = use(OpenNavContext);
-  return (
-    <ActionIcon variant="subtle" color="gray" className="mantine-hidden-from-sm" onClick={open} aria-label="Open menu">
-      <Menu size={18} />
-    </ActionIcon>
-  );
+  return <BackButton />;
 }

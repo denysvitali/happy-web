@@ -1,0 +1,39 @@
+/* Toasts: floating translucent capsule, a tinted dot or icon for the colour. */
+.root {
+  padding: 10px 10px 10px 14px;
+  border: 0;
+  border-radius: var(--happy-radius-lg);
+  background-color: var(--happy-material-raised);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  backdrop-filter: var(--happy-backdrop);
+  box-shadow: var(--happy-shadow-lg);
+}
+/* Mantine's colour bar becomes a small status dot. */
+.root::before {
+  position: static;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-inline-end: 10px;
+  border-radius: 50%;
+}
+.icon {
+  width: 24px;
+  height: 24px;
+  margin-inline-end: 10px;
+  color: var(--notification-color);
+  background: color-mix(in srgb, var(--notification-color) 14%, transparent);
+}
+.title {
+  font-size: var(--happy-text-subhead);
+  font-weight: 600;
+  color: var(--happy-label);
+}
+.description {
+  font-size: var(--happy-text-subhead);
+  line-height: 1.4;
+  color: var(--happy-label);
+}
+.description[data-with-title] { color: var(--happy-label-2); }
+.closeButton { color: var(--happy-label-3); border-radius: var(--happy-radius-pill); }
+.closeButton:hover { background: var(--happy-hover); }

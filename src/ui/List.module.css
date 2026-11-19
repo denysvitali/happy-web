@@ -1,0 +1,158 @@
+/* ---- Section ---- */
+.section { display: flex; flex-direction: column; }
+.section + .section { margin-top: 12px; }
+.body { display: flex; flex-direction: column; gap: 1px; padding: 0 8px; }
+.footer { padding: 6px 20px 0; font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
+
+/* ---- Row ---- */
+.row {
+  --row-pad-x: 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  border-radius: var(--happy-radius-md);
+  color: var(--happy-label);
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.row[data-two-line] { min-height: 52px; }
+.row[data-interactive]:hover { background: var(--happy-hover); }
+.row[data-interactive]:active { background: var(--happy-pressed); }
+.row[data-selected],
+.row[data-selected]:hover { background: var(--happy-accent-tint); }
+.row:has(.main:focus-visible) { box-shadow: var(--happy-focus-ring); }
+
+.main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  padding: 6px var(--row-pad-x);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: default;
+}
+a.main, button.main { cursor: pointer; }
+.main:focus-visible { outline: none; }
+
+.leading { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 16px; color: var(--happy-label-2); }
+.row[data-selected] .leading { color: var(--happy-accent); }
+.text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.title, .subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title { font-size: var(--happy-text-subhead); font-weight: 500; line-height: 18px; letter-spacing: -0.003em; }
+.subtitle { font-size: var(--happy-text-footnote); line-height: 16px; color: var(--happy-label-2); }
+.row[data-dimmed] .title { color: var(--happy-label-2); }
+.trailing { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; color: var(--happy-label-2); font-size: var(--happy-text-footnote); font-variant-numeric: tabular-nums; }
+.chevron { flex-shrink: 0; margin-right: -4px; color: var(--happy-label-3); }
+.section[data-variant="sidebar"] .chevron { display: none; }
+
+.accessory {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 6px;
+  margin-left: -4px;
+  opacity: 0;
+  transition: opacity var(--happy-dur-fast) var(--happy-ease-out);
+}
+.row:hover .accessory, .row:focus-within .accessory { opacity: 1; }
+@media (hover: none) { .accessory { opacity: 1; } }
+
+/* ---- Action ("Show more") ---- */
+.action {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--row-pad-x, 10px);
+  border: 0;
+  border-radius: var(--happy-radius-md);
+  background: none;
+  color: var(--happy-accent);
+  font: inherit;
+  font-size: var(--happy-text-subhead);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
+}
+.action:hover { background: var(--happy-hover); }
+.action:active { background: var(--happy-pressed); }
+.action:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+/* ---- Skeleton ---- */
+.skeleton { display: flex; flex-direction: column; gap: 1px; }
+.skeleton .text { gap: 7px; }
+.bar {
+  display: block;
+  height: 10px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-fill-2);
+  animation: pulse 1.6s var(--happy-ease-out) infinite;
+}
+.bar[data-sub] { height: 8px; background: var(--happy-fill-3); }
+@keyframes pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .bar { animation: none; } }
+
+/* ---- Inset-grouped (iOS): card of rows with inset hairlines. ---- */
+.section[data-variant="inset"] .body {
+  gap: 0;
+  margin: 0 16px;
+  padding: 0;
+  border-radius: var(--happy-radius-lg);
+  background: var(--happy-surface);
+  overflow: hidden;
+}
+.section[data-variant="inset"] .row { --row-pad-x: 16px; min-height: 44px; border-radius: 0; }
+.section[data-variant="inset"] .row[data-two-line] { min-height: 60px; }
+.section[data-variant="inset"] .row + .row::before,
+.section[data-variant="inset"] .row + .action::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: var(--row-pad-x);
+  border-top: 0.5px solid var(--happy-separator-strong);
+}
+.section[data-variant="inset"] .title { font-size: var(--happy-text-body); line-height: 20px; }
+.section[data-variant="inset"] .subtitle { font-size: var(--happy-text-subhead); line-height: 18px; }
+.section[data-variant="inset"] .chevron { display: block; }
+.section[data-variant="inset"] .action { position: relative; min-height: 44px; padding: 0 16px; border-radius: 0; font-size: var(--happy-text-body); font-weight: 400; }
+.section[data-variant="inset"] .accessory { opacity: 1; padding-right: 10px; }
+.section[data-variant="inset"] .footer { padding: 8px 32px 0; }
+
+@media (width < $mantine-breakpoint-sm) {
+  .section[data-variant="sidebar"] + .section { margin-top: 24px; }
+  .section[data-variant="sidebar"] .body {
+    gap: 0;
+    margin: 0 16px;
+    padding: 0;
+    border-radius: var(--happy-radius-lg);
+    background: var(--happy-surface);
+    overflow: hidden;
+  }
+  .section[data-variant="sidebar"] .row { --row-pad-x: 16px; min-height: 44px; border-radius: 0; }
+  .section[data-variant="sidebar"] .row[data-two-line] { min-height: 64px; }
+  .section[data-variant="sidebar"] .row[data-selected] { background: none; }
+  .section[data-variant="sidebar"] .row + .row::before,
+  .section[data-variant="sidebar"] .row + .action::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: var(--row-pad-x);
+    border-top: 0.5px solid var(--happy-separator-strong);
+  }
+  .section[data-variant="sidebar"] .title { font-size: var(--happy-text-body); line-height: 20px; }
+  .section[data-variant="sidebar"] .subtitle { font-size: var(--happy-text-subhead); line-height: 18px; }
+  .section[data-variant="sidebar"] .chevron { display: block; }
+  .section[data-variant="sidebar"] .action { position: relative; min-height: 44px; padding: 0 16px; border-radius: 0; font-size: var(--happy-text-body); font-weight: 400; }
+  .section[data-variant="sidebar"] .accessory { opacity: 1; padding-right: 10px; }
+  .section[data-variant="sidebar"] .footer { padding: 8px 32px 0; }
+}

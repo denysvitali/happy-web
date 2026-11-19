@@ -16,7 +16,7 @@ export function App() {
     // No runtime <style> injection: CSS variables and global classes are
     // static (styles.css + app.css) so the CSP can stay style-src 'self'.
     <MantineProvider theme={theme} defaultColorScheme="auto" withCssVariables={false} withGlobalClasses={false}>
-      <Notifications position="top-right" />
+      <Notifications position="top-center" autoClose={4000} containerWidth={400} />
       <QueryClientProvider client={queryClient}>
         <ModalsProvider>
           <AuthProvider>

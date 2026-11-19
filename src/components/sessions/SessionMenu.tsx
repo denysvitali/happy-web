@@ -1,8 +1,9 @@
-import { ActionIcon, Menu } from "@mantine/core";
+import { Menu } from "@mantine/core";
 import { Archive, ArchiveRestore, Copy, Ellipsis, FolderOpen, Pencil, Square, Trash2 } from "lucide-react";
 import type { ReactElement } from "react";
 import type { SessionItem } from "@/lib/sync/account";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
+import { IconButton } from "@/ui/IconButton";
 import { useSessionActions } from "./actions";
 
 interface Props {
@@ -22,9 +23,7 @@ export function SessionMenu({ session: s, opened, onChange, target }: Props) {
     <Menu position="bottom-end" width={200} opened={opened} onChange={onChange} shadow="md">
       <Menu.Target>
         {target ?? (
-          <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Session actions" onClick={(e) => e.stopPropagation()}>
-            <Ellipsis size={16} />
-          </ActionIcon>
+          <IconButton size="sm" label="Session actions" icon={<Ellipsis size={16} strokeWidth={2} />} onClick={(e) => e.stopPropagation()} />
         )}
       </Menu.Target>
       <Menu.Dropdown>

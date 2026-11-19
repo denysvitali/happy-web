@@ -28,14 +28,7 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(400);
       await shot(page, "02-home");
 
-      if (vp.name === "mobile") {
-        await page.getByLabel("Open menu").click();
-        await page.waitForTimeout(350);
-        await shot(page, "03-sidebar");
-        await page.getByText("Fix flaky login test").first().click();
-      } else {
-        await page.getByText("Fix flaky login test").first().click();
-      }
+      await page.getByText("Fix flaky login test").first().click();
       await expect(page.getByText("Can you find why the login test is flaky")).toBeVisible();
       await page.waitForTimeout(500);
       await shot(page, "04-chat");
@@ -50,10 +43,13 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(250);
       await shot(page, "04b-model-picker");
       await page.keyboard.press("Escape");
-      await page.getByRole("button", { name: /usage \d+%/ }).click();
-      await page.waitForTimeout(250);
-      await shot(page, "04c-usage");
-      await page.keyboard.press("Escape");
+      if (vp.name === "desktop") {
+        // The usage pill lives in the header on desktop only.
+        await page.getByRole("button", { name: /usage \d+%/ }).click();
+        await page.waitForTimeout(250);
+        await shot(page, "04c-usage");
+        await page.keyboard.press("Escape");
+      }
       await page.getByRole("main").getByRole("button", { name: "Session actions" }).click();
       await page.waitForTimeout(250);
       await shot(page, "04d-session-menu");
@@ -74,10 +70,6 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(300);
       await shot(page, "02b-home-dark");
       await page.emulateMedia({ colorScheme: "light" });
-      if (vp.name === "mobile") {
-        await page.getByLabel("Open menu").click();
-        await page.waitForTimeout(350);
-      }
       await page.getByRole("button", { name: "New session" }).first().click();
       await expect(page.getByRole("dialog")).toBeVisible();
       const dialog = page.getByRole("dialog");

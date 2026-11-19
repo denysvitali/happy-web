@@ -1,0 +1,44 @@
+.root {
+  --tone: var(--happy-accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 16px;
+}
+.root[data-tone="green"] { --tone: var(--happy-green); }
+.root[data-tone="orange"] { --tone: var(--happy-orange); }
+.root[data-tone="purple"] { --tone: var(--happy-purple); }
+.root[data-tone="red"] { --tone: var(--happy-red); }
+.root[data-tone="gray"] { --tone: var(--happy-gray); }
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 13%, transparent);
+}
+.title { font-size: var(--happy-text-headline); font-weight: 600; letter-spacing: -0.01em; color: var(--happy-label); }
+.message { max-width: 34em; margin-top: 4px; font-size: var(--happy-text-subhead); line-height: 1.45; color: var(--happy-label-2); text-wrap: pretty; }
+.action { margin-top: 16px; }
+
+.root[data-size="sm"] { padding: 16px 12px; }
+.root[data-size="sm"] .icon { width: 36px; height: 36px; margin-bottom: 10px; border-radius: 9px; }
+
+.root[data-size="lg"] { padding: 0; }
+.root[data-size="lg"] .icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--tone) 20%, transparent), color-mix(in srgb, var(--tone) 9%, transparent));
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.root[data-size="lg"] .title { font-family: var(--happy-font-display); font-size: var(--happy-text-title1); line-height: 1.15; letter-spacing: var(--happy-tracking-tight); }
+.root[data-size="lg"] .message { margin-top: 8px; font-size: var(--happy-text-body); }
+.root[data-size="lg"] .action { margin-top: 24px; }

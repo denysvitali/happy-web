@@ -1,0 +1,15 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px;
+  border-radius: var(--happy-radius-xs);
+  font-size: var(--happy-text-subhead);
+  font-weight: 500;
+  color: var(--happy-label-2);
+  transition: color var(--happy-dur-fast);
+}
+.toggle:hover { color: var(--happy-label); }
+.toggle:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.chevron { flex-shrink: 0; transition: transform var(--happy-dur) var(--happy-ease); }
+.chevron[data-open] { transform: rotate(90deg); }

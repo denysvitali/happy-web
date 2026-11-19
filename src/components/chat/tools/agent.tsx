@@ -88,7 +88,7 @@ export const AgentCard = memo(
           {open && (
             <div className={classes.agentBody}>
               {info.prompt && info.prompt !== info.title && (
-                <details className={classes.prompt}>
+                <details className={classes.agentPrompt}>
                   <summary>Prompt</summary>
                   <Clip text={info.prompt} tone="dim" />
                 </details>

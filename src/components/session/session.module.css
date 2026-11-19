@@ -36,7 +36,7 @@
 .chip[data-open] { background: var(--mantine-color-default-hover); border-color: var(--mantine-color-default-border); }
 .chip[data-danger] { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
 .chip[data-danger]:hover, .chip[data-danger][data-open] { background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.12)); }
-.chip[data-pending] { border-color: transparent; color: var(--mantine-color-brand-light-color); background: var(--mantine-color-brand-light); }
+.chip[data-pending] { border-color: transparent; color: var(--happy-accent); background: var(--happy-accent-tint); }
 .chipIcon { flex-shrink: 0; opacity: 0.8; }
 .chipLabel { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .chevron { flex-shrink: 0; opacity: 0.5; }
@@ -46,7 +46,7 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--mantine-color-brand-text);
+  color: var(--happy-accent);
   white-space: nowrap;
 }
 
@@ -63,14 +63,14 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: inherit;
-  background: var(--mantine-color-brand-5);
+  background: var(--happy-accent);
   transition: width 400ms ease;
 }
 [data-level="warn"] .fill { background: var(--mantine-color-orange-5); }
 [data-level="critical"] .fill { background: var(--mantine-color-red-6); }
 
 .ringTrack { stroke: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)); }
-.ringFill { stroke: var(--mantine-color-brand-5); transition: stroke-dashoffset 400ms ease; }
+.ringFill { stroke: var(--happy-accent); transition: stroke-dashoffset 400ms ease; }
 [data-level="warn"] .ringFill { stroke: var(--mantine-color-orange-5); }
 [data-level="critical"] .ringFill { stroke: var(--mantine-color-red-6); }
 .ringSvg { transform: rotate(-90deg); flex-shrink: 0; }
@@ -90,6 +90,10 @@
   font-variant-numeric: tabular-nums;
 }
 .pill .track { width: 36px; height: 5px; }
+@media (max-width: $mantine-breakpoint-sm) {
+  /* On phones the header stays quiet: usage lives in the transcript toolbar. */
+  .pill { display: none; }
+}
 .pill[data-level="warn"] { color: light-dark(var(--mantine-color-orange-8), var(--mantine-color-orange-4)); }
 .pill[data-level="critical"] { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }
 
@@ -147,7 +151,7 @@
 .effort[data-active] {
   border-color: var(--mantine-primary-color-filled);
   color: var(--mantine-primary-color-filled);
-  background: var(--mantine-color-brand-light);
+  background: var(--happy-accent-tint);
 }
 
 .modeDanger { color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-4)); }

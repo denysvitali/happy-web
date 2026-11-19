@@ -1,0 +1,58 @@
+/* Filled text fields: tinted well, no border, accent ring on focus. */
+.wrapper {
+  --input-height-xs: 28px;
+  --input-height-sm: 36px;
+  --input-height-md: 40px;
+  --input-height-lg: 44px;
+}
+.input {
+  --input-padding-inline-start: 12px;
+  --input-padding-inline-end: 12px;
+  border: 1px solid transparent;
+  background-color: var(--happy-fill-3);
+  border-radius: var(--happy-radius-md);
+  font-size: var(--happy-text-body);
+  color: var(--happy-label);
+  transition:
+    background-color var(--happy-dur-fast) var(--happy-ease-out),
+    border-color var(--happy-dur-fast) var(--happy-ease-out),
+    box-shadow var(--happy-dur-fast) var(--happy-ease-out);
+}
+.wrapper[data-size="xs"] .input { font-size: var(--happy-text-subhead); }
+.wrapper[data-with-left-section] .input { --input-padding-inline-start: var(--input-left-section-size); }
+.wrapper[data-with-right-section] .input { --input-padding-inline-end: var(--input-right-section-size); }
+.input:hover:not(:focus, :focus-within, :disabled, [data-disabled]) { background-color: var(--happy-fill-2); }
+.input:focus, .input:focus-within {
+  background-color: var(--happy-surface-raised);
+  border-color: var(--happy-accent);
+  box-shadow: var(--happy-focus-ring);
+}
+.wrapper[data-error] .input, .input[data-error] { border-color: color-mix(in srgb, var(--happy-red) 55%, transparent); color: var(--happy-label); }
+.wrapper[data-error] .input:focus { border-color: var(--happy-red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--happy-red) 30%, transparent); }
+.wrapper[data-variant="unstyled"] .input, .wrapper[data-variant="unstyled"] .input:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.section { color: var(--happy-label-3); }
+
+/* InputWrapper */
+.label {
+  margin-bottom: 6px;
+  font-size: var(--happy-text-subhead);
+  font-weight: 500;
+  color: var(--happy-label);
+}
+.required { color: var(--happy-label-3); }
+.description {
+  margin-top: 6px;
+  font-size: var(--happy-text-footnote);
+  line-height: 1.4;
+  color: var(--happy-label-2);
+}
+.error {
+  margin-top: 6px;
+  font-size: var(--happy-text-footnote);
+  line-height: 1.4;
+  color: var(--happy-red);
+}

@@ -1,0 +1,84 @@
+.section { display: flex; flex-direction: column; min-width: 0; }
+
+.header {
+  margin: 0 0 6px;
+  padding: 0 16px;
+  font-size: var(--happy-text-footnote);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--happy-label-2);
+}
+.footer {
+  padding: 6px 16px 0;
+  font-size: var(--happy-text-footnote);
+  line-height: 1.4;
+  color: var(--happy-label-2);
+}
+
+/* Sheets set --form-group-bg so groups sit one step above their backdrop. */
+.group {
+  position: relative;
+  border-radius: var(--happy-radius-lg);
+  background: var(--form-group-bg, var(--happy-surface));
+}
+
+.row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 16px;
+  min-height: 48px;
+  padding: 6px 16px;
+}
+/* Inset hairline between rows. */
+.row + .row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 16px;
+  height: 1px;
+  background: var(--happy-separator);
+}
+.row[data-layout="stacked"] { flex-direction: column; align-items: stretch; padding-block: 10px 12px; }
+.row[data-layout="bare"] { padding: 0; }
+.row[data-layout="bare"] + .row::before, .row + .row[data-layout="bare"]::before { left: 16px; }
+
+/* Labels and controls centre on a 36px line, so a label lines up with its
+   input even when a description or error grows below the input. */
+.labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 0 0 var(--form-label-width, auto);
+  min-width: 88px;
+  min-height: 36px;
+}
+.label { display: flex; align-items: center; gap: 10px; font-size: var(--happy-text-body); color: var(--happy-label); }
+.row[data-layout="stacked"] .labels { min-height: 0; }
+.row[data-layout="stacked"] .label { font-size: var(--happy-text-subhead); font-weight: 500; color: var(--happy-label-2); }
+.hint { margin-top: 1px; font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
+
+.control {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 36px;
+}
+.row[data-layout="stacked"] .control, .row[data-layout="bare"] .control { flex: 1 1 auto; min-height: 0; }
+.row[data-trailing] { flex-wrap: nowrap; align-items: center; }
+.row[data-trailing] .labels { flex: 1 1 auto; min-width: 0; }
+.row[data-trailing] .control { flex: 0 0 auto; align-items: flex-end; }
+
+/* Phones: inline rows stack (label above a full-width control). */
+@media (max-width: $mantine-breakpoint-xs) {
+  .row[data-layout="inline"]:not([data-trailing]) { flex-direction: column; align-items: stretch; gap: 6px; padding-block: 10px 12px; }
+  .row[data-layout="inline"]:not([data-trailing]) .labels { flex: none; min-height: 0; }
+  .row[data-layout="inline"]:not([data-trailing]) .label { font-size: var(--happy-text-subhead); font-weight: 500; color: var(--happy-label-2); }
+  .row[data-layout="inline"]:not([data-trailing]) .control { flex: none; min-height: 0; }
+}

@@ -1,0 +1,68 @@
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-fill-2);
+  transition: box-shadow var(--happy-dur-fast) var(--happy-ease-out), background-color var(--happy-dur-fast);
+}
+.root:focus-within { box-shadow: var(--happy-focus-ring); background: var(--happy-fill-3); }
+.icon { position: absolute; left: 11px; color: var(--happy-label-2); pointer-events: none; }
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 30px 0 32px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--happy-label);
+  font: inherit;
+  font-size: var(--happy-text-subhead);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.input::placeholder { color: var(--happy-label-2); }
+.input::-webkit-search-cancel-button, .input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+.clear {
+  position: absolute;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--happy-label-3);
+  color: var(--happy-bg);
+  cursor: pointer;
+}
+.clear:hover { background: var(--happy-label-2); }
+.clear:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+@media (width < $mantine-breakpoint-sm) {
+  .root { height: 38px; border-radius: var(--happy-radius-md); background: var(--happy-fill); }
+  .root:focus-within { background: var(--happy-fill); }
+  .input { font-size: 17px; padding-left: 34px; } /* ≥16px: no iOS focus zoom */
+  .icon { left: 10px; }
+  .clear { width: 18px; height: 18px; }
+}
+.hint {
+  position: absolute;
+  right: 8px;
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--happy-label-3);
+  box-shadow: inset 0 0 0 0.5px var(--happy-separator-strong);
+  pointer-events: none;
+}
+.root:focus-within .hint { opacity: 0; }
+@media (width < $mantine-breakpoint-sm) { .hint { display: none; } }

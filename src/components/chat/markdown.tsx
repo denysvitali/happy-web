@@ -61,8 +61,8 @@ function CodeBlock({ node, children, ...rest }: ComponentProps<"pre"> & ExtraPro
   return (
     <div className={classes.code}>
       <div className={classes.codeHead}>
-        <span>{lang ?? "text"}</span>
-        <CopyIcon text={text} label="Copy code" />
+        <span className={classes.codeLang}>{lang ?? "text"}</span>
+        <CopyIcon text={text} label="Copy code" reveal />
       </div>
       <pre {...rest}>{children}</pre>
     </div>

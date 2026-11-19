@@ -1,9 +1,8 @@
-import { Alert, Autocomplete, Button, Code, Collapse, Input, Loader, SegmentedControl, Select, Stack, Text, Textarea, UnstyledButton } from "@mantine/core";
-import { modals } from "@mantine/modals";
+import { Autocomplete, Button, Code, Kbd, Loader, SegmentedControl, Select, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Info, MonitorOff, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { MonitorOff } from "lucide-react";
+import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { sessionsKey, type Account, type MachineItem, type SessionItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
 import {
@@ -35,6 +34,11 @@ import { ModePicker } from "./ModePicker";
 import classes from "./new-session.module.css";
 import { loadPrefs, savePrefs } from "./prefs";
 import { useRepoBranches } from "./useRepoBranches";
+import { Callout } from "@/ui/Callout";
+import { Disclosure } from "@/ui/Disclosure";
+import { EmptyState } from "@/ui/EmptyState";
+import { FormRow, FormSection } from "@/ui/FormSection";
+import { openSheet, SheetBody, SheetFooter } from "@/ui/Sheet";
 
 const within = { withinPortal: false } as const;
 
@@ -66,7 +70,8 @@ function initialMode(modes: SpawnBackend[], hint: MachineItem | undefined, remem
   return modes.includes("local") ? "local" : (modes[0] ?? "local");
 }
 
-function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: NewSessionOptions; onSpawned: (id: string) => void }) {
+function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Account; opts: NewSessionOptions; onSpawned: (id: string) => void; onCancel: () => void }) {
+  const uid = useId();
   const qc = useQueryClient();
   const { machines } = opts;
   const [prefs] = useState(loadPrefs);
@@ -126,13 +131,25 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
 
   if (!machine) {
     return (
-      <Stack align="center" gap="xs" py="xl" ta="center">
-        <MonitorOff size={32} strokeWidth={1.5} />
-        <Text fw={600}>No computer is online</Text>
-        <Text size="sm" c="dimmed">
-          Start the Happy daemon on a computer or cluster (<Code>happy daemon start</Code>), then try again.
-        </Text>
-      </Stack>
+      <>
+        <SheetBody>
+          <EmptyState
+            tone="gray"
+            icon={<MonitorOff size={24} strokeWidth={1.75} />}
+            title="No computer is online"
+            message={
+              <>
+                Start the Happy daemon on a computer or cluster (<Code>happy daemon start</Code>), then try again.
+              </>
+            }
+          />
+        </SheetBody>
+        <SheetFooter>
+          <Button variant="default" size="md" onClick={onCancel} data-autofocus>
+            Close
+          </Button>
+        </SheetFooter>
+      </>
     );
   }
 
@@ -220,9 +237,12 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
     );
   }
 
+  const advancedSummary = [permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ");
+  const progress = slow ? "Still going: cold image pulls and new volumes can take a few minutes." : "Creating the Pod and cloning the repository.";
+
   return (
-    <form onSubmit={submit}>
-      <Stack gap="lg">
+    <form onSubmit={submit} className={classes.form}>
+      <SheetBody>
         {modes.length > 1 && <ModePicker modes={modes} value={mode} onChange={changeMode} />}
         {isK8s ? (
           <KubernetesFields
@@ -249,72 +269,87 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
         ) : (
           <LocalFields machines={locals} machine={machine} onMachine={setLocalId} folders={folders} directory={directory} onDirectory={setDirectory} />
         )}
-        <Input.Wrapper label="Agent">
-          <SegmentedControl
-            fullWidth
-            mt={4}
-            value={agent}
-            onChange={(v) => setAgentByMode((a) => ({ ...a, [mode]: v }))}
-            data={agents.map((a) => ({ value: a.value, label: AGENT_SHORT[a.value] ?? a.label }))}
-          />
-        </Input.Wrapper>
-        <Textarea
-          label="First message"
-          description="Optional; sent as soon as the agent starts. Ctrl/⌘+Enter starts the session."
-          placeholder={isK8s ? "e.g. Run the tests and fix what fails" : "What should the agent do?"}
-          autosize
-          minRows={2}
-          maxRows={8}
-          value={prompt}
-          onChange={(e) => setPrompt(e.currentTarget.value)}
-          onKeyDown={submitOnModEnter}
-        />
-        <div>
-          <UnstyledButton className={classes.toggle} data-expanded={advanced || undefined} aria-expanded={advanced} onClick={() => setAdvanced((a) => !a)}>
-            <ChevronRight size={14} className={classes.chevron} />
-            Advanced
-            {!advanced && (permission !== defaultPermissionMode(agent) || model.trim()) && (
-              <Text span size="xs" c="dimmed">
-                · {[permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ")}
-              </Text>
-            )}
-          </UnstyledButton>
-          <Collapse expanded={advanced}>
-            <Stack gap="md" pt="md">
-              <Select
-                label="Permission mode"
-                data={permModes.map((m) => ({ value: m, label: MODE_LABELS[m] ?? m }))}
-                value={permission}
-                onChange={(v) => v && setPermByAgent((p) => ({ ...p, [agent]: v }))}
-                allowDeselect={false}
-                comboboxProps={within}
+        <FormSection title="Agent">
+          <FormRow layout="bare">
+            <div className={classes.segmentRow}>
+              <SegmentedControl
+                fullWidth
+                aria-label="Agent"
+                value={agent}
+                onChange={(v) => setAgentByMode((a) => ({ ...a, [mode]: v }))}
+                data={agents.map((a) => ({ value: a.value, label: AGENT_SHORT[a.value] ?? a.label }))}
               />
-              <Autocomplete
-                label="Model"
-                placeholder="Account default"
-                data={MODEL_SUGGESTIONS[agent] ?? []}
-                value={model}
-                onChange={setModel}
-                autoComplete="off"
-                spellCheck={false}
-                comboboxProps={within}
-              />
-            </Stack>
-          </Collapse>
-        </div>
-        <div className={classes.summary}>
-          <Sparkles size={14} />
-          {summary}
-        </div>
+            </div>
+          </FormRow>
+        </FormSection>
+        <FormSection
+          title={<label htmlFor={`${uid}-prompt`}>First message</label>}
+          footer={
+            <span id={`${uid}-prompt-hint`}>
+              Optional; sent as soon as the agent starts. <Kbd size="xs">Ctrl/⌘</Kbd> <Kbd size="xs">Enter</Kbd> starts the session.
+            </span>
+          }
+        >
+          <FormRow layout="bare">
+            <Textarea
+              id={`${uid}-prompt`}
+              aria-describedby={`${uid}-prompt-hint`}
+              variant="unstyled"
+              classNames={{ input: classes.message }}
+              placeholder={isK8s ? "e.g. Run the tests and fix what fails" : "What should the agent do?"}
+              autosize
+              minRows={3}
+              maxRows={10}
+              value={prompt}
+              onChange={(e) => setPrompt(e.currentTarget.value)}
+              onKeyDown={submitOnModEnter}
+            />
+          </FormRow>
+        </FormSection>
+        <Disclosure
+          open={advanced}
+          onToggle={() => setAdvanced((a) => !a)}
+          header={
+            <>
+              Advanced
+              {!advanced && advancedSummary && <span className={classes.advancedSummary}>· {advancedSummary}</span>}
+            </>
+          }
+        >
+          <div className={classes.advanced}>
+            <FormSection>
+              <FormRow label="Model" labelFor={`${uid}-model`}>
+                <Autocomplete
+                  id={`${uid}-model`}
+                  placeholder="Account default"
+                  data={MODEL_SUGGESTIONS[agent] ?? []}
+                  value={model}
+                  onChange={setModel}
+                  autoComplete="off"
+                  spellCheck={false}
+                  comboboxProps={within}
+                />
+              </FormRow>
+              <FormRow label="Permission mode" labelFor={`${uid}-perm`}>
+                <Select
+                  id={`${uid}-perm`}
+                  data={permModes.map((m) => ({ value: m, label: MODE_LABELS[m] ?? m }))}
+                  value={permission}
+                  onChange={(v) => v && setPermByAgent((p) => ({ ...p, [agent]: v }))}
+                  allowDeselect={false}
+                  comboboxProps={within}
+                />
+              </FormRow>
+            </FormSection>
+          </div>
+        </Disclosure>
         {error &&
           (missingBranch ? (
-            <Alert color="yellow" icon={<Info size={16} />} title={`Branch “${missingBranch.ref}” doesn't exist`}>
-              <Stack gap={8} align="flex-start">
-                <span>
-                  {missingBranch.repo} has no such branch
-                  {missingBranch.defaultBranch ? `; its default branch is ${missingBranch.defaultBranch}.` : "."}
-                </span>
-                {missingBranch.defaultBranch && (
+            <Callout
+              tone="warning"
+              title={`Branch “${missingBranch.ref}” doesn't exist`}
+              action={
+                missingBranch.defaultBranch && (
                   <Button
                     size="xs"
                     variant="light"
@@ -326,44 +361,41 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
                   >
                     Use {missingBranch.defaultBranch}
                   </Button>
-                )}
-              </Stack>
-            </Alert>
+                )
+              }
+            >
+              {missingBranch.repo} has no such branch
+              {missingBranch.defaultBranch ? `; its default branch is ${missingBranch.defaultBranch}.` : "."}
+            </Callout>
           ) : (
-            <Alert color="red" title="Couldn't start the session">
+            <Callout tone="danger" title="Couldn't start the session">
               {error}
-            </Alert>
+            </Callout>
           ))}
-        <Stack gap={6}>
-          <Button type="submit" size="md" disabled={!valid || busy} leftSection={busy ? <Loader size={16} color="currentColor" /> : undefined}>
-            {busy ? (isK8s ? "Scheduling container…" : "Starting agent…") : isK8s ? "Start in Kubernetes" : "Start session"}
-          </Button>
-          {busy && isK8s && (
-            <Text size="xs" c="dimmed" ta="center">
-              {slow ? "Still going: cold image pulls and new volumes can take a few minutes." : "Creating the Pod and cloning the repository."}
-            </Text>
-          )}
-        </Stack>
-      </Stack>
+      </SheetBody>
+      <SheetFooter note={<div className={classes.summary} aria-live="polite">{busy && isK8s ? progress : summary}</div>}>
+        <Button variant="default" size="md" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" size="md" disabled={!valid || busy} leftSection={busy ? <Loader size={16} color="currentColor" /> : undefined}>
+          {busy ? (isK8s ? "Scheduling container…" : "Starting agent…") : isK8s ? "Start in Kubernetes" : "Start session"}
+        </Button>
+      </SheetFooter>
     </form>
   );
 }
 
 export function openNewSession(account: Account, opts: NewSessionOptions, onSpawned: (id: string) => void) {
-  const id = modals.open({
-    title: (
-      <Text fw={600} size="lg">
-        New session
-      </Text>
-    ),
-    size: "lg",
-    padding: "lg",
-    children: (
+  openSheet({
+    title: "New session",
+    size: 580,
+    children: (close) => (
       <NewSessionForm
         account={account}
         opts={opts}
+        onCancel={close}
         onSpawned={(sid) => {
-          modals.close(id);
+          close();
           onSpawned(sid);
         }}
       />

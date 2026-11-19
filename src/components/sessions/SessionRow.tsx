@@ -4,23 +4,29 @@ import { STATUS_LABEL, type SessionView } from "@/lib/sync/sessionList";
 import { SessionMenu } from "./SessionMenu";
 import classes from "./sessions.module.css";
 
-export const ROW_HEIGHT = 58;
-export const HEADER_HEIGHT = 32;
+/** Virtualizer slot heights (px); phones get taller, inset-grouped rows. */
+export const ROW_HEIGHT = 56;
+export const HEADER_HEIGHT = 34;
+export const ROW_HEIGHT_COMPACT = 68;
+export const HEADER_HEIGHT_COMPACT = 50;
 
 interface Props {
   view: SessionView;
   depth: number;
   active: boolean;
   cursor: boolean;
-  onNavigate: () => void;
+  /** Position within its group, for the phone's rounded group card. */
+  first?: boolean;
+  last?: boolean;
 }
 
 /** Memoized: re-renders only when its view object (see deriveViews) or flags change. */
-export const SessionRow = memo(function SessionRow({ view: v, depth, active, cursor, onNavigate }: Props) {
+export const SessionRow = memo(function SessionRow({ view: v, depth, active, cursor, first, last }: Props) {
   const [menu, setMenu] = useState(false);
   // Machine names are only worth showing for local sessions; Kubernetes
   // sessions run on "the cluster", whichever pod hosts them.
   const meta = [v.project, v.runtime === "local" ? v.machine : ""].filter(Boolean).join(" · ");
+  const thinking = v.status === "thinking";
   return (
     <div
       className={classes.row}
@@ -28,6 +34,8 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, active, cur
       data-cursor={cursor || undefined}
       data-status={v.status}
       data-child={depth > 0 || undefined}
+      data-first={first || undefined}
+      data-last={last || undefined}
       style={depth > 0 ? ({ "--depth": depth } as React.CSSProperties) : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -37,7 +45,6 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, active, cur
       <a
         className={classes.rowLink}
         href={`#/s/${encodeURIComponent(v.id)}`}
-        onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : ""}`}
       >
@@ -45,14 +52,15 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, active, cur
         <span className={classes.rowBody}>
           <span className={classes.rowTop}>
             <span className={classes.rowTitle}>{v.title}</span>
-            <span className={classes.rowAgo} data-live={v.status === "thinking" || undefined}>
-              {v.status === "thinking" ? "thinking" : v.ago}
+            <span className={classes.rowAgo} data-live={thinking || undefined}>
+              {thinking ? "thinking" : v.ago}
             </span>
           </span>
           <span className={classes.rowBottom}>
-            <span className={classes.rowMeta}>{meta || " "}</span>
+            <span className={classes.rowMeta}>{meta || " "}</span>
             <AttentionBadge count={v.pending} />
-            <RuntimeBadge runtime={v.runtime} pod={v.pod} machine={v.machine} />
+            {/* Local is the norm (the machine is in the meta line); only Kubernetes earns a badge. */}
+            {v.runtime === "kubernetes" && <RuntimeBadge runtime={v.runtime} pod={v.pod} machine={v.machine} />}
           </span>
         </span>
       </a>
