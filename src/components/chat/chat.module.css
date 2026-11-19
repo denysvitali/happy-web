@@ -76,26 +76,40 @@
   -webkit-backdrop-filter: var(--happy-backdrop);
   border-bottom: 0.5px solid var(--happy-separator);
 }
-.headerMain { flex: 1; min-width: 0; }
+.headerMain { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .headerTitle {
   font-size: var(--happy-text-headline);
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.3;
+  line-height: 20px;
   color: var(--happy-label);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .headerSub {
+  display: flex;
+  min-width: 0;
   font-size: var(--happy-text-footnote);
-  line-height: 1.3;
+  line-height: 16px;
   color: var(--happy-label-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Status first: it never truncates, the project/machine does. */
+.headerStatus { flex-shrink: 0; font-weight: 600; }
+.headerStatus[data-tone="thinking"] { color: var(--happy-accent); }
+.headerStatus[data-tone="active"] { color: var(--happy-green); }
+.headerStatus[data-tone="approval"] { color: color-mix(in srgb, var(--happy-orange) 82%, var(--happy-label)); }
+.headerStatus[data-tone="idle"],
+.headerStatus[data-tone="archived"] { font-weight: 500; color: var(--happy-label-3); }
+.headerMeta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.headerMeta::before { content: "·"; padding: 0 5px; color: var(--happy-label-3); }
 .headerTrailing { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .header { gap: 8px; padding: 0 4px 0 2px; }
+  .headerTrailing { gap: 0; }
+}
 
 /* ---- composer band ---------------------------------------------------------- */
 
@@ -1013,11 +1027,6 @@
   .column { padding: 0 14px; }
   .transcript { padding-top: 12px; }
   .row[data-gap="turn"] { padding-top: 18px; }
-  .header { gap: 8px; padding: 0 8px 0 4px; }
-  .headerTrailing { gap: 2px; }
-  /* Phones: one line of title; secondary chrome lives in the actions menu. */
-  .headerSub { display: none; }
-  .headerTitle { font-size: var(--happy-text-body); font-weight: 600; }
   .composer { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
   .composerInput { font-size: 16px; max-height: 30dvh; } /* iOS zooms into inputs under 16px */
   .planNow { display: none; }

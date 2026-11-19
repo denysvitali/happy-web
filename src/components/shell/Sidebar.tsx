@@ -17,7 +17,7 @@ import classes from "./shell.module.css";
 const CONN_LABEL = { online: "Live", connecting: "Connecting", offline: "Offline" } as const;
 
 /** Realtime socket state; "Live" collapses to a dot to stay quiet. */
-export function ConnectionIndicator({ compact = false }: { compact?: boolean }) {
+function ConnectionIndicator({ compact = false }: { compact?: boolean }) {
   const conn = useStore(useAccount().status);
   const tip = conn === "online" ? "Realtime updates connected" : conn === "connecting" ? "Connecting to the server…" : "Offline: reconnecting";
   return (
@@ -73,7 +73,7 @@ export function Sidebar() {
   const account = useAccount();
   const navigate = useNavigate();
   const params: { sessionId?: string } = useParams({ strict: false });
-  const { views, sessions, machines, onlineMachines } = useSessionViews();
+  const { views, sessions, machines, machinesLoaded, onlineMachines } = useSessionViews();
 
   const open = useCallback((id: string) => void navigate({ to: "/s/$sessionId", params: { sessionId: id } }), [navigate]);
   const spawn = () => openSpawnModal(account, onlineMachines, open);
@@ -95,15 +95,15 @@ export function Sidebar() {
         </Tooltip>
       </div>
 
-
       <SessionList views={views} loading={sessions.isPending} error={sessions.error} activeId={params.sessionId} onOpen={open} />
 
-      <div className={classes.footer}>
-        <span className={classes.footerStatus}>
-          <PresenceDot online={canSpawn} />
-          {onlineMachines.length} of {machines.length} machine{machines.length === 1 ? "" : "s"} online
-        </span>
-      </div>
+      {/* Only worth the space when it explains a disabled compose button. */}
+      {machinesLoaded && !canSpawn && (
+        <div className={classes.footer} role="status">
+          <PresenceDot online={false} />
+          {machines.length === 0 ? "No machines linked" : `No machine online · ${machines.length} offline`}
+        </div>
+      )}
     </>
   );
 }

@@ -8,10 +8,12 @@ import {
   flattenGroups,
   formatAgo,
   groupViews,
+  metaLine,
   podStateOf,
   projectOf,
   repoSlug,
   runtimeOf,
+  statusText,
   type SessionView,
 } from "./sessionList";
 
@@ -62,6 +64,15 @@ describe("session list helpers", () => {
     expect(podStateOf(mk("a", { runtimeType: "kubernetes", podPhase: "Failed" }))).toBe("failed");
     expect(podStateOf(mk("a", { runtimeType: "kubernetes" }, { lifecycle: "" }))).toBe("scheduling");
     expect(podStateOf(mk("a", { runtimeType: "kubernetes" }))).toBe("ready");
+  });
+
+  it("labels where a session runs and what it is doing", () => {
+    expect(metaLine({ project: "~/src/app", runtime: "local", machine: "laptop" })).toBe("~/src/app · laptop");
+    expect(metaLine({ project: "acme/web", runtime: "kubernetes", machine: "happy-daemon" })).toBe("acme/web · K8s");
+    expect(metaLine({ project: "", runtime: "local", machine: "" })).toBe("");
+    expect(statusText({ status: "thinking", pending: 0 })).toBe("Thinking");
+    expect(statusText({ status: "thinking", pending: 2 })).toBe("Needs approval");
+    expect(statusText({ status: "archived", pending: 1 })).toBe("Archived");
   });
 
   it("formats relative times", () => {

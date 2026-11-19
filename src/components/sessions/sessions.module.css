@@ -82,6 +82,8 @@
 .rowLink:active { --row-bg: var(--happy-pressed); }
 .rowLink:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
 .row[data-cursor] .rowLink { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--happy-accent) 45%, transparent); }
+/* The row a context menu (right-click, long-press) belongs to. */
+.row[data-menu] .rowLink { --row-bg: var(--happy-hover); }
 
 /* Opaque selection tint, so the avatar's status-dot ring can match it. */
 .row[data-active] {
@@ -171,6 +173,9 @@
   .groupHeader > div { padding: 0 16px; }
 
   .row { padding: 0 16px; }
+  .row,
+  .row[data-active] { --avatar-ring: var(--happy-surface); }
+  .rowActions { right: 22px; }
   .rowLink {
     position: relative;
     gap: 12px;
@@ -193,18 +198,11 @@
   .row[data-active] .rowLink { --row-bg: var(--happy-surface); }
   .row[data-active] .rowTitle { font-weight: 500; }
   .row[data-cursor] .rowLink { box-shadow: none; }
-  .row { padding-bottom: 0; }
-
+  .row[data-menu] .rowLink { --row-bg: color-mix(in srgb, var(--happy-label) 8%, var(--happy-surface)); }
   .rowTitle { font-size: var(--happy-text-body); line-height: 20px; font-weight: 500; }
   .rowMeta { font-size: var(--happy-text-subhead); line-height: 18px; }
   .rowAgo { font-size: var(--happy-text-subhead); }
   .row[data-child] .rowLink::before { left: calc(var(--depth, 1) * 16px + 2px); }
-}
-
-@media (width < $mantine-breakpoint-sm) {
-  .row,
-  .row[data-active] { --avatar-ring: var(--happy-surface); }
-  .rowActions { right: 22px; }
 }
 
 /* Touch phones: long-press opens the actions menu (and the chat header has

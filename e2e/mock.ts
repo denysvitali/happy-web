@@ -64,10 +64,31 @@ export function createMock() {
     mkSession("s4", { path: "/home/denys/notes", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", summary: { text: "Weekly notes cleanup" } }, { archived: true, active: false, ago: 2 * 24 * 60 * min }),
     mkSession("s6", { path: "/root/pmos-gt-p5110", homeDir: "/root", host: "happy", machineId: "m-laptop", flavor: "claude", model: "opus", repoUrl: "https://github.com/acme/pmos-gt-p5110", summary: { text: "pmos-galaxy" } }, { lastSeq: opsRecords.length + 1, agentState: opsAgentState }),
     mkSession("s5", { path: "/workspace/old", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", runtimeType: "kubernetes", summary: { text: "Spike: websocket fallback" } }, { archived: true, active: false, ago: 6 * 24 * 60 * min }),
+    // Real-ish load: one busy repo, long titles, a sub-agent, k8s pod states, a deep archive.
+    ...realisticSessions(),
   ];
 
   // The ops session runs close to a full context window (the meter's red state).
   const ops = [...opsRecords, { role: "agent", content: { type: "output", data: { type: "assistant", message: { model: "claude-opus-4-5", content: [], usage: { input_tokens: 1_200, cache_read_input_tokens: 182_000 } } } } }];
+  function realisticSessions() {
+    const web = { host: "happy-daemon", machineId: "m-k8s", runtimeType: "kubernetes", repoUrl: "git@github.com:acme/happy-web.git" };
+    const local = { homeDir: "/home/denys", host: "laptop", machineId: "m-laptop" };
+    const out = [
+      mkSession("r1", { ...web, path: "/workspace/happy-web-r1", flavor: "claude", podPhase: "Running", summary: { text: "Make the session list virtualizer keep group headers sticky while scrolling on Android Chrome" } }, { ago: 4 * min }),
+      mkSession("r2", { ...web, path: "/workspace/happy-web-r2", flavor: "claude", parentSessionId: "r1", summary: { text: "Audit CSS modules for hard-coded colours" } }, { ago: 6 * min }),
+      mkSession("r3", { ...web, path: "/workspace/happy-web-r3", flavor: "codex", podPhase: "Pending", summary: { text: "Bump Mantine to 9 and fix the breaking changes in Menu and Modal" } }, { ago: 1 * min }),
+      mkSession("r4", { ...local, path: "/home/denys/src/happy-cli-go", flavor: "claude", repoUrl: "https://github.com/acme/happy-cli-go", summary: { text: "Investigate why the daemon drops the websocket after laptop sleep and reconnects twice" } }, { ago: 3 * 60 * min, active: false }),
+      mkSession("r5", { ...web, path: "/workspace/happy-web-r5", flavor: "claude", podPaused: true, summary: { text: "Phone push navigation polish" } }, { ago: 26 * 60 * min, active: false }),
+      mkSession("r6", { ...local, path: "/home/denys/src/dotfiles", flavor: "opencode", summary: { text: "Port nvim config to lazy.nvim" } }, { ago: 3 * 24 * 60 * min, active: false }),
+    ];
+    const titles = ["Fix CSP violation in the e2e smoke test", "Rename SessionItem fields to match the server", "Write the crypto vectors script", "Speed up initial sync for 1600 sessions", "Drop the legacy secretbox path", "Add Renovate config"];
+    for (let i = 0; i < 18; i++) {
+      const meta = i % 3 === 0 ? { ...local, path: "/home/denys/src/app", flavor: "claude" } : { ...web, path: `/workspace/happy-web-a${i}`, flavor: i % 2 ? "codex" : "claude" };
+      out.push(mkSession(`a${i}`, { ...meta, summary: { text: titles[i % titles.length]! } }, { archived: true, active: false, ago: (8 + i * 3) * 24 * 60 * min }));
+    }
+    return out;
+  }
+
   const messages: Record<string, { id: string; seq: number; localId: string | null; createdAt: number; content: string }[]> = {
     s1: demoRecords.map((r, i) => ({ id: `m${i + 1}`, seq: i + 1, localId: null, createdAt: now - (demoRecords.length - i) * 20_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
     s6: ops.map((r, i) => ({ id: `o${i + 1}`, seq: i + 1, localId: null, createdAt: now - (ops.length - i) * 15_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),

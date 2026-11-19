@@ -5,8 +5,8 @@ import { memo, useMemo } from "react";
 import { useAccount } from "@/app/auth";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { openSpawnModal } from "@/components/shell/spawn";
-import { AgentAvatar, AttentionBadge, RuntimeBadge, StatusDot } from "@/components/status";
-import { STATUS_LABEL, groupViews, type SessionView } from "@/lib/sync/sessionList";
+import { AgentAvatar, AttentionBadge, PodBadge } from "@/components/status";
+import { groupViews, metaLine as meta, statusText, type SessionView } from "@/lib/sync/sessionList";
 import { EmptyState } from "@/ui/EmptyState";
 import { StatCard } from "@/ui/StatCard";
 import classes from "./home.module.css";
@@ -32,13 +32,14 @@ const href = (id: string) => `#/s/${encodeURIComponent(id)}`;
 
 const SessionCard = memo(function SessionCard({ v }: { v: SessionView }) {
   const tool = v.pending ? firstRequestTool(v) : undefined;
+  const sub = meta(v);
   return (
     <a className={classes.card} href={href(v.id)} data-attention={v.pending > 0 || undefined}>
       <div className={classes.cardHead}>
-        <AgentAvatar agent={v.agent} status={v.status} size={32} />
+        <AgentAvatar agent={v.agent} status={v.status} attention={v.pending > 0} size={32} />
         <div className={classes.cardText}>
           <div className={classes.cardTitle}>{v.title}</div>
-          {v.project && <div className={classes.cardSub}>{v.project}</div>}
+          {sub && <div className={classes.cardSub}>{sub}</div>}
         </div>
       </div>
       {tool && (
@@ -52,25 +53,26 @@ const SessionCard = memo(function SessionCard({ v }: { v: SessionView }) {
       )}
       <div className={classes.cardFooter}>
         <span className={classes.cardFooterText}>
-          {STATUS_LABEL[v.status]}
+          {statusText(v)}
           {v.ago ? ` · ${v.ago === "now" ? "just now" : `${v.ago} ago`}` : ""}
         </span>
         {!tool && <AttentionBadge count={v.pending} />}
-        <RuntimeBadge runtime={v.runtime} pod={v.pod} machine={v.machine} />
+        <PodBadge pod={v.pod} />
       </div>
     </a>
   );
 });
 
 const ActivityRow = memo(function ActivityRow({ v }: { v: SessionView }) {
+  const sub = meta(v);
   return (
     <a className={classes.activityRow} href={href(v.id)} data-archived={v.status === "archived" || undefined}>
       <AgentAvatar agent={v.agent} status={v.status} size={28} />
       <div className={classes.activityMain}>
         <div className={classes.activityTitle}>{v.title}</div>
-        {v.project && <div className={classes.activitySub}>{v.project}</div>}
+        {sub && <div className={classes.activitySub}>{sub}</div>}
       </div>
-      <RuntimeBadge runtime={v.runtime} pod={v.pod} machine={v.machine} />
+      <PodBadge pod={v.pod} />
       <span className={classes.activityWhen}>{v.status === "archived" ? "Archived" : v.ago}</span>
     </a>
   );
@@ -88,14 +90,14 @@ function SectionTitle({ icon, tone, children, count }: { icon: React.ReactNode; 
   );
 }
 
-/** Overview: the "/" detail pane of the split view (phones show the session list instead). */
+/** Overview: the "/" detail pane of the split view. Phones never render it (the list is home), so it has no phone styles. */
 export function HomeScreen() {
   const account = useAccount();
   const navigate = useNavigate();
   const { views, sessions, machines, onlineMachines, now } = useSessionViews();
   const g = useMemo(() => groupViews(views), [views]);
-  const live = [...g.attention, ...g.active].filter((e) => e.view.status !== "idle");
-  const thinking = live.filter((e) => e.view.status === "thinking").length;
+  // Matches the Active section below (sessions blocked on an approval count there instead).
+  const thinking = g.active.filter((e) => e.view.status === "thinking").length;
   // Thinking sessions first, then by last activity (groupViews' order).
   const active = useMemo(
     () => [...g.active].sort((a, b) => Number(b.view.status === "thinking") - Number(a.view.status === "thinking")).slice(0, ACTIVE_LIMIT),
@@ -138,7 +140,7 @@ export function HomeScreen() {
               icon={<Activity size={14} strokeWidth={2.25} />}
               tone="green"
               label="Active"
-              value={live.length}
+              value={g.active.length}
               detail={thinking > 0 ? `${thinking} thinking` : "None thinking"}
             />
             <StatCard
@@ -213,11 +215,6 @@ export function HomeScreen() {
             </div>
           </section>
         )}
-
-        <span className={classes.footnote}>
-          <StatusDot status={canSpawn ? "online" : "offline"} />
-          {canSpawn ? `${onlineMachines.length} machine${onlineMachines.length === 1 ? "" : "s"} online` : "No machines online"}
-        </span>
       </div>
     </div>
   );

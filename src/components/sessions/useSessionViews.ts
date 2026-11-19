@@ -24,5 +24,5 @@ export function useSessionViews() {
   const list = sessions.data ?? NO_SESSIONS;
   const views = useMemo(() => deriveViews(list, (s) => statusOf(s, presence, now), machineMap, now), [list, presence, machineMap, now]);
   const onlineMachines = useMemo(() => machineList.filter((m) => isMachineOnline(m, now)), [machineList, now]);
-  return { views, sessions, machines: machineList, onlineMachines, now };
+  return { views, sessions, machines: machineList, machinesLoaded: machines.isSuccess, onlineMachines, now };
 }

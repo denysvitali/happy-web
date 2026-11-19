@@ -11,7 +11,7 @@ import { Composer } from "@/components/chat/composer";
 import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
 import { openSpawnModal } from "@/components/shell/spawn";
-import { AgentAvatar, AttentionBadge, RuntimeBadge, StatusBadge, StatusDot } from "@/components/status";
+import { AgentAvatar, AttentionBadge, PodBadge, StatusDot } from "@/components/status";
 import type { Account, MachineItem } from "@/lib/sync/account";
 import { buildView } from "@/lib/sync/chat";
 import type { SessionStatus } from "@/lib/sync/decode";
@@ -187,14 +187,10 @@ export function DemoScreen() {
             <Loader size="sm" />
           </Group>
           <Group>
-            <StatusBadge status="thinking" />
-            <StatusBadge status="active" />
-            <StatusBadge status="idle" />
-            <StatusBadge status="archived" />
             <StatusDot status="online" />
             <StatusDot status="offline" />
-            <RuntimeBadge runtime="local" machine="denys@laptop" />
-            <RuntimeBadge runtime="kubernetes" pod="ready" />
+            <PodBadge pod="scheduling" />
+            <PodBadge pod="failed" />
             <AttentionBadge count={2} />
             <AgentAvatar agent="claude" status="thinking" />
             <AgentAvatar agent="codex" status="active" />
