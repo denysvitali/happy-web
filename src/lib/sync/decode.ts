@@ -41,6 +41,8 @@ export const sessionMetadata = z.catch(
     codexFastMode: z.catch(z.optional(z.boolean()), undefined),
     gitRemoteUrl: str,
     gitBranch: str,
+    // Happy session ToDos, parsed in todos.ts.
+    todos: z.catch(z.optional(z.array(z.unknown())), undefined),
     summary: z.catch(z.optional(z.object({ text: z.string(), updatedAt: num })), undefined),
   }),
   {},

@@ -315,3 +315,13 @@ function backgroundLaunched(id: string, taskId: string) {
 
 /** Agent state of the ops session: nothing waiting. */
 export const opsAgentState: AgentState = {};
+
+/** Happy session ToDos (`metadata.todos`) for the ops session. */
+export const opsTodos = [
+  { id: "t1", content: "Stage the initramfs without touching /boot", status: "in_progress", priority: "high", order: 1 },
+  { id: "t2", content: "Stub boot-deploy", status: "completed", priority: "medium", order: 1, parentId: "t1" },
+  { id: "t3", content: "Rebuild into /var/tmp/stage", status: "in_progress", priority: "medium", order: 2, parentId: "t1" },
+  { id: "t4", content: "Flash the rebuilt image to the tab", status: "pending", priority: "medium", order: 2, description: "blocked: needs the tab in download mode", agentId: "flasher" },
+  { id: "t5", content: "Write up the boot-deploy gotcha", status: "pending", priority: "low", order: 3 },
+  { id: "t6", content: "Rewrite mkinitfs", status: "canceled", priority: "low", order: 4 },
+];

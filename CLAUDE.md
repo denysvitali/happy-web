@@ -50,6 +50,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   sub-agents, unanswered questions and pending permissions stay out as cards. Finished turns
   fold their working into one `work` line above the final reply (`groupTurns`); the live
   turn and anything waiting for the user never fold.
+- Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
+  `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each

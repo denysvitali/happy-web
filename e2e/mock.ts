@@ -3,7 +3,7 @@
 // a per-test account secret (legacy secretbox) like a real server would hold.
 import { expect, type Page } from "@playwright/test";
 import nacl from "tweetnacl";
-import { demoAgentState, demoRecords, opsAgentState, opsRecords } from "../src/components/chat/fixtures";
+import { demoAgentState, demoRecords, opsAgentState, opsRecords, opsTodos } from "../src/components/chat/fixtures";
 import { decodeBase64, encodeBase64 } from "../src/lib/crypto/base64";
 import { decryptLegacyJson, encryptForPublicKey, encryptLegacyJson } from "../src/lib/crypto/primitives";
 
@@ -62,7 +62,7 @@ export function createMock() {
     mkSession("s2", { path: "/workspace/happy-web", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", model: "gpt-5.5", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/happy-web", summary: { text: "Build the web client" } }, { ago: 2 * min }),
     mkSession("s3", { path: "/workspace/infra", host: "happy-daemon", machineId: "m-k8s", flavor: "claude", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/infra", summary: { text: "Terraform drift report" } }, { ago: 40 * min, active: false }),
     mkSession("s4", { path: "/home/denys/notes", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", summary: { text: "Weekly notes cleanup" } }, { archived: true, active: false, ago: 2 * 24 * 60 * min }),
-    mkSession("s6", { path: "/root/pmos-gt-p5110", homeDir: "/root", host: "happy", machineId: "m-laptop", flavor: "claude", model: "opus", repoUrl: "https://github.com/acme/pmos-gt-p5110", summary: { text: "pmos-galaxy" } }, { lastSeq: opsRecords.length + 1, agentState: opsAgentState }),
+    mkSession("s6", { path: "/root/pmos-gt-p5110", homeDir: "/root", host: "happy", machineId: "m-laptop", flavor: "claude", model: "opus", repoUrl: "https://github.com/acme/pmos-gt-p5110", summary: { text: "pmos-galaxy" }, todos: opsTodos }, { lastSeq: opsRecords.length + 1, agentState: opsAgentState }),
     mkSession("s5", { path: "/workspace/old", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", runtimeType: "kubernetes", summary: { text: "Spike: websocket fallback" } }, { archived: true, active: false, ago: 6 * 24 * 60 * min }),
     // Real-ish load: one busy repo, long titles, a sub-agent, k8s pod states, a deep archive.
     ...realisticSessions(),

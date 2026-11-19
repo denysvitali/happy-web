@@ -1179,6 +1179,11 @@
 .planIcon { flex-shrink: 0; color: var(--happy-accent); }
 .planCount { flex-shrink: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .planNow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--happy-label-2); }
+.planPop { max-height: min(60dvh, 480px); overflow-y: auto; }
+.planSection { margin: 12px 0 6px; padding-top: 10px; border-top: 1px solid var(--happy-separator); font-size: var(--happy-text-caption); font-weight: 600; color: var(--happy-label-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.todoText { min-width: 0; overflow-wrap: anywhere; }
+.todoAgent { margin-left: 6px; padding: 0 6px; border-radius: var(--happy-radius-pill); background: var(--happy-fill-3); font-size: var(--happy-text-caption); font-style: normal; color: var(--happy-label-2); }
+.todoNote { margin: 1px 0 0; font-size: var(--happy-text-footnote); color: var(--happy-label-3); }
 
 /* ---- archived: no composer, just what it is and the way back -------------------------- */
 

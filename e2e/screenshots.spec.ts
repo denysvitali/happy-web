@@ -162,6 +162,12 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(300);
       await shot(page, "12-ops-expanded");
       await page.setViewportSize({ width: vp.width, height: vp.height });
+      // Session ToDos: the chip counts them, the popover lists them with the agent's plan.
+      await page.getByRole("button", { name: "ToDos: 1 of 5 done" }).click();
+      await expect(page.getByText("Agent plan")).toBeVisible();
+      await page.waitForTimeout(200);
+      await shot(page, "12b-ops-todos");
+      await page.keyboard.press("Escape");
       // Attaching an image in the composer.
       await page.locator('input[type="file"]').setInputFiles({ name: "boot.png", mimeType: "image/png", buffer: Buffer.from(DEMO_IMAGE, "base64") });
       await page.getByLabel("Message").fill("Same screen after the rebuild");

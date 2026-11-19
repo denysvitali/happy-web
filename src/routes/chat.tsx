@@ -23,6 +23,7 @@ import type { ChatView, ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
 import { PlanChip } from "@/components/chat/plan";
 import { latestPlan } from "@/components/chat/tools/steps";
+import { sessionTodos } from "@/lib/sync/todos";
 import { agentOf } from "@/lib/sync/sessionList";
 import { selectionLabel } from "@/lib/sync/models";
 import type { SessionItem } from "@/lib/sync/account";
@@ -265,6 +266,7 @@ function ComposerArea({
   run: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
   const account = useAccount();
+  const todos = useMemo(() => sessionTodos(session.meta.todos), [session.meta.todos]);
   const sw = useSessionSwitch(session);
   const send = async (text: string, images: OutgoingImage[]) => {
     if (!store) return;
@@ -295,7 +297,7 @@ function ComposerArea({
           history={history}
           tools={
             <SessionToolbar session={session} sw={sw} store={store}>
-              {plan && <PlanChip plan={plan} />}
+              <PlanChip plan={plan} todos={todos} />
             </SessionToolbar>
           }
           canAbort={canAbort}
