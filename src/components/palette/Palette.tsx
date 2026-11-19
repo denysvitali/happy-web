@@ -7,6 +7,7 @@ import {
   Archive,
   ArchiveRestore,
   Copy,
+  Inbox,
   Keyboard,
   LayoutGrid,
   LogOut,
@@ -52,6 +53,7 @@ export interface PaletteProps {
   onOpenSession: (id: string) => void;
   onNewSession: (machineId?: string) => void;
   onSettings: () => void;
+  onInbox: () => void;
   onShortcuts: () => void;
   onDemo: () => void;
   onForget: () => void;
@@ -187,6 +189,7 @@ function Body({
   onOpenSession,
   onNewSession,
   onSettings,
+  onInbox,
   onShortcuts,
   onDemo,
   onForget,
@@ -306,6 +309,13 @@ function Body({
         { keywords: "toggle theme appearance light dark" },
       ),
       action(
+        "a-inbox",
+        "Inbox",
+        tile(Inbox),
+        () => choose(onInbox),
+        { keywords: "messages goals questions blocked agents notifications", trailing: hint("G I") },
+      ),
+      action(
         "a-settings",
         "Account and settings",
         tile(Settings),
@@ -343,6 +353,7 @@ function Body({
     choose,
     onNewSession,
     onSettings,
+    onInbox,
     onShortcuts,
     onDemo,
     onForget,

@@ -32,6 +32,16 @@ const agent = createRoute({
   path: "/s/$sessionId/agent/$toolId",
   component: lazyRouteComponent(() => import("@/routes/agent"), "AgentScreen"),
 });
+const inbox = createRoute({
+  getParentRoute: () => authed,
+  path: "/inbox",
+  component: lazyRouteComponent(() => import("@/routes/inbox"), "InboxScreen"),
+});
+const inboxMessage = createRoute({
+  getParentRoute: () => authed,
+  path: "/inbox/$inboxSession/$inboxMessage",
+  component: lazyRouteComponent(() => import("@/routes/inbox"), "InboxScreen"),
+});
 const demo = createRoute({
   getParentRoute: () => rootRoute,
   path: "/components-demo",
@@ -39,7 +49,7 @@ const demo = createRoute({
 });
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent]), demo]),
+  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, inbox, inboxMessage]), demo]),
   defaultNotFoundComponent: NotFoundScreen,
   history: createHashHistory(),
   defaultPreload: false,

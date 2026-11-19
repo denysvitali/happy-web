@@ -63,6 +63,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   holds the pure model, `folderSync.ts` the optimistic, version-checked sync,
   `folderList.ts` the foldered list (search stays flat). Never write a doc you
   can't read. `pnpm vectors` also regenerates the Go folder envelopes.
+- Inbox (`/inbox`, lazy): agents' `inbox_send` messages from each session's encrypted
+  `metadata.inbox` (`src/lib/sync/inbox.ts`; same rules as happy_flutter). Read/done/replied
+  is per-browser triage in localStorage; a reply is a user message `Re: <subject>\n\n<text>`.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each

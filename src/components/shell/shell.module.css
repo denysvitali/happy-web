@@ -60,6 +60,40 @@
 .bar .barButton { --ib-color: var(--happy-label-2); }
 .bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-label); }
 
+/* Inbox: a link styled like the bar's icon buttons, with an unread badge. */
+.inboxLink {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--happy-radius-pill);
+  color: var(--happy-label-2);
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), color var(--happy-dur-fast) var(--happy-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.inboxLink:hover { color: var(--happy-label); background: var(--happy-hover); }
+.inboxLink:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.inboxLink[aria-current="page"] { color: var(--happy-accent); background: var(--happy-accent-tint); }
+.inboxBadge {
+  position: absolute;
+  top: -1px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 1.5px solid var(--happy-sidebar);
+  border-radius: var(--happy-radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  color: var(--happy-on-accent);
+  background: var(--happy-red);
+  font-variant-numeric: tabular-nums;
+}
+
 .conn {
   display: inline-flex;
   align-items: center;
@@ -195,6 +229,10 @@
   .bar .barButton { --ib-size: 38px; --ib-color: var(--happy-accent); }
   .bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-accent); }
   .bar .barButton svg { width: 22px; height: 22px; }
+  .inboxLink { width: 38px; height: 38px; color: var(--happy-accent); }
+  .inboxLink:hover { color: var(--happy-accent); }
+  .inboxLink svg { width: 22px; height: 22px; }
+  .inboxBadge { top: 1px; right: -1px; }
   .conn { margin-left: 2px; font-size: var(--happy-text-footnote); }
   /* Live is the norm; on phones only trouble earns a spot in the bar. */
   .conn[data-state="online"] { display: none; }

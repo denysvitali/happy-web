@@ -21,9 +21,9 @@ export function NavBar({ title, subtitle, leading, trailing }: { title: ReactNod
 }
 
 /** "‹ Sessions" back link; rendered only on compact (phone) layouts, where panes push. */
-export function BackButton({ label = "Sessions" }: { label?: string }) {
+export function BackButton({ label = "Sessions", to = "/" }: { label?: string; to?: "/" | "/inbox" }) {
   return (
-    <Link to="/" className={classes.back} aria-label={`Back to ${label}`}>
+    <Link to={to} className={classes.back} aria-label={`Back to ${label}`}>
       <ChevronLeft size={22} strokeWidth={2.4} aria-hidden />
       <span>{label}</span>
     </Link>

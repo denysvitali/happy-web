@@ -1,6 +1,6 @@
 import { Tooltip } from "@mantine/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { CircleUserRound, SquarePen } from "lucide-react";
+import { CircleUserRound, Inbox, SquarePen } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAccount, useAuth } from "@/app/auth";
 import { useStore } from "@/app/hooks";
@@ -8,6 +8,7 @@ import { confirmForget } from "@/components/account/forget";
 import { openSettings } from "@/components/account/open";
 import { BrandMark } from "@/components/brand";
 import { openShortcuts } from "@/components/palette/open";
+import { useInbox } from "@/components/inbox/useInbox";
 import { PaletteHost } from "@/components/palette/PaletteHost";
 import { useGlobalShortcuts } from "@/components/palette/shortcuts";
 import { SessionList } from "@/components/sessions/SessionList";
@@ -31,6 +32,20 @@ function ConnectionIndicator({ compact = false }: { compact?: boolean }) {
         <StatusDot status={conn} label={CONN_LABEL[conn]} />
         {(!compact || conn !== "online") && <span>{CONN_LABEL[conn]}</span>}
       </span>
+    </Tooltip>
+  );
+}
+
+/** Opens the agent Inbox; the badge counts unread messages outside Done. */
+function InboxButton() {
+  const { unread } = useInbox();
+  const label = unread > 0 ? `Inbox, ${unread} unread` : "Inbox";
+  return (
+    <Tooltip label={label} openDelay={400}>
+      <Link to="/inbox" className={classes.inboxLink} aria-label={label} activeProps={{ "aria-current": "page" }}>
+        <Inbox size={19} strokeWidth={1.75} aria-hidden />
+        {unread > 0 && <span className={classes.inboxBadge}>{unread > 99 ? "99+" : unread}</span>}
+      </Link>
     </Tooltip>
   );
 }
@@ -68,6 +83,7 @@ export function Sidebar() {
     help: openShortcuts,
     newSession: canSpawn ? () => spawn() : undefined,
     home: () => void navigate({ to: "/" }),
+    inbox: () => void navigate({ to: "/inbox" }),
     prev: () => step(-1),
     next: () => step(1),
     back: () => {
@@ -86,6 +102,7 @@ export function Sidebar() {
         <h1 className={classes.barTitle}>Sessions</h1>
         <ConnectionIndicator compact />
         <div className={classes.spacer} />
+        <InboxButton />
         <IconButton className={classes.barButton} label="Account and settings" icon={<CircleUserRound size={19} strokeWidth={1.75} />} onClick={settings} />
         <Tooltip label={canSpawn ? "New session" : "No machine is online"} openDelay={400}>
           <IconButton className={classes.barButton} data-compose label="New session" icon={<SquarePen size={17} strokeWidth={1.9} />} onClick={() => spawn()} disabled={!canSpawn} />
@@ -103,6 +120,7 @@ export function Sidebar() {
         onOpenSession={open}
         onNewSession={spawn}
         onSettings={settings}
+        onInbox={() => void navigate({ to: "/inbox" })}
         onShortcuts={openShortcuts}
         onDemo={demo}
         onForget={() => confirmForget(forget)}

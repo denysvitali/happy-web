@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 
 export type ShortcutAction =
-  "palette" | "help" | "newSession" | "home" | "prev" | "next" | "back";
+  "palette" | "help" | "newSession" | "home" | "inbox" | "prev" | "next" | "back";
 
 export interface KeyInfo {
   key: string;
@@ -39,6 +39,7 @@ export const SHORTCUT_GROUPS: {
       { keys: ["["], label: "Previous session" },
       { keys: ["]"], label: "Next session" },
       { keys: ["G", "H"], label: "Go home" },
+      { keys: ["G", "I"], label: "Go to Inbox" },
     ],
   },
 ];
@@ -88,6 +89,8 @@ export function resolveShortcut(e: KeyInfo, pendingG: boolean): Resolved {
   const k = e.key;
   if (pendingG && k.toLowerCase() === "h" && !e.shiftKey)
     return { action: "home", pendingG: false };
+  if (pendingG && k.toLowerCase() === "i" && !e.shiftKey)
+    return { action: "inbox", pendingG: false };
   if (k === "?") return { action: "help", pendingG: false };
   if (e.shiftKey) return none;
   switch (k.toLowerCase()) {

@@ -73,6 +73,8 @@ describe("resolveShortcut", () => {
     expect(g).toEqual({ action: null, pendingG: true });
     expect(resolveShortcut(key("h"), true).action).toBe("home");
     expect(resolveShortcut(key("h"), false).action).toBeNull();
+    expect(resolveShortcut(key("i"), true).action).toBe("inbox");
+    expect(resolveShortcut(key("i"), false).action).toBeNull();
     expect(resolveShortcut(key("n"), true)).toEqual({
       action: "newSession",
       pendingG: false,

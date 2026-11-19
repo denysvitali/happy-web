@@ -8,7 +8,7 @@ import type { Ephemeral, MachineRow, SessionRow, UpdateBody } from "../api/schem
 import { createCipher, type Cipher } from "../crypto/cipher";
 import type { AccountKeys } from "../crypto/keys";
 import { Realtime, RpcError, type RealtimeStatus } from "../realtime/socket";
-import { ChatStore } from "./chatStore";
+import { ChatStore, userRecord } from "./chatStore";
 import {
   agentState as agentStateSchema,
   machineMetadata,
@@ -22,6 +22,7 @@ import { FolderSync } from "./folderSync";
 import { FOLDERS_KV_KEY, forgetSession } from "./folders";
 import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
+import { InboxTriage, localTriageStorage } from "./inbox";
 import { Store } from "./store";
 import { isReply, localSeenStorage, parseSeen, Unread } from "./unread";
 
@@ -88,6 +89,9 @@ export class Account {
   readonly spawning = new Store<ReadonlyMap<string, Spawning>>(new Map());
   readonly unread: Unread;
   private readonly seenKey: string;
+  /** The user's Inbox triage (read/done/replied), per browser. */
+  readonly inbox: InboxTriage;
+  private readonly inboxKey: string;
   private ciphers = new Map<string, Promise<Cipher>>();
   /** Data-key machines: the session folders' key is wrapped for each. */
   private machineCiphers = new Map<string, Cipher>();
@@ -104,6 +108,9 @@ export class Account {
     const seen = localSeenStorage(serverUrl);
     this.seenKey = seen.key;
     this.unread = new Unread(seen);
+    const triage = localTriageStorage(serverUrl);
+    this.inboxKey = triage.key;
+    this.inbox = new InboxTriage(triage);
     this.folders = new FolderSync(this.api, keys, () => this.machineCiphers);
     this.realtime = new Realtime(serverUrl, token, {
       onUpdate: (b) => void this.onUpdate(b),
@@ -227,6 +234,7 @@ export class Account {
   };
 
   private onStorage = (e: StorageEvent): void => {
+    if (e.key === this.inboxKey) return this.inbox.reload();
     if (e.key !== this.seenKey || !e.newValue) return;
     try {
       const seen = parseSeen(JSON.parse(e.newValue));
@@ -406,6 +414,17 @@ export class Account {
   }
 
   // ---- chats ----------------------------------------------------------------
+
+  /** Sends one plain user message without opening the chat (Inbox replies);
+   * an open chat picks the row up from the socket. */
+  async sendText(session: SessionItem, text: string): Promise<void> {
+    // Listed sessions always have their cipher; never guess one (a wrong
+    // key would write a row the agent cannot read).
+    const known = this.knownCipher(session.id);
+    if (!known) throw new Error("This session isn't loaded yet; try again in a moment");
+    const cipher = await known;
+    await this.api.sendMessage(session.id, await cipher.encrypt(userRecord(text)), crypto.randomUUID());
+  }
 
   /** Ref-counted; call release() when the chat view unmounts. */
   async openChat(session: SessionItem, dek?: string | null): Promise<{ store: ChatStore; release: () => void }> {

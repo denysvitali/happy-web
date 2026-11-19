@@ -1,0 +1,238 @@
+/* ---- Layout: list + thread (split view), one pane on phones ---- */
+.split { display: flex; flex: 1; min-height: 0; height: 100%; }
+.listPane {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  flex-shrink: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 0.5px solid var(--happy-separator);
+  background: var(--happy-bg-grouped);
+}
+.threadPane { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.single { display: flex; flex: 1; flex-direction: column; min-height: 0; height: 100%; overflow-y: auto; }
+
+/* ---- List ---- */
+.listHead { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 10px; }
+.subtitle { margin: 0; font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
+.list { margin: 0; padding: 0 8px 16px; list-style: none; }
+
+.row { position: relative; }
+.rowLink {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--happy-radius-md);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
+}
+.rowLink:hover { background: var(--happy-hover); }
+.rowLink:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.row[data-selected] .rowLink { background: var(--happy-accent-tint); }
+
+.kindIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  margin-top: 1px;
+  border-radius: var(--happy-radius-sm);
+}
+.kindIcon[data-kind="goal_reached"],
+.pill[data-kind="goal_reached"] { color: var(--happy-green); background: var(--happy-green-tint); }
+.kindIcon[data-kind="question"],
+.pill[data-kind="question"] { color: var(--happy-accent); background: var(--happy-accent-tint); }
+.kindIcon[data-kind="blocked"],
+.pill[data-kind="blocked"] { color: var(--happy-orange-ink); background: var(--happy-orange-tint); }
+
+.rowBody { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.rowTop, .rowBottom { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rowFrom {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}
+.rowAgo { flex-shrink: 0; font-size: var(--happy-text-caption); color: var(--happy-label-3); font-variant-numeric: tabular-nums; }
+.rowSubject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--happy-text-subhead);
+  font-weight: 500;
+  color: var(--happy-label);
+}
+.row[data-unread] .rowSubject { font-weight: 700; }
+.rowPreview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}
+.tag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: var(--happy-radius-pill);
+  font-size: var(--happy-text-caption);
+  font-weight: 600;
+  color: var(--happy-label-2);
+  background: var(--happy-fill);
+}
+.tag[data-tone="reply"] { color: var(--happy-red); background: var(--happy-red-tint); }
+.unreadDot {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--happy-accent);
+}
+
+/* The done button overlays the time on hover/focus. */
+.rowActions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity var(--happy-dur-fast) var(--happy-ease-out);
+}
+.row:hover .rowActions,
+.row:focus-within .rowActions { opacity: 1; }
+.row:hover .rowAgo,
+.row:focus-within .rowAgo { visibility: hidden; }
+@media (hover: none) {
+  .rowActions { display: none; }
+}
+
+/* ---- Thread ---- */
+.threadScroll { flex: 1; min-height: 0; overflow-y: auto; }
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: var(--happy-content-width);
+  margin: 0 auto;
+  padding: 24px 24px 32px;
+}
+.subject {
+  margin: 0;
+  font-family: var(--happy-font-display);
+  font-size: var(--happy-text-title2);
+  font-weight: 700;
+  letter-spacing: var(--happy-tracking-tight);
+  line-height: 1.25;
+  color: var(--happy-label);
+  overflow-wrap: anywhere;
+}
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--happy-radius-pill);
+  font-size: var(--happy-text-caption);
+  font-weight: 600;
+  color: var(--happy-label-2);
+  background: var(--happy-fill);
+}
+.pill[data-kind="reply"] { color: var(--happy-red); background: var(--happy-red-tint); }
+
+.from {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 0.5px solid var(--happy-separator);
+  border-bottom: 0.5px solid var(--happy-separator);
+}
+.fromText { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.fromName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--happy-text-subhead);
+  font-weight: 600;
+  color: var(--happy-label);
+}
+.fromMeta { font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
+
+.agentBubble {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--happy-radius-xs) var(--happy-radius-xl) var(--happy-radius-xl) var(--happy-radius-xl);
+  background: var(--happy-fill-3);
+  overflow-wrap: anywhere;
+}
+.userBubble {
+  align-self: flex-end;
+  max-width: min(85%, 560px);
+  padding: 10px 14px;
+  border-radius: var(--happy-radius-xl) var(--happy-radius-xs) var(--happy-radius-xl) var(--happy-radius-xl);
+  color: var(--happy-on-accent);
+  background: var(--happy-accent);
+}
+.userMeta { margin-bottom: 2px; font-size: var(--happy-text-caption); opacity: 0.8; }
+.userText { font-size: var(--happy-text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---- Composer ---- */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 0.5px solid var(--happy-separator);
+  background: var(--happy-material);
+}
+.options { display: flex; flex-wrap: wrap; gap: 6px; max-width: var(--happy-content-width); width: 100%; margin: 0 auto; }
+.option {
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--happy-accent) 40%, transparent);
+  border-radius: var(--happy-radius-pill);
+  font-size: var(--happy-text-footnote);
+  font-weight: 600;
+  color: var(--happy-accent);
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
+}
+.option:hover { background: var(--happy-accent-tint); }
+.option:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.option:disabled { opacity: 0.5; }
+.compose { display: flex; align-items: flex-end; gap: 8px; max-width: var(--happy-content-width); width: 100%; margin: 0 auto; }
+.input { flex: 1; min-width: 0; }
+
+@media (width < $mantine-breakpoint-sm) {
+  .list { padding: 0 0 16px; }
+  .rowLink { border-radius: 0; padding: 12px 16px; }
+  .unreadDot { left: 5px; }
+  .thread { padding: 16px 16px 24px; }
+}
+
+.openSession {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--happy-radius-md);
+  font-size: var(--happy-text-footnote);
+  font-weight: 600;
+  color: var(--happy-accent);
+  text-decoration: none;
+}
+.openSession:hover { background: var(--happy-accent-tint); }
+.openSession:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }

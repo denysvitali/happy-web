@@ -43,6 +43,8 @@ export const sessionMetadata = z.catch(
     gitBranch: str,
     // Happy session ToDos, parsed in todos.ts.
     todos: z.catch(z.optional(z.array(z.unknown())), undefined),
+    // Agent Inbox messages (inbox_send), parsed in inbox.ts.
+    inbox: z.catch(z.optional(z.array(z.unknown())), undefined),
     summary: z.catch(z.optional(z.object({ text: z.string(), updatedAt: num })), undefined),
   }),
   {},

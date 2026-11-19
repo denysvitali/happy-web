@@ -227,6 +227,19 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("button", { name: "Unarchive" })).toBeVisible();
       await page.waitForTimeout(300);
       await shot(page, "15-archived");
+      // Inbox: list, then a question with suggested replies (light + dark).
+      await page.goto("/#/inbox");
+      await expect(page.getByText("Only goals reached, decisions and blockers from your agents.")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "18-inbox");
+      await page.getByRole("link", { name: /Should the daemon reconnect/ }).click();
+      await expect(page.getByRole("heading", { name: /Should the daemon reconnect/ })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "18b-inbox-thread");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "18c-inbox-thread-dark");
+      await page.emulateMedia({ colorScheme: "light" });
       // Prose: a markdown-heavy user prompt (collapsed, then open) and a rich reply.
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await page.goto("/#/s/s1");
