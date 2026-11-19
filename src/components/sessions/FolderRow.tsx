@@ -1,7 +1,7 @@
 import { Menu } from "@mantine/core";
 import { ChevronRight, Ellipsis, Folder, FolderOpen, FolderPlus, Pencil, Trash2 } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
-import { AttentionBadge } from "@/components/status";
+import { AttentionBadge, UnreadBadge } from "@/components/status";
 import type { ListRow } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { useFolderActions } from "./folderActions";
@@ -77,11 +77,16 @@ export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, f
         setMenu(true);
       }}
     >
-      <button type="button" className={`${classes.rowLink} ${fc.folderButton}`} aria-expanded={r.open} onClick={() => onToggle(r.id)}>
+      <button
+        type="button"
+        className={`${classes.rowLink} ${fc.folderButton}`}
+        aria-expanded={r.open}
+        aria-label={`${r.name}, ${r.count} sessions${r.attention ? ", needs approval" : ""}${r.unread ? `, ${r.unread} unread` : ""}`} onClick={() => onToggle(r.id)}>
         <ChevronRight size={14} strokeWidth={2.25} className={fc.chevron} data-open={r.open || undefined} />
         <Icon size={16} strokeWidth={1.9} className={fc.folderIcon} />
         <span className={`${classes.rowTitle} ${fc.folderName}`}>{r.name}</span>
         <AttentionBadge count={r.attention} />
+        <UnreadBadge label={r.unread} />
         <span className={`${classes.rowAgo} ${fc.folderCount}`}>{r.count || ""}</span>
       </button>
       {!readOnly && (

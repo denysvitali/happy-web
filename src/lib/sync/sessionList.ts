@@ -342,7 +342,7 @@ export function projectSections(g: Grouped): Section[] {
 export type ListRow =
   | { type: "header"; key: string; label: string; group?: SessionGroup | undefined; project?: string | undefined; count: number; collapsible: boolean; open: boolean }
   | { type: "folders"; count: number }
-  | { type: "folder"; id: string; name: string; anchor: string | null; depth: number; count: number; attention: number; open: boolean }
+  | { type: "folder"; id: string; name: string; anchor: string | null; depth: number; count: number; attention: number; unread: string; open: boolean }
   | { type: "session"; view: SessionView; depth: number; inProject: boolean };
 
 /** Headers + rows; empty sections are skipped and collapsible ones only emit rows when open. */

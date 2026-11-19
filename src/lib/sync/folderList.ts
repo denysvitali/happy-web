@@ -3,8 +3,11 @@
 // sections (status or project). Every child session sits under its parent, together with the
 // folders anchored at that parent; a tree takes the most urgent status in it,
 // so a child waiting for approval pulls its parent into "Needs attention".
+// Archived sessions leave their folders for the Archive section unless
+// `archivedInFolders` is on. A folder sums its trees' unread badges.
 // Searching falls back to the flat groups (see SessionList).
 import { byFolderName, effectiveParent, folderOf, type FolderDoc } from "./folders";
+import { parseUnreadLabel, unreadLabel } from "./unread";
 import { byActivity, GROUP_LABEL, GROUP_ORDER, matches, projectName, type Grouping, type ListRow, type SessionFilter, type SessionGroup, type SessionView } from "./sessionList";
 
 const URGENCY: Record<SessionGroup, number> = { attention: 3, active: 2, recent: 1, archived: 0 };
@@ -20,6 +23,17 @@ export interface FolderListOptions {
   collapsed: ReadonlySet<string>;
   archivedOpen: boolean;
   grouping?: Grouping;
+  /** Keep archived sessions inside their folders (default: they move to the Archive section). */
+  archivedInFolders?: boolean;
+}
+
+interface Stats {
+  count: number;
+  attention: number;
+  urgency: number;
+  unread: number;
+  /** Some badge was a lower bound ("3+"). */
+  more: boolean;
 }
 
 export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: SessionFilter, opts: FolderListOptions): ListRow[] {
@@ -36,7 +50,8 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
     const parent = visibleParent(v);
     const fid = folderOf(doc, v.id, v.parentId ?? null);
     // A folder anchored at a hidden parent is hidden too; the session then shows unfiled.
-    if (fid && (doc.folders[fid]!.anchor === null || doc.folders[fid]!.anchor === parent)) push(inFolder, fid, v);
+    const filed = fid && (opts.archivedInFolders || v.group !== "archived");
+    if (filed && (doc.folders[fid]!.anchor === null || doc.folders[fid]!.anchor === parent)) push(inFolder, fid, v);
     else if (parent) push(underParent, parent, v);
     else roots.push(v);
   }
@@ -52,13 +67,14 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
   const cmpName = byFolderName(doc);
 
   // Totals per folder and per session tree, memoized.
-  const folderStats = new Map<string, { count: number; attention: number; urgency: number }>();
-  const treeStats = new Map<string, { count: number; attention: number; urgency: number }>();
+  const folderStats = new Map<string, Stats>();
+  const treeStats = new Map<string, Stats>();
   const seen = new Set<string>();
   const statsOfTree = (v: SessionView) => {
     let s = treeStats.get(v.id);
     if (s) return s;
-    s = { count: 1, attention: v.pending, urgency: URGENCY[v.group] };
+    const u = parseUnreadLabel(v.unread);
+    s = { count: 1, attention: v.pending, urgency: URGENCY[v.group], unread: u.count, more: u.more };
     treeStats.set(v.id, s);
     for (const c of underParent.get(v.id) ?? []) add(s, statsOfTree(c));
     for (const fid of anchored.get(v.id) ?? []) add(s, statsOfFolder(fid));
@@ -67,7 +83,7 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
   const statsOfFolder = (fid: string) => {
     let s = folderStats.get(fid);
     if (s) return s;
-    s = { count: 0, attention: 0, urgency: -1 };
+    s = { count: 0, attention: 0, urgency: -1, unread: 0, more: false };
     folderStats.set(fid, s);
     if (seen.has(fid)) return s;
     seen.add(fid);
@@ -93,7 +109,7 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
     if (filtering && s.count === 0) return;
     const fd = doc.folders[fid]!;
     const open = !opts.collapsed.has(fid);
-    out.push({ type: "folder", id: fid, name: fd.name, anchor: fd.anchor, depth, count: s.count, attention: s.attention, open });
+    out.push({ type: "folder", id: fid, name: fd.name, anchor: fd.anchor, depth, count: s.count, attention: s.attention, unread: unreadLabel(s.unread, s.more), open });
     if (!open) return;
     for (const c of (subfolders.get(fid) ?? []).sort(cmpName)) emitFolder(c, depth + 1);
     for (const v of (inFolder.get(fid) ?? []).sort(inFolderOrder)) emitSession(v, depth + 1);
@@ -140,8 +156,10 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   else m.set(k, [v]);
 }
 
-function add(into: { count: number; attention: number; urgency: number }, s: { count: number; attention: number; urgency: number }): void {
+function add(into: Stats, s: Stats): void {
   into.count += s.count;
   into.attention += s.attention;
+  into.unread += s.unread;
+  into.more ||= s.more;
   into.urgency = Math.max(into.urgency, s.urgency);
 }

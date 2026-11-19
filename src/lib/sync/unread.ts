@@ -29,6 +29,12 @@ export function unreadLabel(count: number, more: boolean): string {
   return more ? `${count}+` : String(count);
 }
 
+/** Inverse of unreadLabel, for summing badges ("99+" reads as 99, more). */
+export function parseUnreadLabel(label: string): { count: number; more: boolean } {
+  const count = Number.parseInt(label, 10);
+  return Number.isFinite(count) && count > 0 ? { count, more: label.endsWith("+") } : { count: 0, more: false };
+}
+
 export class Unread {
   /** Badge label per session id; absent when nothing is unread. */
   readonly labels = new Store<ReadonlyMap<string, string>>(new Map());

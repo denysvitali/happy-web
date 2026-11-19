@@ -25,12 +25,21 @@ const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl 
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
 const GROUPING_LABEL: Record<Grouping, string> = { project: "Project", status: "Status" };
 const GROUPING_KEY = "happy.sessionGrouping";
+const ARCHIVED_IN_FOLDERS_KEY = "happy.folders.showArchived";
 
 function loadGrouping(): Grouping {
   try {
     return localStorage.getItem(GROUPING_KEY) === "status" ? "status" : "project";
   } catch {
     return "project";
+  }
+}
+
+function loadArchivedInFolders(): boolean {
+  try {
+    return localStorage.getItem(ARCHIVED_IN_FOLDERS_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -83,6 +92,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const [runtime, setRuntime] = useState<Runtime | null>(null);
   const [grouping, setGroupingState] = useState<Grouping>(loadGrouping);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [archivedInFolders, setArchivedInFoldersState] = useState(loadArchivedInFolders);
   const [cursor, setCursor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,14 +120,23 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   // Searching is flat (and reaches into the archive); folders shape the list otherwise.
   const foldered = !searching && views.length > 0 && hasFolders(folders.doc);
   const rows = useMemo(() => {
-    if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping });
+    if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping, archivedInFolders });
     const grouped = groupViews(views, { query, agent, runtime });
     return flattenSections(grouping === "project" ? projectSections(grouped) : statusSections(grouped), { archivedOpen: archivedOpen || searching });
-  }, [foldered, views, folders.doc, query, agent, runtime, collapsed, archivedOpen, searching, grouping]);
+  }, [foldered, views, folders.doc, query, agent, runtime, collapsed, archivedOpen, searching, grouping, archivedInFolders]);
   const setGrouping = (g: Grouping) => {
     setGroupingState(g);
     try {
       localStorage.setItem(GROUPING_KEY, g);
+    } catch {
+      // Private mode: the choice just doesn't persist.
+    }
+  };
+  const toggleArchivedInFolders = () => {
+    const next = !archivedInFolders;
+    setArchivedInFoldersState(next);
+    try {
+      localStorage.setItem(ARCHIVED_IN_FOLDERS_KEY, next ? "1" : "0");
     } catch {
       // Private mode: the choice just doesn't persist.
     }
@@ -320,6 +339,14 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                 {GROUPING_LABEL[g]}
               </Menu.Item>
             ))}
+            {hasFolders(folders.doc) && (
+              <>
+                <Menu.Label>Folders</Menu.Label>
+                <Menu.Item rightSection={archivedInFolders ? <Check size={14} /> : null} onClick={toggleArchivedInFolders}>
+                  Show archived
+                </Menu.Item>
+              </>
+            )}
             <Menu.Label>Agent</Menu.Label>
             {options.agents.map((a) => (
               <Menu.Item key={a} rightSection={agent === a ? <Check size={14} /> : null} onClick={() => setAgent((cur) => (cur === a ? null : a))}>

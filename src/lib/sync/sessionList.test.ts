@@ -263,6 +263,32 @@ describe("folder list", () => {
   });
 });
 
+describe("folder list: archive and unread", () => {
+  const doc: FolderDoc = { folders: { fw: { name: "Work", parent: null, anchor: null } }, sessions: { a: "fw", old: "fw" } };
+  const items = [mk("a", { machineId: "m1" }), mk("old", { machineId: "m1" }, { archived: true })];
+  const names = (archivedInFolders: boolean) =>
+    folderRows(views(items), doc, {}, { collapsed: new Set(), archivedOpen: true, archivedInFolders }).map((r) =>
+      r.type === "session" ? r.view.id : r.type === "folder" ? `[${r.name} ${r.count}]` : r.type === "header" ? `#${r.key}` : "#folders",
+    );
+
+  it("moves archived sessions out of folders unless asked to keep them", () => {
+    expect(names(false)).toEqual(["#folders", "[Work 1]", "a", "#archived", "old"]);
+    expect(names(true)).toEqual(["#folders", "[Work 2]", "a", "old"]);
+  });
+
+  it("sums unread badges per folder, capped at 99+", () => {
+    const d: FolderDoc = { folders: { fw: { name: "Work", parent: null, anchor: null }, fs: { name: "Sub", parent: "fw", anchor: null } }, sessions: { a: "fw", b: "fs", c: "fs" } };
+    const label = (unread: Record<string, string>) => {
+      const v = deriveViews([mk("a", {}), mk("b", {}), mk("c", {})], status, machines, NOW, new Map(Object.entries(unread)));
+      return folderRows(v, d, {}, { collapsed: new Set(), archivedOpen: false }).flatMap((r) => (r.type === "folder" ? [`${r.name}:${r.unread}`] : []));
+    };
+    expect(label({})).toEqual(["Work:", "Sub:"]);
+    expect(label({ a: "2", b: "3" })).toEqual(["Work:5", "Sub:3"]);
+    expect(label({ b: "3+", c: "1" })).toEqual(["Work:4+", "Sub:4+"]);
+    expect(label({ a: "60", b: "40" })).toEqual(["Work:99+", "Sub:40"]);
+  });
+});
+
 describe("folder list grouped by project", () => {
   it("keeps folders on top and puts unfiled live trees into project sections", () => {
     const doc: FolderDoc = { folders: { fw: { name: "Work", parent: null, anchor: null } }, sessions: { a1: "fw" } };
