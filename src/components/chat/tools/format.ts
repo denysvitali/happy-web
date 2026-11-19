@@ -334,6 +334,7 @@ export function agentStatus(b: ToolBlock): AgentStatus {
   const r = b.result;
   // A background launch receipt is not the end, nor is a live task report.
   if (!r || r.async || b.task) return "running";
+  if (r.interrupted) return "stopped";
   if (r.isError || (r.status && FAILED_STATUS.has(r.status))) return "failed";
   return r.status === "unknown" ? "unknown" : "completed";
 }

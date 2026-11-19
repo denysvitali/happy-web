@@ -126,6 +126,9 @@ export interface ToolResult {
   at?: number | undefined;
   /** A background launch receipt: the agent is still running. */
   async?: true;
+  /** No result ever came: the turn ended or the session stopped working
+   * (e.g. its Pod died) while the call was open. Synthesised by settleOpen(). */
+  interrupted?: true;
 }
 
 /** Latest lifecycle report of a background agent. */
@@ -310,9 +313,32 @@ function isPrompt(a: ToolBlock, text: string): boolean {
   return true;
 }
 
-export function buildView(state: ChatState, agentState: AgentState): ChatView {
+/** Whether a call can still be running in the background after its turn:
+ * a background agent's launch receipt or live task report. */
+const backgroundLive = (t: ToolBlock): boolean => !!t.result?.async || (!!t.task && !TASK_TERMINAL.has(t.task.status));
+
+/** Closes calls that will never get a result: those open when a later `ready`
+ * ended their turn (`ended`), or every open call once the session is not
+ * working (`halted`). Calls inside a live background agent, questions and
+ * pending permissions still wait and are left alone. */
+function settleOpen(blocks: readonly Block[], ended: ReadonlyMap<ToolBlock, number>, halted: boolean, inBackground = false): void {
+  for (const b of blocks) {
+    if (b.type !== "tool") continue;
+    const waits = inBackground || b.permission?.status === "pending" || (ASKING_TOOLS.has(b.name) && !b.result);
+    if (!b.result && !waits && (halted || ended.has(b))) {
+      b.result = { output: undefined, isError: false, status: "interrupted", at: ended.get(b), interrupted: true };
+    }
+    settleOpen(b.children, ended, halted, inBackground || backgroundLive(b));
+  }
+}
+
+/** `halted`: the session is known not to be working right now, so nothing
+ * outside a background agent can still be running. */
+export function buildView(state: ChatState, agentState: AgentState, halted = false): ChatView {
   const top: Block[] = [];
   const tools = new Map<string, ToolBlock>();
+  /** Calls still open when a later top-level `ready` ended their turn. */
+  const ended = new Map<ToolBlock, number>();
   /** Background agents by the task id of their launch receipt. */
   const tasks = new Map<string, ToolBlock>();
   let turnOpen = false;
@@ -353,6 +379,7 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
         to.push({ type: "unknown", key, label: item.type });
         break;
       case "ready":
+        if (!item.parent) for (const t of tools.values()) if (!t.result && !ended.has(t)) ended.set(t, at);
         return;
       case "tool-call": {
         const own = AGENT_TOOLS.has(item.name);
@@ -433,6 +460,7 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
     if (t) t.permission = { status: "pending" };
     else orphans.push({ type: "permission", key: `perm:${id}`, id, tool: r.tool, input: r.arguments });
   }
+  settleOpen(top, ended, halted);
 
   return { blocks: [...withDays(groupTurns(groupSteps(top), turnOpen)), ...orphans], turnOpen };
 }
@@ -460,7 +488,7 @@ function sameTool(a: ToolBlock, b: ToolBlock): boolean {
     a.prompt === b.prompt &&
     (a.task === b.task || (!!a.task && !!b.task && a.task.status === b.task.status && a.task.summary === b.task.summary && a.task.at === b.task.at)) &&
     (ar === br ||
-      (!!ar && !!br && ar.output === br.output && ar.isError === br.isError && ar.status === br.status && ar.at === br.at && ar.async === br.async)) &&
+      (!!ar && !!br && ar.output === br.output && ar.isError === br.isError && ar.status === br.status && ar.at === br.at && ar.async === br.async && ar.interrupted === br.interrupted)) &&
     (ap === bp || (!!ap && !!bp && ap.status === bp.status && ap.decision === bp.decision && ap.reason === bp.reason)) &&
     sameList(a.children, b.children)
   );

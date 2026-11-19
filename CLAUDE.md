@@ -50,6 +50,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   sub-agents, unanswered questions and pending permissions stay out as cards. Finished turns
   fold their working into one `work` line above the final reply (`groupTurns`); the live
   turn and anything waiting for the user never fold.
+  A call with no result is closed as interrupted once a later `ready` ends its turn or the
+  session is halted (`isHalted`); questions, pending permissions and background agents wait.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
 - Session list: grouped by project by default (approvals pinned on top, archive collapsed;

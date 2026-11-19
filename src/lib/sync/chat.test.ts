@@ -407,3 +407,33 @@ describe("image notes", () => {
     expect(normalizeRecord({ role: "user", content: { type: "text", text: `Look\n${note}` } }).items).toEqual([{ kind: "text", role: "user", text: "Look" }]);
   });
 });
+
+describe("calls that never finish", () => {
+  const tool = (blocks: Block[], id: string) => findTool(blocks, id)!;
+
+  it("closes calls still open when a later ready ends the turn", () => {
+    const s = addMessages(emptyChat, [msg(user("go")), msg(use("b1", "Bash")), msg(use("a1", "Task")), msg(use("c1", "Read", {}, "a1")), msg(ready, { createdAt: 9000 })]);
+    const { blocks } = build(s, {});
+    expect(tool(blocks, "b1").result).toMatchObject({ interrupted: true, at: 9000 });
+    expect(tool(blocks, "c1").result).toMatchObject({ interrupted: true });
+    expect(agentStatus(tool(blocks, "a1"))).toBe("stopped");
+  });
+
+  it("closes every open call once the session is halted, but nothing while it works", () => {
+    const s = addMessages(emptyChat, [msg(user("go")), msg(use("b1", "Bash"))]);
+    expect(findTool(build(s, {}).blocks, "b1")!.result).toBeUndefined();
+    expect(findTool(build(s, {}, true).blocks, "b1")!.result).toMatchObject({ interrupted: true });
+  });
+
+  it("leaves questions, pending permissions and background agents' children waiting", () => {
+    const launched = claude({
+      type: "user",
+      tool_use_result: { isAsync: true, status: "async_launched", agentId: "task-1" },
+      message: { content: [{ type: "tool_result", tool_use_id: "bg", content: "launched" }] },
+    });
+    const s = addMessages(emptyChat, [msg(user("go")), msg(use("q1", "AskUserQuestion")), msg(use("p1", "Bash")), msg(use("bg", "Task")), msg(launched), msg(use("k1", "Read", {}, "bg")), msg(ready)]);
+    const { blocks } = build(s, { requests: { p1: { tool: "Bash", arguments: {}, createdAt: 1 } } }, true);
+    for (const id of ["q1", "p1", "k1"]) expect(tool(blocks, id).result).toBeUndefined();
+    expect(agentStatus(tool(blocks, "bg"))).toBe("running");
+  });
+});

@@ -2,7 +2,8 @@
 // the sub-agent page, plus the spacing between transcript rows.
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "@/app/auth";
-import { useStore } from "@/app/hooks";
+import { useNow, useStore } from "@/app/hooks";
+import { isHalted } from "@/app/status";
 import type { SessionItem } from "@/lib/sync/account";
 import { buildView, emptyChat, isAgent, type Block, type ChatView } from "@/lib/sync/chat";
 import type { ChatStore } from "@/lib/sync/chatStore";
@@ -35,9 +36,14 @@ export function useChat(session: SessionItem | undefined): ChatStore | null {
 const EMPTY = new Store(emptyChat);
 
 export function useChatView(store: ChatStore | null, session: SessionItem | undefined): ChatView | null {
+  const account = useAccount();
   const state = useStore(store?.state ?? EMPTY);
+  const presence = useStore(account.presence);
+  const now = useNow();
   const agentState = session?.agentState;
-  return useMemo(() => (store && session ? buildView(state, agentState ?? {}) : null), [store, session, state, agentState]);
+  // Calls left open by a session that is not working anymore never finish.
+  const halted = !!session && isHalted(session, presence, now);
+  return useMemo(() => (store && session ? buildView(state, agentState ?? {}, halted) : null), [store, session, state, agentState, halted]);
 }
 
 const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission", "work"]);
