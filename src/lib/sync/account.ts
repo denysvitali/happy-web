@@ -29,6 +29,9 @@ export interface SessionItem {
   createdAt: number;
   updatedAt: number;
   lastSeq?: number | undefined;
+  /** Newest message (seq + time). The row's `updatedAt` also moves on
+   * metadata/state writes, so it is not "last activity"; see activityAt(). */
+  lastMessage?: { seq: number; at: number } | undefined;
   lifecycle: string;
   meta: SessionMetadata;
   metadataVersion: number;
@@ -36,6 +39,10 @@ export interface SessionItem {
   agentStateVersion: number;
   undecryptable: boolean;
 }
+
+/** When the session last did something visible: its newest message, falling
+ * back to the row's updatedAt until that is known. */
+export const activityAt = (s: SessionItem): number => s.lastMessage?.at ?? s.updatedAt;
 
 export interface MachineItem {
   id: string;
@@ -146,7 +153,34 @@ export class Account {
   async fetchSessions(signal?: AbortSignal): Promise<SessionItem[]> {
     const rows = await this.api.listSessions(signal);
     const items = await Promise.all(rows.map((r) => this.decodeSession(r)));
-    return items.sort((a, b) => b.updatedAt - a.updatedAt);
+    // Keep message stamps that are still current so refetches don't flicker.
+    const prev = new Map((this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? []).map((s) => [s.id, s.lastMessage]));
+    for (const it of items) {
+      const m = prev.get(it.id);
+      if (m && m.seq === it.lastSeq) it.lastMessage = m;
+    }
+    void this.stampLastMessages(items);
+    return items.sort((a, b) => activityAt(b) - activityAt(a));
+  }
+
+  /** Reads each live session's newest message time (one row per session,
+   * small concurrency) and patches it into the list. */
+  private async stampLastMessages(items: readonly SessionItem[]): Promise<void> {
+    const todo = items.filter((s) => !s.archived && s.lastSeq && s.lastMessage?.seq !== s.lastSeq);
+    let next = 0;
+    const worker = async () => {
+      for (let s = todo[next++]; s; s = todo[next++]) {
+        const seq = s.lastSeq!;
+        try {
+          const { messages } = await this.api.getMessages(s.id, seq - 1, 1);
+          const row = messages.find((m) => m.seq === seq) ?? messages.at(-1);
+          if (row) this.patchSession(s.id, (x) => (x.lastMessage && x.lastMessage.seq >= row.seq ? x : { ...x, lastMessage: { seq: row.seq, at: row.createdAt } }));
+        } catch {
+          // Best effort: the list falls back to updatedAt.
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
   }
 
   async fetchMachines(signal?: AbortSignal): Promise<MachineItem[]> {
@@ -192,7 +226,12 @@ export class Account {
     switch (b.t) {
       case "new-message":
         await this.chats.get(b.sid)?.store.onSocketMessage(b.message);
-        this.patchSession(b.sid, (s) => ({ ...s, updatedAt: b.message.createdAt, lastSeq: Math.max(s.lastSeq ?? 0, b.message.seq) }));
+        this.patchSession(b.sid, (s) => ({
+          ...s,
+          updatedAt: b.message.createdAt,
+          lastSeq: Math.max(s.lastSeq ?? 0, b.message.seq),
+          lastMessage: s.lastMessage && s.lastMessage.seq > b.message.seq ? s.lastMessage : { seq: b.message.seq, at: b.message.createdAt },
+        }));
         return;
       case "archive-session":
         this.patchSession(b.sid, (s) => ({ ...s, archived: b.archived, active: b.archived ? false : s.active }));

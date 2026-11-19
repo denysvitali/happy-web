@@ -1,7 +1,7 @@
 // Pure session-list model: per-session display data, grouping (needs
 // attention / active / recent / archived), filtering and sorting. One pass
 // per change; per-session derivation is cached on the (immutable) SessionItem.
-import type { MachineItem, SessionItem } from "./account";
+import { activityAt, type MachineItem, type SessionItem } from "./account";
 import { MACHINE_PRESENCE_MS, displayPath, machineName, sessionTitle, type SessionMetadata, type SessionStatus } from "./decode";
 
 export type Runtime = "local" | "kubernetes";
@@ -32,7 +32,7 @@ export interface SessionView {
   /** Pending permission requests. */
   pending: number;
   group: SessionGroup;
-  /** Last message/metadata write (updatedAt): stable ordering, unlike heartbeats. */
+  /** Newest message time (see activityAt): stable ordering, unlike heartbeats. */
   lastActivity: number;
   ago: string;
   /** Lower-cased haystack for search. */
@@ -183,13 +183,13 @@ export function deriveViews(
     const mi = s.meta.machineId ? machines.get(s.meta.machineId) : undefined;
     const st = staticOf(s, mi ? machineName(mi.meta, mi.id) : (s.meta.host ?? ""));
     const status = statusOf(s);
-    const ago = status === "thinking" ? "now" : formatAgo(s.updatedAt, now);
+    const ago = status === "thinking" ? "now" : formatAgo(activityAt(s), now);
     const prev = viewCache.get(s);
     if (prev && prev.status === status && prev.ago === ago && prev.machine === st.machine) {
       out[i] = prev;
       continue;
     }
-    const v: SessionView = { id: s.id, item: s, ...st, status, group: groupOf(status, st.pending), lastActivity: s.updatedAt, ago };
+    const v: SessionView = { id: s.id, item: s, ...st, status, group: groupOf(status, st.pending), lastActivity: activityAt(s), ago };
     viewCache.set(s, v);
     out[i] = v;
   }

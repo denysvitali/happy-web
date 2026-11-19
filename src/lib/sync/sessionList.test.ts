@@ -162,3 +162,18 @@ describe("groupViews", () => {
     expect(performance.now() - t).toBeLessThan(500);
   });
 });
+
+describe("last activity", () => {
+  it("uses the newest message time, not the row's updatedAt", () => {
+    // updatedAt moved 1m ago on a metadata write; the last message is 3h old.
+    const s = mk("a", {}, { updatedAt: NOW - MIN, lastSeq: 9, lastMessage: { seq: 9, at: NOW - 180 * MIN } });
+    const [v] = views([s]);
+    expect(v!.ago).toBe("3h");
+    expect(v!.lastActivity).toBe(NOW - 180 * MIN);
+  });
+
+  it("falls back to updatedAt until the message time is known", () => {
+    const [v] = views([mk("a", {}, { updatedAt: NOW - 5 * MIN })]);
+    expect(v!.ago).toBe("5m");
+  });
+});
