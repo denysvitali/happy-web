@@ -1,10 +1,17 @@
 // One-line descriptions of a run of steps ("Ran 3 commands, edited 2 files")
 // and of what a run or a sub-agent is doing right now.
 import type { Block, StepBlock, ToolBlock } from "@/lib/sync/chat";
-import { field, firstLine } from "./format";
+import { agentStatus, field, firstLine } from "./format";
 import { titleOf, viewFor } from "./registry";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+function mcpTotal(byServer: ReadonlyMap<string, number>): [number, string] {
+  let n = 0;
+  for (const c of byServer.values()) n += c;
+  const server = byServer.size === 1 ? [...byServer.keys()][0]! : "MCP";
+  return [n, plural(n, `${server} call`)];
+}
 
 export function stepsSummary(items: readonly StepBlock[]): string {
   const counts = { shell: 0, read: 0, search: 0, web: 0, other: 0 };
@@ -31,7 +38,8 @@ export function stepsSummary(items: readonly StepBlock[]): string {
     [counts.read, `read ${plural(counts.read, "file")}`],
     [counts.search, plural(counts.search, "search", "searches")],
     [edited.size, `edited ${plural(edited.size, "file")}`],
-    ...[...mcp].map(([server, n]): [number, string] => [n, plural(n, `${server} call`)]),
+    // One server reads as "3 loki calls"; several fold into "3 MCP calls".
+    mcpTotal(mcp),
     [counts.web, plural(counts.web, "web lookup")],
     [counts.other, plural(counts.other, "tool call")],
   ];
@@ -39,7 +47,8 @@ export function stepsSummary(items: readonly StepBlock[]): string {
     .filter(([n]) => n > 0)
     .sort((a, b) => b[0] - a[0])
     .map(([, s]) => s);
-  if (plan) parts.push("updated the plan");
+  // The plan is pinned above the composer; only say so when it is all there is.
+  if (plan && parts.length === 0) parts.push("updated the plan");
   if (parts.length === 0) return thoughts ? `Thought ${thoughts === 1 ? "once" : `${thoughts} times`}` : "";
   const s = parts.join(", ");
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -58,11 +67,31 @@ export function stepLabel(b: ToolBlock): { title: string; summary: string } {
   return { title: titleOf(v, b), summary: v.summary?.(b) ?? "" };
 }
 
-/** The latest thing a sub-agent did (deepest last child), for its card. */
-export function latestActivity(children: readonly Block[]): { kind: "tool"; b: ToolBlock } | { kind: "text"; text: string } | undefined {
+/** The newest call still running in an agent, its running sub-agents included. */
+function runningIn(children: readonly Block[]): ToolBlock | undefined {
   for (let i = children.length - 1; i >= 0; i--) {
     const c = children[i]!;
-    if (c.type === "tool") return c.children.length > 0 ? (latestActivity(c.children) ?? { kind: "tool", b: c }) : { kind: "tool", b: c };
+    if (c.type === "steps") {
+      const r = runningSteps(c.items).at(-1);
+      if (r) return r;
+    } else if (c.type === "tool" && !c.result && c.children.length === 0) return c;
+    else if (c.type === "tool" && c.children.length > 0 && agentStatus(c) === "running") {
+      const r = runningIn(c.children);
+      if (r) return r;
+    }
+  }
+  return undefined;
+}
+
+/** What a sub-agent is doing now (a running call, else its latest step or
+ * words), for its card. */
+export function latestActivity(children: readonly Block[]): { kind: "tool"; b: ToolBlock } | { kind: "text"; text: string } | undefined {
+  const running = runningIn(children);
+  if (running) return { kind: "tool", b: running };
+  for (let i = children.length - 1; i >= 0; i--) {
+    const c = children[i]!;
+    // A nested agent still at work speaks for itself; a finished one is a step.
+    if (c.type === "tool") return c.children.length > 0 && agentStatus(c) === "running" ? (latestActivity(c.children) ?? { kind: "tool", b: c }) : { kind: "tool", b: c };
     if (c.type === "steps") {
       const last = c.items.at(-1)!;
       if (last.type === "tool") return { kind: "tool", b: last };

@@ -134,6 +134,12 @@ export const AgentCard = memo(
           <PermissionOutcome perm={b.permission} />
           {session && <ChevronRight size={15} className={classes.chevron} aria-hidden />}
         </div>
+        {/* Asking to start: show what it would be told. */}
+        {own && info.prompt && (
+          <div className={classes.agentResult}>
+            <Markdown text={info.prompt} />
+          </div>
+        )}
         {info.resultText && (
           <div className={classes.agentResult} data-status={status}>
             <Markdown text={info.resultText} />

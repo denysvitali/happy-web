@@ -452,6 +452,8 @@
   color: var(--happy-label-2);
   transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
 }
+/* Fingers need a little more than a mouse. */
+@media (pointer: coarse) { .stepHead { min-height: 32px; } }
 .stepHead:hover { background: var(--happy-hover); }
 .stepHead:active { background: var(--happy-pressed); }
 .stepHead:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
@@ -469,7 +471,15 @@
 }
 .step[data-state="running"] > .stepHead > .stepTitle { color: var(--happy-label); }
 /* A run's summary is the whole point of its line: let it take the room. */
-.stepHead > .stepTitle:has(+ .grow) { max-width: none; }
+.runSummary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--happy-label-2);
+}
 .stepSummary, .stepPeek {
   flex: 1;
   min-width: 0;
@@ -639,9 +649,21 @@
   color: var(--happy-label-3);
 }
 .terminalHead > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.terminalCwd {
+  padding: 7px 12px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--happy-font-mono);
+  font-size: var(--happy-text-caption);
+  color: var(--happy-label-3);
+}
+.commandRow { display: flex; align-items: flex-start; gap: 4px; padding: 3px 3px 3px 0; }
 .command {
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  padding: 0 12px 10px;
+  padding: 5px 0 5px 12px;
   font-family: var(--happy-font-mono);
   font-size: 12.5px;
   line-height: 1.55;
@@ -923,8 +945,9 @@
   .tool > .stepBody { padding: 0 10px 10px; }
   .stepBody { padding-left: 4px; }
   .agentResult { margin-left: 10px; }
-  .perm[data-embedded] { padding-left: 12px; }
-  .perm[data-embedded] .permTitle { margin-left: 0; }
+  /* The card's orange shield head already says what asks; the band is just the answer. */
+  .perm[data-embedded] { padding: 8px 10px; }
+  .perm[data-embedded] .permTitle { display: none; }
   .permActions { flex: 1 1 100%; }
   .permActions > * { flex: 1 1 auto; }
 }

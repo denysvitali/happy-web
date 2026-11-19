@@ -3,6 +3,7 @@
 // calls fall back to an arguments/result view.
 import type { LucideIcon } from "lucide-react";
 import {
+  Bot,
   CircleHelp,
   ClipboardList,
   FilePen,
@@ -218,7 +219,12 @@ const question: ToolView = {
 
 const plan: ToolView = { icon: ClipboardList, kind: "plan", title: "Plan", summary: () => "Ready to code?", Body: PlanBody, open: (b) => !b.result };
 
+/** Sub-agents render as cards (./agent.tsx); this is their one-line label. */
+const agent: ToolView = { icon: Bot, kind: "other", title: "Agent", summary: (b) => field(inp(b), "description", "prompt") ?? "", Body: GenericBody };
+
 export const toolViews: Record<string, ToolView> = {
+  Task: agent,
+  Agent: agent,
   Bash: shell,
   BashOutput: { ...shell, title: "Shell output", summary: (b) => field(inp(b), "bash_id", "shell_id") ?? "" },
   shell: { ...shell, title: "Shell" },
@@ -263,7 +269,13 @@ const SUMMARY_KEYS = ["command", "cmd", "query", "q", "pattern", "url", "path", 
 const mcp: ToolView = {
   icon: Plug,
   kind: "mcp",
-  title: (b) => humanize(parseMcpName(b.name)?.tool ?? b.name),
+  title: (b) => {
+    const m = parseMcpName(b.name);
+    if (!m) return humanize(b.name);
+    // `loki_query` on server `loki`: the chip already names the server.
+    const prefix = new RegExp(`^${m.server.replace(/[^a-z0-9]/gi, "[-_]?")}[-_]`, "i");
+    return humanize(m.tool.replace(prefix, "") || m.tool);
+  },
   chip: (b) => parseMcpName(b.name)?.server,
   summary: (b) => {
     const i = inp(b);

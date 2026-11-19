@@ -184,6 +184,16 @@ export function shellOutput(output: unknown): ShellOutput {
   return { stdout: text, stderr: "" };
 }
 
+/** `cat -n` style Read output ("     12\tcode") with the number gutter cut
+ * to its widest number, so code keeps the width on phones. */
+export function numberedLines(text: string): string {
+  const lines = text.split("\n");
+  const re = /^ *(\d+)\t/;
+  if (!lines.every((l) => l === "" || re.test(l))) return text;
+  const width = Math.max(...lines.map((l) => re.exec(l)?.[1]?.length ?? 0));
+  return lines.map((l) => l.replace(re, (_, n: string) => `${n.padStart(width)}  `)).join("\n");
+}
+
 // ---- diff --------------------------------------------------------------------
 
 export type DiffRow = { op: " " | "+" | "-"; text: string } | { op: "…"; count: number };
