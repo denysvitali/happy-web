@@ -148,6 +148,25 @@ export function assignSession(d: FolderDoc, sessionId: string, folderId: string 
   d.sessions[sessionId] = folderId;
 }
 
+/** A session to file, with its parent session (null when top-level). */
+export interface Filing {
+  id: string;
+  parent: string | null;
+}
+
+/** Files several sessions at once; throws (changing nothing) if any of them can't go there. */
+export function assignSessions(d: FolderDoc, items: readonly Filing[], folderId: string | null): void {
+  const next = cloneDoc(d);
+  for (const it of items) assignSession(next, it.id, folderId, it.parent);
+  d.sessions = next.sessions;
+}
+
+/** The parent session they all share (the folders they may join), or undefined when it differs. */
+export function commonParent(items: readonly Filing[]): string | null | undefined {
+  const p = items[0]?.parent ?? null;
+  return items.every((it) => it.parent === p) ? p : undefined;
+}
+
 /** A deleted session leaves no assignment and no folders anchored at it. */
 export function forgetSession(d: FolderDoc, sessionId: string): void {
   delete d.sessions[sessionId];

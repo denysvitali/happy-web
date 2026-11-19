@@ -1,12 +1,14 @@
 import { Button, Menu, Tooltip } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, CircleAlert, Command, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { Check, CircleAlert, Command, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
 import { useCompact } from "@/components/shell/nav";
 import { ProjectSwatch } from "@/components/status";
 import { folderRows, hasFolders } from "@/lib/sync/folderList";
+import type { Filing } from "@/lib/sync/folders";
 import { agentLabel, facets, flattenSections, groupViews, projectSections, statusSections, type Grouping, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
@@ -14,9 +16,9 @@ import { IconButton } from "@/ui/IconButton";
 import { ListSkeleton } from "@/ui/List";
 import { SearchField } from "@/ui/SearchField";
 import { SectionHeader } from "@/ui/SectionHeader";
-import { useFolderActions } from "./folderActions";
-import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow } from "./FolderRow";
-import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow } from "./SessionRow";
+import { filing, useFolderActions } from "./folderActions";
+import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow, type FolderDrop } from "./FolderRow";
+import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow, type RowSelect } from "./SessionRow";
 import classes from "./sessions.module.css";
 
 const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
@@ -51,6 +53,7 @@ function rowKey(r: ListRow): string {
 }
 
 const isItem = (r: ListRow | undefined) => r?.type === "session" || r?.type === "folder";
+const NONE: ReadonlySet<string> = new Set();
 
 // Collapsed folders survive reloads (per browser; the tree itself is synced).
 const COLLAPSED_KEY = "happy.folders.collapsed";
@@ -130,6 +133,70 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     return { ids, at };
   }, [rows]);
 
+  // Multi-selection for filing sessions in bulk; selecting = anything selected.
+  const [selected, setSelected] = useState(NONE);
+  const selecting = selected.size > 0;
+  const clearSelection = useCallback(() => setSelected(NONE), []);
+  const byId = useMemo(() => new Map(views.map((v) => [v.id, v])), [views]);
+  const filings = (ids: Iterable<string>): Filing[] => [...ids].flatMap((id) => (byId.has(id) ? [filing(byId.get(id)!.item)] : []));
+  // Row callbacks stay stable (rows are memoized), so they read the latest state through a ref.
+  const live = useRef({ ids: sessionIndex.ids, selected, filings });
+  useEffect(() => {
+    live.current = { ids: sessionIndex.ids, selected, filings };
+  });
+  const lastToggled = useRef<string | null>(null);
+  const dragging = useRef<{ items: Filing[]; selection: boolean } | null>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const finePointer = useMediaQuery("(pointer: fine)", false, { getInitialValueInEffect: false });
+  const rowSelect = useMemo<RowSelect | undefined>(() => {
+    if (!canEditFolders) return undefined;
+    return {
+      toggle(id, how) {
+        const from = lastToggled.current;
+        lastToggled.current = id;
+        setSelected((prev) => {
+          const next = new Set(prev);
+          const { ids } = live.current;
+          const [a, b] = [from ? ids.indexOf(from) : -1, ids.indexOf(id)];
+          if (how === "range" && a >= 0 && b >= 0) for (let i = Math.min(a, b); i <= Math.max(a, b); i++) next.add(ids[i]!);
+          else if (!next.delete(id)) next.add(id);
+          return next;
+        });
+      },
+      // Touch screens long-press for the menu; dragging is for mice and pens.
+      dragStart: finePointer
+        ? (id, e) => {
+            const { selected: sel, filings: toFilings } = live.current;
+            const selection = sel.has(id);
+            const items = toFilings(selection ? sel : [id]);
+            dragging.current = { items, selection };
+            if (items.length > 1 && ghostRef.current) {
+              ghostRef.current.textContent = `${items.length} sessions`;
+              e.dataTransfer.setDragImage(ghostRef.current, 14, 14);
+            }
+          }
+        : undefined,
+      dragEnd: () => {
+        dragging.current = null;
+      },
+    };
+  }, [canEditFolders, finePointer]);
+  const folderDrop = useMemo<FolderDrop | undefined>(() => {
+    if (!canEditFolders) return undefined;
+    return {
+      accepts: (anchor) => !!dragging.current?.items.length && dragging.current.items.every((it) => it.parent === anchor),
+      drop(folderId) {
+        const d = dragging.current;
+        dragging.current = null;
+        if (d && folderActions.assign(d.items, folderId) && d.selection) setSelected(NONE);
+      },
+    };
+  }, [canEditFolders, folderActions]);
+  const moveSelected = () => {
+    const items = filings(selected);
+    folderActions.move(items, items.map((it) => byId.get(it.id)!.title).join(", "), clearSelection);
+  };
+
   const compact = useCompact();
   const [rowH, headerH, folderH] = compact ? [ROW_HEIGHT_COMPACT, HEADER_HEIGHT_COMPACT, FOLDER_HEIGHT_COMPACT] : [ROW_HEIGHT, HEADER_HEIGHT, FOLDER_HEIGHT];
   const virtualizer = useVirtualizer({
@@ -199,6 +266,8 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
       const at = (e.target as HTMLElement).closest<HTMLElement>("[data-index]")?.dataset.index;
       const r = at === undefined ? undefined : rows[Number(at)];
       move(e.key === "ArrowDown" ? 1 : -1, true, r?.type === "session" ? r.view.id : undefined);
+    } else if (e.key === "Escape" && selecting) {
+      clearSelection();
     } else if (e.key === "Enter" && e.target === e.currentTarget) {
       const id = cursor && sessionIndex.at.has(cursor) ? cursor : undefined;
       if (id) onOpen(id);
@@ -338,7 +407,14 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                     <SectionHeader label="Folders" count={r.count} level={3} />
                   </div>
                 ) : r.type === "folder" ? (
-                  <FolderRow row={r} readOnly={!canEditFolders} onToggle={toggleFolder} first={!isItem(rows[vi.index - 1])} last={!isItem(rows[vi.index + 1])} />
+                  <FolderRow
+                    row={r}
+                    readOnly={!canEditFolders}
+                    onToggle={toggleFolder}
+                    drop={folderDrop}
+                    first={!isItem(rows[vi.index - 1])}
+                    last={!isItem(rows[vi.index + 1])}
+                  />
                 ) : (
                   <SessionRow
                     view={r.view}
@@ -349,6 +425,9 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                     cursor={r.view.id === cursorVisible}
                     first={!isItem(rows[vi.index - 1])}
                     last={!isItem(rows[vi.index + 1])}
+                    select={rowSelect}
+                    selecting={selecting}
+                    selected={selected.has(r.view.id)}
                   />
                 )}
               </div>
@@ -356,6 +435,17 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
           })}
         </div>
       </div>
+      {selecting && (
+        <div className={classes.selectionBar} role="toolbar" aria-label="Selected sessions">
+          <IconButton size="sm" label="Clear selection" icon={<X size={16} strokeWidth={2} />} onClick={clearSelection} />
+          <span className={classes.selectionCount}>{selected.size} selected</span>
+          <Button size="xs" leftSection={<FolderInput size={14} />} onClick={moveSelected}>
+            Move to…
+          </Button>
+        </div>
+      )}
+      {/* Drag image for several sessions; it must be rendered to be snapshotted. */}
+      <div ref={ghostRef} className={classes.dragGhost} aria-hidden />
     </>
   );
 }

@@ -62,7 +62,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   (happy-cli-go `docs/operations/session-folders.md`). `src/lib/sync/folders.ts`
   holds the pure model, `folderSync.ts` the optimistic, version-checked sync,
   `folderList.ts` the foldered list (search stays flat). Never write a doc you
-  can't read. `pnpm vectors` also regenerates the Go folder envelopes.
+  can't read. Bulk filing: Cmd/Ctrl/Shift-click or the row menu's "Select" (phones), and
+  drag onto a folder row (fine pointers only; touch long-press stays the menu). `pnpm vectors` also regenerates the Go folder envelopes.
 - Inbox (`/inbox`, lazy): agents' `inbox_send` messages from each session's encrypted
   `metadata.inbox` (`src/lib/sync/inbox.ts`; same rules as happy_flutter). Read/done/replied
   is per-browser triage in localStorage (Done = acknowledge; filing offers Undo); a reply is a user message `Re: <subject>\n\n<text>`.

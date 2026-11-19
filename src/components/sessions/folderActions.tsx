@@ -5,8 +5,8 @@ import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { useMemo } from "react";
 import { useAccount } from "@/app/auth";
-import type { Account } from "@/lib/sync/account";
-import { assignSession, createFolder, deleteFolder, MAX_FOLDER_NAME, renameFolder, type FolderDoc } from "@/lib/sync/folders";
+import type { Account, SessionItem } from "@/lib/sync/account";
+import { assignSessions, commonParent, createFolder, deleteFolder, folderPath, MAX_FOLDER_NAME, renameFolder, type FolderDoc, type Filing } from "@/lib/sync/folders";
 import { FolderPicker } from "./FolderPicker";
 import { RenameForm } from "./RenameForm";
 
@@ -15,10 +15,14 @@ export interface FolderActions {
   create(parent: string | null, anchor?: string | null): Promise<string | undefined>;
   rename(id: string): void;
   remove(id: string): void;
-  /** Picker for a session whose parent session is `parentSession` (null = top-level). */
-  move(sessionId: string, parentSession: string | null, title: string): void;
-  assign(sessionId: string, folderId: string | null, parentSession: string | null): void;
+  /** Folder picker for these sessions; `subtitle` names them. `onMoved` runs once they are filed. */
+  move(items: readonly Filing[], subtitle: string, onMoved?: () => void): void;
+  /** Files them all or none; false when it can't (already notified). */
+  assign(items: readonly Filing[], folderId: string | null): boolean;
 }
+
+/** How a session is filed: folders are scoped to its parent session. */
+export const filing = (s: SessionItem): Filing => ({ id: s.id, parent: s.meta.parentSessionId || null });
 
 function fail(title: string, e: unknown): void {
   notifications.show({ color: "red", title, message: e instanceof Error ? e.message : String(e) });
@@ -95,29 +99,41 @@ function createActions(account: Account): FolderActions {
       });
     },
 
-    assign(sessionId, folderId, parentSession) {
-      edit(account, "Couldn't move session", (d) => assignSession(d, sessionId, folderId, parentSession));
+    assign(items, folderId) {
+      const ok = edit(account, items.length > 1 ? "Couldn't move sessions" : "Couldn't move session", (d) => assignSessions(d, items, folderId));
+      if (ok && items.length > 1) {
+        const where = folderId ? folderPath(doc(), folderId) : "no folder";
+        notifications.show({ message: `Moved ${items.length} sessions to ${where}`, autoClose: 2000 });
+      }
+      return ok;
     },
 
-    move(sessionId, parentSession, title) {
-      const modalId = `move-${sessionId}`;
+    move(items, subtitle, onMoved) {
+      if (items.length === 0) return;
+      const modalId = `move-${items[0]!.id}`;
+      const anchor = commonParent(items);
+      const d = doc();
+      const folders = new Set(items.map((it) => d.sessions[it.id] ?? null));
+      const file = (folderId: string | null) => {
+        if (actions.assign(items, folderId)) onMoved?.();
+      };
       modals.open({
         modalId,
-        title: "Move to folder",
+        title: items.length > 1 ? `Move ${items.length} sessions` : "Move to folder",
         children: (
           <FolderPicker
-            doc={doc()}
-            sessionTitle={title}
-            current={doc().sessions[sessionId] ?? null}
-            anchor={parentSession}
+            doc={d}
+            subtitle={subtitle}
+            current={folders.size === 1 ? [...folders][0]! : undefined}
+            anchor={anchor}
             onPick={(folderId) => {
               modals.close(modalId);
-              actions.assign(sessionId, folderId, parentSession);
+              file(folderId);
             }}
             onNewFolder={async () => {
               modals.close(modalId);
-              const id = await actions.create(null, parentSession);
-              if (id) actions.assign(sessionId, id, parentSession);
+              const id = await actions.create(null, anchor ?? null);
+              if (id) file(id);
             }}
           />
         ),

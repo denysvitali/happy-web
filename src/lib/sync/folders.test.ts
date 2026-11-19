@@ -8,6 +8,8 @@ import type { ApiClient, KvWrite } from "../api/client";
 import { FolderSync } from "./folderSync";
 import {
   assignSession,
+  assignSessions,
+  commonParent,
   createFolder,
   deleteFolder,
   emptyDoc,
@@ -64,6 +66,21 @@ describe("folder model", () => {
     assignSession(d, "c", h, "p");
     forgetSession(d, "p");
     expect(d).toEqual(emptyDoc());
+  });
+
+  it("files several sessions all-or-nothing", () => {
+    const d = emptyDoc();
+    const top = createFolder(d, "Top", null);
+    const kids = createFolder(d, "Kids", null, "p");
+    assignSessions(d, [{ id: "a", parent: null }, { id: "b", parent: null }], top);
+    expect(d.sessions).toEqual({ a: top, b: top });
+    // A child can't join a top-level folder: nobody moves.
+    expect(() => assignSessions(d, [{ id: "a", parent: null }, { id: "c", parent: "p" }], kids)).toThrow(/parent session/);
+    expect(d.sessions).toEqual({ a: top, b: top });
+    assignSessions(d, [{ id: "a", parent: null }, { id: "c", parent: "p" }], null);
+    expect(d.sessions).toEqual({ b: top });
+    expect(commonParent([{ id: "a", parent: "p" }, { id: "b", parent: "p" }])).toBe("p");
+    expect(commonParent([{ id: "a", parent: null }, { id: "b", parent: "p" }])).toBeUndefined();
   });
 });
 

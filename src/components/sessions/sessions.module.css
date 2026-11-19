@@ -155,13 +155,68 @@
 .row:focus-within .rowActions,
 .rowActions[data-open] { opacity: 1; }
 .row:hover .rowAgo,
-.row:focus-within .rowAgo { visibility: hidden; }
+.row:focus-within .rowAgo,
+.row[data-menu] .rowAgo { visibility: hidden; }
+/* Selecting: rows toggle on click and have no menu. */
+.row[data-selecting] .rowActions { display: none; }
+.row[data-selecting] .rowAgo { visibility: visible; }
 
 @media (hover: none) {
   .rowActions { opacity: 1; top: 50%; transform: translateY(-50%); }
   .rowActions button { --ib-color: var(--happy-label-3); }
   .rowLink { padding-right: 36px; }
   .row:focus-within .rowAgo { visibility: visible; }
+}
+
+/* ---- Multi-selection ---- */
+/* Takes the avatar's 30px slot. */
+.check {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 4px;
+  border: 1.5px solid var(--happy-label-3);
+  border-radius: var(--happy-radius-pill);
+  color: var(--happy-on-accent);
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out), border-color var(--happy-dur-fast) var(--happy-ease-out);
+}
+.check[data-checked] { border-color: var(--happy-accent); background: var(--happy-accent); }
+.row[data-selected] .rowLink,
+.row[data-selected] .rowLink:hover { --row-bg: color-mix(in srgb, var(--happy-accent) 14%, var(--happy-sidebar)); }
+
+.selectionBar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
+  border-top: 0.5px solid var(--happy-separator-strong);
+  background: var(--happy-sidebar);
+}
+.selectionCount {
+  flex: 1;
+  font-size: var(--happy-text-subhead);
+  font-weight: 600;
+  color: var(--happy-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Off-screen drag image for several sessions (must be rendered to be snapshotted). */
+.dragGhost {
+  position: fixed;
+  top: -100px;
+  left: -1000px;
+  padding: 4px 10px;
+  border-radius: var(--happy-radius-pill);
+  font-size: var(--happy-text-footnote);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--happy-on-accent);
+  background: var(--happy-accent);
+  pointer-events: none;
 }
 
 /* ---- Phone: an inset-grouped list (one rounded card per group). ---- */
@@ -204,6 +259,11 @@
   .rowMeta { font-size: var(--happy-text-subhead); line-height: 18px; }
   .rowAgo { font-size: var(--happy-text-subhead); }
   .row[data-child] .rowLink::before { left: calc(var(--depth, 1) * 16px + 2px); }
+  /* The menu's "⋯" (shown while it is open) sits centred, where the time is hidden. */
+  .rowActions { top: 50%; transform: translateY(-50%); }
+  .row[data-selected] .rowLink { --row-bg: color-mix(in srgb, var(--happy-accent) 14%, var(--happy-surface)); }
+  .selectionBar { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .selectionCount { font-size: var(--happy-text-body); }
 }
 
 /* Touch phones: long-press opens the actions menu (and the chat header has

@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { memo, useState } from "react";
 import { AttentionBadge, PodBadge, SessionAvatar, UnreadBadge } from "@/components/status";
 import { STATUS_LABEL, metaLine, type SessionView } from "@/lib/sync/sessionList";
@@ -22,10 +23,23 @@ interface Props {
   /** Position within its group, for the phone's rounded group card. */
   first?: boolean;
   last?: boolean;
+  /** Multi-selection (see SessionList); omitted when sessions can't be filed. */
+  select?: RowSelect | undefined;
+  selecting?: boolean;
+  selected?: boolean;
+}
+
+/** Stable callbacks from the list: selection and dragging onto folders. */
+export interface RowSelect {
+  /** "range" extends from the last toggled row (Shift-click). */
+  toggle(id: string, how: "toggle" | "range"): void;
+  /** Undefined on touch screens, where long-press opens the menu instead. */
+  dragStart?: ((id: string, e: React.DragEvent) => void) | undefined;
+  dragEnd(): void;
 }
 
 /** Memoized: re-renders only when its view object (see deriveViews) or flags change. */
-export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, badgeAgent, active, cursor, first, last }: Props) {
+export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, badgeAgent, active, cursor, first, last, select, selecting, selected }: Props) {
   const [menu, setMenu] = useState(false);
   const meta = metaLine(v, { inProject });
   // Blocked on an approval is not "thinking", whatever the ephemeral says.
@@ -41,19 +55,36 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
       data-first={first || undefined}
       data-last={last || undefined}
       data-unread={v.unread ? true : undefined}
+      data-selecting={selecting || undefined}
+      data-selected={selected || undefined}
       style={depth > 0 ? ({ "--depth": depth } as React.CSSProperties) : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
-        setMenu(true);
+        if (!selecting) setMenu(true);
       }}
     >
       <a
         className={classes.rowLink}
         href={`#/s/${encodeURIComponent(v.id)}`}
         aria-current={active ? "page" : undefined}
-        aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : ""}${v.unread ? `, ${v.unread} unread` : ""}`}
+        aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : ""}${v.unread ? `, ${v.unread} unread` : ""}${selected ? ", selected" : ""}`}
+        // Cmd/Ctrl-click selects (like a file manager); Shift-click selects a range.
+        onClick={(e) => {
+          if (!select || !(selecting || e.metaKey || e.ctrlKey || e.shiftKey)) return;
+          e.preventDefault();
+          select.toggle(v.id, e.shiftKey ? "range" : "toggle");
+        }}
+        draggable={select?.dragStart ? true : undefined}
+        onDragStart={select?.dragStart ? (e) => select.dragStart!(v.id, e) : undefined}
+        onDragEnd={select?.dragStart ? select.dragEnd : undefined}
       >
-        <SessionAvatar view={v} agent={badgeAgent ? v.agent : undefined} />
+        {selecting ? (
+          <span className={classes.check} data-checked={selected || undefined} aria-hidden>
+            {selected && <Check size={15} strokeWidth={3} />}
+          </span>
+        ) : (
+          <SessionAvatar view={v} agent={badgeAgent ? v.agent : undefined} />
+        )}
         <span className={classes.rowBody}>
           <span className={classes.rowTop}>
             <span className={classes.rowTitle}>{v.title}</span>
@@ -70,7 +101,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
         </span>
       </a>
       <div className={classes.rowActions} data-open={menu || undefined}>
-        <SessionMenu session={v.item} opened={menu} onChange={setMenu} />
+        <SessionMenu session={v.item} opened={menu} onChange={setMenu} onSelect={select ? () => select.toggle(v.id, "toggle") : undefined} />
       </div>
     </div>
   );

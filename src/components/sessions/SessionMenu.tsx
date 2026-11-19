@@ -1,5 +1,5 @@
 import { Menu } from "@mantine/core";
-import { Archive, ArchiveRestore, Copy, Ellipsis, FolderInput, FolderOpen, Pencil, Square, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, Pencil, Square, Trash2 } from "lucide-react";
 import type { ReactElement } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
@@ -8,7 +8,7 @@ import { sessionTitle } from "@/lib/sync/decode";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { useSessionActions } from "./actions";
-import { useFolderActions } from "./folderActions";
+import { filing, useFolderActions } from "./folderActions";
 
 interface Props {
   session: SessionItem;
@@ -17,10 +17,12 @@ interface Props {
   onChange?: (opened: boolean) => void;
   /** Custom trigger; defaults to a "…" icon button. */
   target?: ReactElement;
+  /** Starts multi-selection with this session (session list only). */
+  onSelect?: () => void;
 }
 
 /** Per-session actions: rename, move to folder, stop, archive/unarchive, copy, delete. */
-export function SessionMenu({ session: s, opened, onChange, target }: Props) {
+export function SessionMenu({ session: s, opened, onChange, target, onSelect }: Props) {
   const a = useSessionActions();
   const folders = useFolderActions();
   const folderStatus = useStore(useAccount().folders.state).status;
@@ -37,8 +39,13 @@ export function SessionMenu({ session: s, opened, onChange, target }: Props) {
           Rename
         </Menu.Item>
         {(folderStatus === "ready" || folderStatus === "error") && (
-          <Menu.Item leftSection={<FolderInput size={14} />} onClick={() => folders.move(s.id, s.meta.parentSessionId || null, sessionTitle(s.meta, s.id))}>
+          <Menu.Item leftSection={<FolderInput size={14} />} onClick={() => folders.move([filing(s)], sessionTitle(s.meta, s.id))}>
             Move to folder…
+          </Menu.Item>
+        )}
+        {onSelect && (
+          <Menu.Item leftSection={<CircleCheck size={14} />} onClick={onSelect}>
+            Select
           </Menu.Item>
         )}
         {live && (
