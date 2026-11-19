@@ -1,5 +1,6 @@
 // Last-used choices of the New session form (this browser only). Nothing
-// secret lives here: modes, machine ids, agent names and branch names.
+// secret lives here: modes, machine ids, agent names, profile ids and branch names.
+import { agentKey } from "@/lib/sync/profiles";
 import type { SpawnBackend } from "@/lib/sync/spawn";
 
 const KEY = "happy.newSession.v1";
@@ -11,6 +12,8 @@ export interface NewSessionPrefs {
   agent?: Partial<Record<SpawnBackend, string>>;
   /** Permission mode per agent (the sets differ). */
   permissionMode?: Record<string, string>;
+  /** Provider profile id per agent key ("default" = account login). */
+  profile?: Record<string, string>;
   /** Last branch per repository key (`RepoRef.key`). */
   branches?: Record<string, string>;
 }
@@ -24,7 +27,15 @@ export function loadPrefs(): NewSessionPrefs {
   }
 }
 
-export function savePrefs(update: { mode: SpawnBackend; machineId?: string | undefined; agent: string; permissionMode: string; repoKey?: string | undefined; branch?: string | undefined }) {
+export function savePrefs(update: {
+  mode: SpawnBackend;
+  machineId?: string | undefined;
+  agent: string;
+  permissionMode: string;
+  profile?: string | undefined;
+  repoKey?: string | undefined;
+  branch?: string | undefined;
+}) {
   const p = loadPrefs();
   const branches = { ...p.branches };
   if (update.repoKey && update.branch) {
@@ -36,6 +47,7 @@ export function savePrefs(update: { mode: SpawnBackend; machineId?: string | und
     localMachineId: update.machineId ?? p.localMachineId,
     agent: { ...p.agent, [update.mode]: update.agent },
     permissionMode: { ...p.permissionMode, [update.agent]: update.permissionMode },
+    profile: update.profile ? { ...p.profile, [agentKey(update.agent)]: update.profile } : p.profile,
     // Insertion order is recency: keep the newest MAX_BRANCHES.
     branches: Object.fromEntries(Object.entries(branches).slice(-MAX_BRANCHES)),
   };

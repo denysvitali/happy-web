@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAccount } from "@/app/auth";
+import { useAccountSettings } from "@/app/hooks";
 import type { SessionItem } from "@/lib/sync/account";
 import {
   agentKind,
@@ -15,6 +16,7 @@ import {
   type Catalog,
   type SendOptions,
 } from "@/lib/sync/models";
+import { findProfile, gatewayModels, sessionProfileId } from "@/lib/sync/profiles";
 import { parseClaudeUsage, parseCodexUsage, usageProvider, type UsageSummary } from "@/lib/sync/usage";
 
 /** Account usage limits for the session's provider, polled every 60s while
@@ -53,11 +55,14 @@ const EMPTY: Catalog = { groups: [] };
 
 export function useCatalog(session: SessionItem, kind: AgentKind): { catalog: Catalog; loading: boolean } {
   const codex = useCodexCatalog(session, kind === "codex");
+  const settings = useAccountSettings();
   const m = session.meta;
+  // A gateway profile refuses the Claude tiers: offer its own models.
+  const gateway = kind === "claude" ? gatewayModels(findProfile(settings.data?.profiles ?? [], sessionProfileId(m)))?.join("\n") : undefined;
   const catalog = useMemo((): Catalog => {
     switch (kind) {
       case "claude":
-        return claudeCatalog(m.claudeModels);
+        return claudeCatalog(gateway ? gateway.split("\n").map((id) => ({ id, name: id, efforts: [] })) : m.claudeModels);
       case "codex":
         return codex.data ?? EMPTY;
       case "prime":
@@ -67,7 +72,7 @@ export function useCatalog(session: SessionItem, kind: AgentKind): { catalog: Ca
       default:
         return EMPTY;
     }
-  }, [kind, codex.data, m.claudeModels, m.primeagentModels, m.primeagentEfforts, m.opencodeModels]);
+  }, [kind, codex.data, gateway, m.claudeModels, m.primeagentModels, m.primeagentEfforts, m.opencodeModels]);
   return { catalog, loading: kind === "codex" && codex.isPending && codex.fetchStatus !== "idle" };
 }
 
@@ -98,6 +103,9 @@ export interface SessionSwitch {
   setModel(v: string): void;
   setEffort(v: string): void;
   setPermissionMode(v: string): void;
+  /** Forgets model/effort picks, e.g. after a provider switch restarted the
+   * agent on a model of its own. */
+  clearModel(): void;
   /** Options for the next `ChatStore.send`. Call `markSent` after success. */
   options(): SendOptions;
   markSent(o: SendOptions): void;
@@ -132,6 +140,7 @@ export function useSessionSwitch(session: SessionItem): SessionSwitch {
     setModel: (v) => update({ model: v === activeModel ? undefined : v }),
     setEffort: (v) => update({ effort: v === activeEffort ? undefined : v }),
     setPermissionMode: (v) => update({ mode: v }),
+    clearModel: () => update({ model: undefined, effort: undefined, sentModel: undefined, sentEffort: undefined, sentOver: undefined }),
     options: () => sendOptions(kind, catalog, { model: local.model, reasoningEffort: local.effort, permissionMode }),
     markSent: (o) =>
       setLocal((p) => {

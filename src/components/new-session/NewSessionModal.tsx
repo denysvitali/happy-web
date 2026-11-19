@@ -3,8 +3,22 @@ import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { MonitorOff } from "lucide-react";
 import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useAccountSettingsOf } from "@/app/hooks";
 import { sessionsKey, type Account, type MachineItem, type SessionItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
+import {
+  agentKey,
+  agentUsesProfiles,
+  DEFAULT_PROVIDER_LABEL,
+  EMPTY_SETTINGS,
+  findProfile,
+  gatewayModels,
+  modelForProfile,
+  NO_PROFILE,
+  profileEndpoint,
+  profilesForAgent,
+  selectedProfileIdForAgent,
+} from "@/lib/sync/profiles";
 import {
   abbreviateHome,
   agentsFor,
@@ -112,6 +126,16 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   const [permByAgent, setPermByAgent] = useState<Record<string, string>>(() => ({ ...prefs.permissionMode }));
   const permModes = permissionModesFor(agent);
   const permission = permModes.includes(permByAgent[agent] ?? "") ? permByAgent[agent]! : defaultPermissionMode(agent);
+  // Provider profile per agent: this browser's last pick, else the one the
+  // Happy app remembers for the agent (account settings).
+  const settingsQuery = useAccountSettingsOf(account);
+  const settings = settingsQuery.data ?? EMPTY_SETTINGS;
+  const [profileByAgent, setProfileByAgent] = useState<Record<string, string>>(() => ({ ...prefs.profile }));
+  const usesProfiles = agentUsesProfiles(agent);
+  const profileChoices = usesProfiles ? profilesForAgent(settings.profiles, agent) : [];
+  const profileId = usesProfiles ? (selectedProfileIdForAgent(settings, agent, profileByAgent[agentKey(agent)]) ?? NO_PROFILE) : NO_PROFILE;
+  const profile = findProfile(settings.profiles, profileId);
+  const profileModel = modelForProfile({ profile, agent, favorites: settings.favoriteModelsByProfile });
   const [model, setModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [advanced, setAdvanced] = useState(false);
@@ -190,10 +214,12 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
         additionalRepos: isK8s ? extraRepos : undefined,
         mcpServers: isK8s ? mcpSelection(mcp) : undefined,
         permissionMode: permission,
-        model,
+        model: model.trim() || profileModel,
+        profile,
+        codexFastMode: settings.codexFastMode,
         initialPrompt: prompt,
       });
-      savePrefs({ mode, machineId: isK8s ? undefined : machine.id, agent, permissionMode: permission, repoKey: isK8s ? repo!.key : undefined, branch: isK8s ? branch.branch.trim() : undefined });
+      savePrefs({ mode, machineId: isK8s ? undefined : machine.id, agent, permissionMode: permission, profile: usesProfiles ? profileId : undefined, repoKey: isK8s ? repo!.key : undefined, branch: isK8s ? branch.branch.trim() : undefined });
       notifications.show({ color: "green", message: "Session started" });
       onSpawned(id);
     } catch (err) {
@@ -211,11 +237,18 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   };
 
   // What will be created, in one quiet line.
+  const via = profile ? (
+    <>
+      {" "}
+      on <strong>{profile.name}</strong>
+    </>
+  ) : null;
   let summary: ReactNode;
   if (isK8s) {
     summary = repo ? (
       <span>
-        <strong>{AGENT_LONG[agent]}</strong> in a fresh workspace with <strong>{repoLabel(repo)}</strong>
+        <strong>{AGENT_LONG[agent]}</strong>
+        {via} in a fresh workspace with <strong>{repoLabel(repo)}</strong>
         {branch.branch && (
           <>
             {" "}
@@ -230,14 +263,15 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   } else {
     summary = localDir ? (
       <span>
-        <strong>{AGENT_LONG[agent]}</strong> in <strong className={classes.mono}>{abbreviateHome(localDir, machine.meta.homeDir)}</strong> on <strong>{machineName(machine.meta, machine.id)}</strong>
+        <strong>{AGENT_LONG[agent]}</strong>
+        {via} in <strong className={classes.mono}>{abbreviateHome(localDir, machine.meta.homeDir)}</strong> on <strong>{machineName(machine.meta, machine.id)}</strong>
       </span>
     ) : (
       <span>Pick a folder on {machineName(machine.meta, machine.id)}.</span>
     );
   }
 
-  const advancedSummary = [permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ");
+  const advancedSummary = [profile?.name, permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ");
   const progress = slow ? "Still going: cold image pulls and new volumes can take a few minutes." : "Creating the Pod and cloning the repository.";
 
   return (
@@ -317,12 +351,39 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
           }
         >
           <div className={classes.advanced}>
-            <FormSection>
+            <FormSection
+              footer={
+                usesProfiles &&
+                (settingsQuery.isError
+                  ? "Your profiles from the Happy app couldn't be loaded; built-ins only."
+                  : profile
+                    ? `${profile.name} routes ${AGENT_SHORT[agent]} to ${profileEndpoint(profile) ?? "its account login"}.`
+                    : `${AGENT_SHORT[agent]} uses its own account login.`)
+              }
+            >
+              {usesProfiles && (
+                <FormRow label="Provider" labelFor={`${uid}-provider`}>
+                  <Select
+                    id={`${uid}-provider`}
+                    data={[{ value: NO_PROFILE, label: `${DEFAULT_PROVIDER_LABEL} (account login)` }, ...profileChoices.map((p) => ({ value: p.id, label: p.name }))]}
+                    value={profileId}
+                    onChange={(v) => {
+                      if (!v) return;
+                      setProfileByAgent((m) => ({ ...m, [agentKey(agent)]: v }));
+                      setModel("");
+                      setError("");
+                    }}
+                    allowDeselect={false}
+                    searchable={profileChoices.length > 8}
+                    comboboxProps={within}
+                  />
+                </FormRow>
+              )}
               <FormRow label="Model" labelFor={`${uid}-model`}>
                 <Autocomplete
                   id={`${uid}-model`}
-                  placeholder="Account default"
-                  data={MODEL_SUGGESTIONS[agent] ?? []}
+                  placeholder={profileModel === "default" ? (profile ? "Provider default" : "Account default") : profileModel}
+                  data={gatewayModels(profile) ?? (profile ? [] : (MODEL_SUGGESTIONS[agent] ?? []))}
                   value={model}
                   onChange={setModel}
                   autoComplete="off"

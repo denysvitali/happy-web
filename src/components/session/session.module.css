@@ -154,6 +154,25 @@
   background: var(--happy-accent-tint);
 }
 
+/* Provider switch confirmation: what the restart will use. */
+.facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--happy-radius-md);
+  background: var(--happy-fill-3);
+  font-size: var(--happy-text-footnote);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.factRow { display: flex; gap: 12px; min-width: 0; }
+.factRow dt { flex: 0 0 42%; color: var(--happy-label-2); overflow-wrap: anywhere; }
+.factRow dd { margin: 0; flex: 1; min-width: 0; color: var(--happy-label); overflow-wrap: anywhere; }
+.dim { color: var(--happy-label-2); }
+.mono { font-family: var(--happy-font-mono); font-size: var(--happy-text-caption); }
+
 @media (max-width: $mantine-breakpoint-sm) {
   .chipLabel { max-width: 110px; }
   .contextText { display: none; }

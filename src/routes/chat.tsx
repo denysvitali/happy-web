@@ -155,7 +155,7 @@ function ComposerArea({ session, store, canAbort, run }: { session: SessionItem;
     <div className={classes.composer}>
       <div className={classes.column}>
         <Composer
-          tools={session.archived ? undefined : <SessionToolbar sw={sw} store={store} />}
+          tools={session.archived ? undefined : <SessionToolbar session={session} sw={sw} store={store} />}
           canAbort={canAbort}
           onAbort={() => void run(() => account.abort(session.id))}
           onSend={(t) => void run(() => send(t))}
