@@ -1,0 +1,216 @@
+/* Command palette: a Spotlight-style panel; also holds the shortcuts cheat-sheet bits. */
+.overlay {
+  background: var(--happy-overlay);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.inner {
+  padding-inline: 12px;
+}
+.inner .content {
+  overflow: hidden;
+  border-radius: var(--happy-radius-xl);
+  background-color: var(--happy-material-raised);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  backdrop-filter: var(--happy-backdrop);
+  box-shadow:
+    var(--happy-shadow-lg),
+    inset 0 0 0 0.5px var(--happy-separator-strong);
+}
+.body {
+  padding: 0;
+  background: none;
+  color: var(--happy-label);
+  font-size: var(--happy-text-body);
+}
+
+/* The modal title names the dialog for assistive tech only. */
+.srHeader,
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  min-height: 0;
+  background: none;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--happy-separator);
+}
+.fieldIcon {
+  flex-shrink: 0;
+  color: var(--happy-label-2);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--happy-label);
+  font: inherit;
+  font-size: 17px;
+}
+.input::placeholder {
+  color: var(--happy-label-3);
+}
+
+.list {
+  max-height: min(52vh, 440px);
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+  overscroll-behavior: contain;
+}
+.group + .group {
+  margin-top: 4px;
+}
+.groupLabel {
+  padding: 8px 10px 4px;
+  font-size: var(--happy-text-footnote);
+  font-weight: 500;
+  color: var(--happy-label-2);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: var(--happy-radius-md);
+  cursor: pointer;
+  --avatar-ring: transparent;
+}
+.option[data-active] {
+  background: var(--happy-accent-tint);
+}
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.title,
+.subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title {
+  font-size: var(--happy-text-body);
+  line-height: 20px;
+}
+.subtitle {
+  font-size: var(--happy-text-footnote);
+  line-height: 16px;
+  color: var(--happy-label-2);
+}
+.ago {
+  flex-shrink: 0;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.tile {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--happy-fill-2);
+  color: var(--happy-label-2);
+}
+.tile[data-tone="danger"] {
+  background: var(--happy-red-tint);
+  color: var(--happy-red);
+}
+
+.key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--happy-label-3);
+  box-shadow: inset 0 0 0 0.5px var(--happy-separator-strong);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 36px 16px 40px;
+  text-align: center;
+  font-size: var(--happy-text-subhead);
+  color: var(--happy-label-2);
+}
+.emptyTitle {
+  font-weight: 600;
+  color: var(--happy-label);
+}
+
+.footer {
+  display: flex;
+  gap: 16px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--happy-separator);
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}
+.footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 47.99em) {
+  .footer {
+    display: none;
+  }
+  .list {
+    max-height: 60dvh;
+  }
+  .input {
+    font-size: 17px;
+  } /* >= 16px: no iOS focus zoom */
+}
+
+/* Shortcuts sheet. */
+.keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.keyGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.then {
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}

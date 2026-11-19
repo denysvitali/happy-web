@@ -24,7 +24,7 @@ export function NavBar({ title, subtitle, leading, trailing }: { title: ReactNod
 export function BackButton({ label = "Sessions" }: { label?: string }) {
   return (
     <Link to="/" className={classes.back} aria-label={`Back to ${label}`}>
-      <ChevronLeft size={22} strokeWidth={2.4} />
+      <ChevronLeft size={22} strokeWidth={2.4} aria-hidden />
       <span>{label}</span>
     </Link>
   );

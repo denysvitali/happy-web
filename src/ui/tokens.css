@@ -8,20 +8,20 @@
  */
 body {
   /* Palette: system-style hues, tuned per scheme. */
-  --happy-blue: light-dark(#007aff, #0a84ff);
-  --happy-green: light-dark(#28a745, #30d158);
-  --happy-red: light-dark(#ff3b30, #ff453a);
-  --happy-orange: light-dark(#ff9500, #ff9f0a);
+  --happy-blue: light-dark(#005fcc, #5aa7ff);
+  --happy-green: light-dark(#17702f, #30d158);
+  --happy-red: light-dark(#c40013, #ff7a72);
+  --happy-orange: light-dark(#c25e00, #ff9f0a);
   --happy-yellow: light-dark(#ffcc00, #ffd60a);
-  --happy-purple: light-dark(#af52de, #bf5af2);
+  --happy-purple: light-dark(#8e3fb5, #cf8cff);
   --happy-indigo: light-dark(#5856d6, #5e5ce6);
   --happy-teal: light-dark(#30b0c7, #40c8e0);
   --happy-gray: #8e8e93;
   --happy-accent: var(--happy-blue);
-  --happy-accent-hover: light-dark(#0066d6, #409cff);
-  --happy-on-accent: #fff;
+  --happy-accent-hover: light-dark(#004ba3, #7ab8ff);
+  --happy-on-accent: light-dark(#fff, #04121f); /* white on the dark-mode blue would be 3:1 */
   /* Orange as text (on tints or white): the hue itself is too light in light mode. */
-  --happy-orange-ink: light-dark(#b25c00, #ff9f0a);
+  --happy-orange-ink: light-dark(#8f4a00, #ff9f0a);
 
   /* Tints: a hue at low alpha, for tinted buttons, pills and highlights. */
   --happy-accent-tint: color-mix(in srgb, var(--happy-accent) 12%, transparent);
@@ -56,8 +56,8 @@ body {
 
   /* Text. */
   --happy-label: light-dark(#1d1d1f, #f5f5f7);
-  --happy-label-2: light-dark(rgba(60, 60, 67, 0.72), rgba(235, 235, 245, 0.64)); /* ≥ 4.5:1 on every surface */
-  --happy-label-3: light-dark(rgba(60, 60, 67, 0.46), rgba(235, 235, 245, 0.42)); /* placeholders, meta */
+  --happy-label-2: light-dark(rgba(60, 60, 67, 0.86), rgba(235, 235, 245, 0.76)); /* ≥ 4.5:1 on every surface and fill */
+  --happy-label-3: light-dark(rgba(60, 60, 67, 0.75), rgba(235, 235, 245, 0.64)); /* placeholders, meta */
   --happy-label-4: light-dark(rgba(60, 60, 67, 0.18), rgba(235, 235, 245, 0.18));
 
   /* Fills for controls (search fields, gray buttons, code). */
@@ -89,7 +89,7 @@ body {
     0 0 0 1px rgba(0, 0, 0, 0.07), 0 4px 12px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.12),
     0 0 0 1px rgba(255, 255, 255, 0.09), 0 4px 12px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.5)
   );
-  --happy-focus-ring: 0 0 0 3px color-mix(in srgb, var(--happy-accent) 40%, transparent);
+  --happy-focus-ring: 0 0 0 3px color-mix(in srgb, var(--happy-accent) 72%, transparent);
 
   /* Type scale (size/line-height). Weights: 400 regular, 500 medium, 600 semibold. */
   --happy-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
@@ -195,5 +195,16 @@ body {
     --happy-dur-fast: 0ms;
     --happy-dur: 0ms;
     --happy-dur-slow: 0ms;
+  }
+}
+
+/* "Increase contrast": firmer hairlines and tertiary fills. */
+@media (prefers-contrast: more) {
+  body {
+    --happy-separator: light-dark(rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.4));
+    --happy-separator-strong: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
+    --happy-label-2: light-dark(rgba(0, 0, 0, 0.82), rgba(255, 255, 255, 0.85));
+    --happy-label-3: light-dark(rgba(0, 0, 0, 0.7), rgba(255, 255, 255, 0.75));
+    --happy-focus-ring: 0 0 0 3px var(--happy-accent);
   }
 }

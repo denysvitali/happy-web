@@ -6,3 +6,7 @@
 .root[data-variant="subtle"] { --ai-hover: var(--happy-hover); }
 .root:active:not(:disabled, [data-disabled], [data-loading]) { transform: scale(0.94); }
 .root:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+@media (pointer: coarse) {
+  .root::after { content: ""; position: absolute; inset: min(0px, calc((44px - var(--ai-size)) / -2)); }
+}

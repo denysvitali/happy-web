@@ -5,7 +5,8 @@ const LABEL: Record<SessionStatus, string> = { thinking: "Thinking", active: "Ac
 
 /**
  * Session status: a coloured dot plus label; "thinking" breathes.
- * `compact` drops the label (it stays as aria-label); `"phone"` drops it only on compact screens.
+ * `compact` hides the label visually (it stays for screen readers); `"phone"` does so only on compact screens.
+ * Not a live region (lists hold many); announce changes where they matter.
  */
 export function StatusPill({ status, compact = false }: { status: SessionStatus; compact?: boolean | "phone" }) {
   return (
@@ -14,12 +15,11 @@ export function StatusPill({ status, compact = false }: { status: SessionStatus;
       data-status={status}
       data-compact={compact === true || undefined}
       data-compact-phone={compact === "phone" || undefined}
-      role="status"
-      aria-label={compact ? LABEL[status] : undefined}
       title={LABEL[status]}
     >
       <span className={classes.dot} aria-hidden />
-      {compact !== true && <span className={classes.label}>{LABEL[status]}</span>}
+      {/* Always in the DOM so screen readers get the state; hidden visually when compact. */}
+      <span className={classes.label}>{LABEL[status]}</span>
     </span>
   );
 }

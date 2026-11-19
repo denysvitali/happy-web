@@ -71,7 +71,7 @@ export function ListRow({ title, subtitle, leading, trailing, accessory, selecte
           {content}
         </a>
       ) : onClick ? (
-        <button type="button" className={classes.main} onClick={onClick} aria-pressed={selected}>
+        <button type="button" className={classes.main} onClick={onClick} aria-current={selected ? "true" : undefined}>
           {content}
         </button>
       ) : (
@@ -94,7 +94,7 @@ export function ListAction({ children, onClick }: { children: ReactNode; onClick
 /** Placeholder rows while a list loads. */
 export function ListSkeleton({ rows = 4, twoLine = true }: { rows?: number; twoLine?: boolean }) {
   return (
-    <div className={classes.skeleton} aria-busy="true" aria-label="Loading">
+    <div className={classes.skeleton} role="status" aria-busy="true" aria-label="Loading">
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className={classes.row} data-two-line={twoLine || undefined}>
           <div className={classes.main}>

@@ -4,6 +4,7 @@ import { Anchor } from "@mantine/core";
 import { CheckCircle2, Circle, CircleDot, MessageCircleQuestion } from "lucide-react";
 import type { ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
+import { lineCount, lines, numberRows } from "../text";
 import { Clip, CopyIcon, KeyValues, ResultView, Section } from "../primitives";
 import { asText, commandOf, editRows, field, isObj, numberedLines, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj } from "./format";
 import classes from "../chat.module.css";
@@ -46,7 +47,8 @@ export function BashBody({ b }: ToolViewProps) {
   const cwd = field(i, "cwd", "workdir");
   const out = b.result ? shellOutput(b.result.output) : undefined;
   const failed = !!b.result?.isError;
-  const exit = out?.exitCode ? ` · exit ${out.exitCode}` : failed ? " · failed" : "";
+  const exit = out?.exitCode ?? (failed ? "failed" : undefined);
+  const total = out ? lineCount(out.stdout) + lineCount(out.stderr) : 0;
   return (
     <div className={classes.terminal}>
       {cwd && <div className={classes.terminalCwd}>{cwd}</div>}
@@ -62,7 +64,14 @@ export function BashBody({ b }: ToolViewProps) {
           {out.stdout || out.stderr ? (
             <>
               <div className={classes.terminalHead} data-tone={failed ? "error" : undefined}>
-                <span>Output{exit}</span>
+                <span>
+                  Output{total > 0 && ` · ${lines(total)}`}
+                  {exit !== undefined && (
+                    <span className={classes.exit} data-ok={exit === 0 || undefined}>
+                      {typeof exit === "number" ? `exit ${exit}` : exit}
+                    </span>
+                  )}
+                </span>
                 <CopyIcon text={[out.stdout, out.stderr].filter(Boolean).join("\n")} reveal />
               </div>
               {out.stdout && <Clip text={out.stdout} tone={failed && !out.stderr ? "error" : undefined} />}
@@ -100,15 +109,16 @@ export function ReadBody({ b }: ToolViewProps) {
 
 function Diff({ rows }: { rows: DiffRow[] }) {
   if (rows.length === 0) return <span className={classes.dim}>No changes</span>;
+  // Numbers are drawn by CSS (data-n), so copying or searching sees only code.
   return (
     <div className={classes.diff}>
-      {rows.map((r, k) =>
+      {numberRows(rows).map((r, k) =>
         r.op === "…" ? (
           <div key={k} className={classes.diffSkip}>
             ⋯ {r.count} unchanged {r.count === 1 ? "line" : "lines"}
           </div>
         ) : (
-          <div key={k} className={classes.diffLine} data-op={r.op}>
+          <div key={k} className={classes.diffLine} data-op={r.op} data-n={r.n}>
             <span className={classes.diffOp}>{r.op}</span>
             {r.text || " "}
           </div>

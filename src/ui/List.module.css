@@ -156,3 +156,5 @@ a.main, button.main { cursor: pointer; }
   .section[data-variant="sidebar"] .accessory { opacity: 1; padding-right: 10px; }
   .section[data-variant="sidebar"] .footer { padding: 8px 32px 0; }
 }
+
+@media (pointer: coarse) { .action { min-height: 44px; } }

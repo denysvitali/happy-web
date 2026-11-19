@@ -57,3 +57,6 @@
 
 /* Grouped forms sit on the grouped background, as in sheets. */
 .grouped { display: flex; flex-direction: column; gap: 16px; padding: 16px 12px; border-radius: var(--happy-radius-xl); background: var(--happy-bg-grouped); }
+
+/* Connection strips stacked in a frame, as above the app content. */
+.strips { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--happy-radius-md); background: var(--happy-bg); box-shadow: 0 0 0 0.5px var(--happy-separator); }

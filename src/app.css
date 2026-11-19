@@ -17,3 +17,15 @@ body {
 ::selection { background: color-mix(in srgb, var(--happy-accent) 28%, transparent); }
 * { scrollbar-width: thin; scrollbar-color: var(--happy-fill) transparent; }
 /* ---- end base polish ---- */
+
+/* ---- Accessibility ---- */
+/* Reduced motion: tokens zero the durations; this catches the rest (keyframes,
+   Mantine, third-party). Spinners keep turning: they are state, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  *:not([role="progressbar"], [class*="Loader"]), ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+/* Forced colours drop box-shadows, so focus rings fall back to a real outline. */
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }
+}

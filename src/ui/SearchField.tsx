@@ -57,7 +57,7 @@ export function SearchField({
             input.current?.focus();
           }}
         >
-          <X size={10} strokeWidth={3.25} />
+          <X size={10} strokeWidth={3.25} aria-hidden />
         </button>
       ) : (
         hint && (

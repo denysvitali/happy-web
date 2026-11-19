@@ -8,10 +8,12 @@
 // highlighter is loaded lazily on first fenced block.
 import { memo, useEffect, useState, type ComponentProps, type ReactElement } from "react";
 import renderMarkdown, { type Components, type ExtraProps, type Options } from "react-markdown";
-import { Check } from "lucide-react";
+import { Check, ChevronDown, WrapText } from "lucide-react";
+import { IconButton } from "@/ui/IconButton";
 import remarkGfm from "remark-gfm";
 import { splitStable } from "./markdown-split";
 import { CopyIcon } from "./primitives";
+import { lineCount, lines } from "./text";
 import classes from "./chat.module.css";
 
 type Plugin = NonNullable<Options["rehypePlugins"]>[number];
@@ -50,7 +52,13 @@ interface HNode {
 
 const hText = (n: HNode): string => (n.type === "text" ? (n.value ?? "") : (n.children ?? []).map(hText).join(""));
 
+/** Past this many lines a code block is clipped (with a fade) until opened. */
+const CODE_LINES = 20;
+const CODE_SHOWN = 16; // keep in step with .codeBody[data-clipped] max-height
+
 function CodeBlock({ node, children, ...rest }: ComponentProps<"pre"> & ExtraProps) {
+  const [wrap, setWrap] = useState(false);
+  const [open, setOpen] = useState(false);
   const h = node as unknown as HNode | undefined;
   const code = h?.children?.find((c) => c.type === "element" && c.tagName === "code");
   const cls = code?.properties?.className;
@@ -59,13 +67,35 @@ function CodeBlock({ node, children, ...rest }: ComponentProps<"pre"> & ExtraPro
     .find((c) => c.startsWith("language-"))
     ?.slice(9);
   const text = h ? hText(h).replace(/\n$/, "") : "";
+  const n = lineCount(text);
+  const long = n > CODE_LINES;
   return (
     <div className={classes.code}>
       <div className={classes.codeHead}>
         <span className={classes.codeLang}>{lang}</span>
-        <CopyIcon text={text} label="Copy code" reveal />
+        <span className={classes.codeTools}>
+          <IconButton
+            label={wrap ? "Scroll long lines" : "Wrap long lines"}
+            size="sm"
+            className={classes.reveal}
+            aria-pressed={wrap}
+            icon={<WrapText size={14} strokeWidth={1.9} />}
+            onClick={() => setWrap((w) => !w)}
+          />
+          <CopyIcon text={text} label="Copy code" reveal />
+        </span>
       </div>
-      <pre {...rest}>{children}</pre>
+      <div className={classes.codeBody} data-clipped={(long && !open) || undefined}>
+        <pre {...rest} data-wrap={wrap || undefined}>
+          {children}
+        </pre>
+      </div>
+      {long && (
+        <button type="button" className={classes.codeMore} aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? "Show less" : `Show ${lines(n - CODE_SHOWN)} more`}
+          <ChevronDown size={13} strokeWidth={2.5} data-open={open || undefined} />
+        </button>
+      )}
     </div>
   );
 }

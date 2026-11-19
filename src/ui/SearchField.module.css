@@ -26,6 +26,7 @@
 .input::placeholder { color: var(--happy-label-2); }
 .input::-webkit-search-cancel-button, .input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
 .clear {
+  overflow: visible;
   position: absolute;
   right: 8px;
   display: grid;
@@ -66,3 +67,7 @@
 }
 .root:focus-within .hint { opacity: 0; }
 @media (width < $mantine-breakpoint-sm) { .hint { display: none; } }
+
+@media (pointer: coarse) {
+  .clear::after { content: ""; position: absolute; inset: -14px; }
+}

@@ -88,6 +88,8 @@ export function KubernetesFields(p: {
     }
   }
 
+  if (!reply && p.repo?.github && p.lookup.loading) branchHint = "Looking up branches…";
+
   const ids = { cluster: `${uid}-cluster`, repo: `${uid}-repo`, branch: `${uid}-branch` };
   const toggleMcp = (server: string, on: boolean) => p.onMcp(MCP_SERVERS.filter((s) => (s === server ? on : p.mcp.includes(s))));
 

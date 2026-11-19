@@ -5,6 +5,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { buildView, type Block, type ToolBlock } from "@/lib/sync/chat";
 import { BlockList } from "./blocks";
+import { WorkingRow } from "./working";
 import { demoChat } from "./fixtures";
 import { agentInfo, agentStatus } from "./tools/format";
 import { viewFor } from "./tools/registry";
@@ -27,6 +28,27 @@ describe("demo transcript", () => {
     );
     expect(html).toContain("Can you find why the login test is flaky");
     expect(html).toContain("Permission required");
+  });
+
+  it("offers code tools and message actions", () => {
+    const html = renderToString(
+      <MantineProvider>
+        <BlockList blocks={view().blocks} />
+      </MantineProvider>,
+    );
+    expect(html).toContain("Wrap long lines");
+    expect(html).toContain('aria-label="Actions"');
+    // Edit & resend needs a composer to receive the text.
+    expect(html).not.toContain("Edit &amp; resend");
+  });
+
+  it("renders the working row", () => {
+    const html = renderToString(
+      <MantineProvider>
+        <WorkingRow since={Date.now()} />
+      </MantineProvider>,
+    );
+    expect(html).toContain("Working");
   });
 
   it("renders every tool body", () => {

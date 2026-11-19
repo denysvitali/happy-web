@@ -28,6 +28,12 @@ pnpm dev              # http://localhost:5173
 `happy-cli-go` commit (`proto/server/v1`, `proto/rpc/v1`). happy-cli-go is private, so CI
 needs a repository secret `HAPPY_CLI_GO_TOKEN` (fine-grained, contents: read).
 
+## Keyboard shortcuts
+
+`Cmd/Ctrl+K` command palette (sessions and actions), `?` cheat-sheet, `/` search sessions,
+`N` new session, `[` / `]` previous/next session, `G` then `H` home, `Esc` back. Plain-key
+shortcuts are ignored while typing or when a dialog is open (`src/components/palette/shortcuts.ts`).
+
 ## Installing as an app
 
 A web manifest (`public/manifest.webmanifest`) plus icons make it installable: Android

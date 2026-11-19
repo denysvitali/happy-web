@@ -2,12 +2,13 @@
 .root {
   display: grid;
   grid-template-columns: var(--happy-sidebar-width) minmax(0, 1fr);
-  grid-template-rows: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
   background: var(--happy-bg);
 }
 
 .sidebar {
+  grid-row: 2;
   /* What sits behind rows: avatars ring their status dot with it. */
   --avatar-ring: var(--happy-sidebar);
   display: flex;
@@ -18,6 +19,7 @@
 }
 
 .main {
+  grid-row: 2;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -140,10 +142,47 @@
 /* ---- Phone: push navigation. ---- */
 @media (width < $mantine-breakpoint-sm) {
   .root { grid-template-columns: minmax(0, 1fr); }
-  .root[data-pane="list"] .main,
-  .root[data-pane="detail"] .sidebar { display: none; }
-  .root[data-pane="detail"] .main { animation: push var(--happy-dur-slow) var(--happy-ease); }
-  .root[data-pane="list"] .sidebar { animation: pop var(--happy-dur) var(--happy-ease-out); }
+  /* Stack both panes in one cell; the detail pane slides over the list. */
+  .sidebar,
+  .main { grid-column: 1; }
+  .sidebar {
+    position: relative;
+    transition: transform var(--happy-dur-slow) var(--happy-ease), visibility 0s linear 0s;
+  }
+  .main {
+    position: relative;
+    z-index: 1;
+    box-shadow: -8px 0 24px -12px rgb(0 0 0 / 0.3);
+    transition: transform var(--happy-dur-slow) var(--happy-ease), opacity var(--happy-dur-slow) var(--happy-ease), box-shadow var(--happy-dur-slow) var(--happy-ease), visibility 0s linear 0s;
+  }
+  /* The list dims as it slips under the pushed pane. */
+  .sidebar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: var(--happy-overlay);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--happy-dur-slow) var(--happy-ease);
+  }
+  .root[data-pane="detail"] .sidebar { transform: translateX(-28%); visibility: hidden; transition-delay: 0s, var(--happy-dur-slow); }
+  .root[data-pane="detail"] .sidebar::after { opacity: 0.6; }
+  /* Popped: the (empty) detail surface slides away to the right. */
+  .root[data-pane="list"] .main {
+    transform: translateX(100%);
+    visibility: hidden;
+    pointer-events: none;
+    box-shadow: none;
+    transition-delay: 0s, 0s, 0s, var(--happy-dur-slow);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Cross-fade instead of travelling. */
+    .root[data-pane="detail"] .sidebar { transform: none; }
+    .root[data-pane="list"] .main { transform: none; opacity: 0; }
+    .main, .sidebar { transition-duration: var(--happy-dur), var(--happy-dur), var(--happy-dur), 0s; }
+  }
 
   .sidebar { border-right: 0; background: var(--happy-bg-grouped); }
 
@@ -178,14 +217,6 @@
   }
 }
 
-@keyframes push {
-  from { transform: translateX(24%); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@keyframes pop {
-  from { transform: translateX(-8%); opacity: 0.6; }
-  to { transform: none; opacity: 1; }
-}
 
 /* ---- Back chevron (NavButton): phones only. ---- */
 .back {

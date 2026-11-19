@@ -5,6 +5,7 @@ import { Shell } from "@/components/shell/Shell";
 import shell from "@/components/shell/shell.module.css";
 import { HomeScreen } from "@/routes/home";
 import { LinkScreen } from "@/routes/link";
+import { NotFoundScreen } from "@/routes/not-found";
 
 function Gate() {
   const { state } = useAuth();
@@ -39,6 +40,7 @@ const demo = createRoute({
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent]), demo]),
+  defaultNotFoundComponent: NotFoundScreen,
   history: createHashHistory(),
   defaultPreload: false,
 });

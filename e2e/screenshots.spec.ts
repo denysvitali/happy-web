@@ -162,7 +162,7 @@ for (const vp of VIEWPORTS) {
       await page.getByLabel("Message").fill("Same screen after the rebuild");
       await expect(page.getByRole("button", { name: "Remove image 1" })).toBeVisible();
       await shot(page, "13-ops-attach");
-      await page.getByRole("button", { name: "Send" }).click();
+      await page.getByRole("button", { name: "Send", exact: true }).click();
       await expect.poll(() => mock.sent.length).toBe(1);
       expect(JSON.stringify(mock.sent[0]!.record)).toContain('"type":"image"');
       // Tall viewport: the whole transcript in one picture.
@@ -256,6 +256,46 @@ for (const vp of VIEWPORTS) {
       await page.getByRole("button", { name: /Can't scan/ }).click();
       await page.waitForTimeout(300);
       await shot(page, "01c-link-qr-dark");
+      expect(violations).toEqual([]);
+    });
+
+    // ---- palette track: command palette, settings, shortcuts ----
+    test("palette and settings", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await page.getByText("Fix flaky login test").first().click();
+      await page.waitForTimeout(400);
+      await page.keyboard.press("Control+k");
+      await expect(page.getByRole("combobox")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p1-palette");
+      await page.getByRole("combobox").fill("web");
+      await page.waitForTimeout(200);
+      await shot(page, "p2-palette-query");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "p3-palette-dark");
+      await page.keyboard.press("Escape");
+      await page.emulateMedia({ colorScheme: "light" });
+      // On phones the account button lives on the list pane, not inside a chat.
+      if (vp.name === "mobile") await page.goto("/#/");
+      await page.getByRole("button", { name: "Account and settings" }).click();
+      await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p4-settings");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "p5-settings-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Command palette" }).click();
+      await page.getByRole("combobox").fill("shortcuts");
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p6-shortcuts");
       expect(violations).toEqual([]);
     });
   });

@@ -34,3 +34,9 @@
 .root[data-variant="filled"] { --ib-bg: var(--happy-accent); --ib-bg-hover: var(--happy-accent-hover); --ib-color: var(--happy-on-accent); }
 .root[data-variant="filled"][data-tone="danger"] { --ib-bg: var(--happy-red); --ib-bg-hover: color-mix(in srgb, var(--happy-red) 88%, black); }
 .root[data-variant="filled"]:disabled { --ib-bg: var(--happy-fill); --ib-color: var(--happy-label-3); opacity: 1; }
+
+/* Touch: grow the hit area to 44px without growing the glyph disc. */
+@media (pointer: coarse) {
+  .root { position: relative; }
+  .root::after { content: ""; position: absolute; inset: min(0px, calc((44px - var(--ib-size)) / -2)); border-radius: inherit; }
+}

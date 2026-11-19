@@ -43,3 +43,7 @@ button.toggle:focus-visible { outline: none; box-shadow: var(--happy-focus-ring)
 .icon { display: inline-flex; margin-right: -1px; }
 .root[data-tone="warning"] .toggle,
 .root[data-tone="warning"] .toggle .label { color: color-mix(in srgb, var(--happy-orange) 85%, var(--happy-label)); }
+@media (pointer: coarse) {
+  button.toggle { position: relative; }
+  button.toggle::after { content: ""; position: absolute; inset: -8px 0; }
+}

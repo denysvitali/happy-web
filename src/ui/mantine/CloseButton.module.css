@@ -7,3 +7,8 @@
 }
 .root:hover:not(:disabled) { color: var(--happy-label-2); background: var(--happy-hover); }
 .root:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+@media (pointer: coarse) {
+  .root { position: relative; }
+  .root::after { content: ""; position: absolute; inset: min(0px, calc((44px - var(--cb-size)) / -2)); }
+}

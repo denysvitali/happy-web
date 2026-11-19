@@ -11,7 +11,7 @@ import { isAgent, sameBlock, type Block } from "@/lib/sync/chat";
 import { ImageStrip } from "./images";
 import { Markdown } from "./markdown";
 import { PermissionBar, type PermissionHandler } from "./permission";
-import { CopyIcon, TimeLabel } from "./primitives";
+import { MessageActions } from "./actions";
 import { AgentCard } from "./tools/agent";
 import { titleOf, viewFor } from "./tools/registry";
 import { Glyph, StepsGroup, ThinkingStep, ToolCard } from "./tools/tool-card";
@@ -60,17 +60,6 @@ function childrenFor(h: PermissionHandler | undefined) {
   return r;
 }
 
-/** Time + copy for a message: revealed on hover, or on tap (the message is
- * focusable) on touch screens, so it never costs a row. */
-function RowTools({ at, text }: { at?: number | undefined; text: string }) {
-  return (
-    <div className={classes.rowTools}>
-      <TimeLabel at={at} />
-      {text && <CopyIcon text={text} />}
-    </div>
-  );
-}
-
 /** Long prompts collapse to ~12 lines. Measuring would cost a layout pass
  * per message; length is a good enough proxy. */
 const isLong = (t: string) => t.length > 900 || t.split("\n").length > 16;
@@ -101,7 +90,7 @@ function UserMessage({ b }: { b: Extract<Block, { type: "user" }> }) {
             <CircleAlert size={12} strokeWidth={2.25} /> Not sent
           </div>
         )}
-        {!b.pending && <RowTools at={b.at} text={b.text} />}
+        {!b.pending && <MessageActions at={b.at} text={b.text} user />}
       </div>
     </div>
   );
@@ -115,7 +104,7 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       return (
         <div className={`${classes.agentText} ${classes.hoverable}`} tabIndex={-1} data-streaming={b.streaming || undefined}>
           <Markdown text={b.text} streaming={b.streaming} />
-          {!b.streaming && <RowTools at={b.at} text={b.text} />}
+          {!b.streaming && <MessageActions at={b.at} text={b.text} />}
         </div>
       );
     case "thinking":

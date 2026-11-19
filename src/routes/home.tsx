@@ -1,14 +1,17 @@
-import { Button } from "@mantine/core";
+import { Button, Code } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
-import { Activity, CircleAlert, History, Laptop, Plus, ShieldQuestion, Sparkles } from "lucide-react";
+import { Activity, CircleAlert, History, Laptop, MonitorOff, Plus, RefreshCw, Rocket, ShieldQuestion, Sparkles, WifiOff } from "lucide-react";
 import { memo, useMemo } from "react";
 import { useAccount } from "@/app/auth";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { openSpawnModal } from "@/components/shell/spawn";
 import { AgentAvatar, AttentionBadge, PodBadge } from "@/components/status";
 import { groupViews, metaLine as meta, statusText, type SessionView } from "@/lib/sync/sessionList";
+import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
+import { CardSkeleton, StatSkeleton } from "@/ui/Skeleton";
 import { StatCard } from "@/ui/StatCard";
+import { Tick } from "@/ui/Tick";
 import classes from "./home.module.css";
 
 const RECENT_LIMIT = 8;
@@ -115,6 +118,13 @@ export function HomeScreen() {
   const canSpawn = onlineMachines.length > 0;
   const spawn = () => openSpawnModal(account, onlineMachines, (id) => void navigate({ to: "/s/$sessionId", params: { sessionId: id } }));
   const empty = sessions.isSuccess && views.length === 0;
+  const failed = sessions.isError;
+  const loading = sessions.isPending && !failed;
+  const retry = (
+    <Button variant="light" size="xs" radius="xl" leftSection={<RefreshCw size={14} />} loading={sessions.isFetching} onClick={() => void sessions.refetch()}>
+      Retry
+    </Button>
+  );
 
   return (
     <div className={classes.page}>
@@ -123,8 +133,7 @@ export function HomeScreen() {
           <div className={classes.heroText}>
             <div className={classes.eyebrow}>{dateFormat.format(now)}</div>
             <h1 className={classes.title}>{greeting(now)}</h1>
-            {sessions.isPending && <p className={classes.lede}>Loading sessions…</p>}
-            {empty && <p className={classes.lede}>No sessions yet. Start your first one.</p>}
+            {loading && <p className={classes.lede}>Loading sessions…</p>}
           </div>
           <div className={classes.heroAction}>
             <Button radius="xl" leftSection={<Plus size={16} strokeWidth={2.25} />} onClick={spawn} disabled={!canSpawn}>
@@ -134,29 +143,80 @@ export function HomeScreen() {
           </div>
         </header>
 
-        {!sessions.isPending && !empty && (
+        {loading && (
+          <>
+            <div className={classes.stats} aria-busy="true">
+              {[0, 1, 2, 3].map((i) => (
+                <StatSkeleton key={i} />
+              ))}
+            </div>
+            <div className={classes.cards}>
+              {[0, 1, 2].map((i) => (
+                <CardSkeleton key={i} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {failed && (
+          <div className={classes.stateCard}>
+            {sessions.data ? (
+              <Callout tone="warning" title="Couldn't refresh sessions" action={retry}>
+                Showing what we last loaded.
+              </Callout>
+            ) : (
+              <EmptyState tone="red" icon={<WifiOff size={22} strokeWidth={1.75} />} title="Couldn't load your sessions" message="The server didn't answer. Check your connection and try again." action={retry} />
+            )}
+          </div>
+        )}
+
+        {empty && (
+          <div className={classes.stateCard}>
+            <EmptyState
+              size="lg"
+              icon={canSpawn ? <Rocket size={26} strokeWidth={1.6} /> : <MonitorOff size={26} strokeWidth={1.6} />}
+              title="No sessions yet"
+              message={
+                canSpawn ? (
+                  "Start an agent on one of your computers and it shows up here, live."
+                ) : (
+                  <>
+                    No computer is online. Run <Code>happy daemon start</Code> on one, then start a session.
+                  </>
+                )
+              }
+              action={
+                <Button radius="xl" leftSection={<Plus size={16} strokeWidth={2.25} />} onClick={spawn} disabled={!canSpawn}>
+                  Start your first session
+                </Button>
+              }
+            />
+          </div>
+        )}
+
+        {!sessions.isPending && !empty && !(failed && !sessions.data) && (
           <div className={classes.stats}>
             <StatCard
               icon={<Activity size={14} strokeWidth={2.25} />}
               tone="green"
               label="Active"
-              value={g.active.length}
+              value={<Tick value={g.active.length} />}
               detail={thinking > 0 ? `${thinking} thinking` : "None thinking"}
             />
             <StatCard
               icon={<CircleAlert size={14} strokeWidth={2.25} />}
               tone={g.attention.length > 0 ? "orange" : "gray"}
               label={g.attention.length === 1 ? "Needs approval" : "Need approval"}
-              value={g.attention.length}
+              value={<Tick value={g.attention.length} />}
             />
-            <StatCard icon={<History size={14} strokeWidth={2.25} />} tone="gray" label="Idle" value={g.recent.length} />
+            <StatCard icon={<History size={14} strokeWidth={2.25} />} tone="gray" label="Idle" value={<Tick value={g.recent.length} />} />
             <StatCard
               icon={<Laptop size={14} strokeWidth={2.25} />}
               tone="accent"
               label="Machines online"
               value={
                 <>
-                  {onlineMachines.length}
+                  <Tick value={onlineMachines.length} />
                   <span className={classes.of}> / {machines.length}</span>
                 </>
               }
@@ -177,6 +237,7 @@ export function HomeScreen() {
           </section>
         )}
 
+        {!loading && !empty && !(failed && !sessions.data) && (
         <section>
           <SectionTitle icon={<Activity size={15} strokeWidth={2.25} />} tone="active" count={g.active.length}>
             Active
@@ -204,6 +265,7 @@ export function HomeScreen() {
           )}
           {g.active.length > ACTIVE_LIMIT && <p className={classes.more}>+{g.active.length - ACTIVE_LIMIT} more in the sidebar</p>}
         </section>
+        )}
 
         {recent.length > 0 && (
           <section>

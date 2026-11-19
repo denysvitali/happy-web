@@ -1,0 +1,3 @@
+.tick { display: inline-block; animation: tick var(--happy-dur) var(--happy-ease-out) both; }
+@keyframes tick { from { opacity: 0.2; transform: translateY(40%); } }
+@media (prefers-reduced-motion: reduce) { .tick { animation: none; } }

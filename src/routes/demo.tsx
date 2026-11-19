@@ -4,12 +4,13 @@ import { ActionIcon, Autocomplete, Badge, Box, Button, Checkbox, Code, Group, Kb
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { Link } from "@tanstack/react-router";
-import { Activity, Archive, Bell, ChevronDown, CircleAlert, Copy, Folder, GitBranch, History, Laptop, Pencil, Plus, Sparkles, SquarePen, Trash2 } from "lucide-react";
+import { Activity, Archive, Bell, ChevronDown, CircleAlert, Copy, Folder, GitBranch, History, Laptop, Pencil, Plus, Sparkles, SquarePen, Trash2, WifiOff } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { BlockList } from "@/components/chat/blocks";
 import { Composer } from "@/components/chat/composer";
 import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
+import { ConnectionStrip } from "@/components/shell/ConnectionBanner";
 import { openSpawnModal } from "@/components/shell/spawn";
 import { AgentAvatar, AttentionBadge, PodBadge, StatusDot } from "@/components/status";
 import type { Account, MachineItem } from "@/lib/sync/account";
@@ -26,7 +27,9 @@ import { NavBar } from "@/ui/NavBar";
 import { SearchField } from "@/ui/SearchField";
 import { SectionHeader } from "@/ui/SectionHeader";
 import { openSheet, SheetBody, SheetFooter } from "@/ui/Sheet";
+import { CardSkeleton, Skeleton, StatSkeleton } from "@/ui/Skeleton";
 import { StatCard } from "@/ui/StatCard";
+import { Tick } from "@/ui/Tick";
 import { PresenceDot, StatusPill } from "@/ui/Status";
 import classes from "./demo.module.css";
 
@@ -75,6 +78,7 @@ export function DemoScreen() {
   }, []);
   const [query, setQuery] = useState("");
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [tick, setTick] = useState(2);
   const note = (message: string) => notifications.show({ message });
 
   const sheet = () =>
@@ -351,6 +355,35 @@ export function DemoScreen() {
           </Group>
         </Section>
 
+        <Section title="Loading, error & connection" note="Skeletons shimmer (static under reduced motion); the strip sits above the content when realtime is down.">
+          <Stack gap="sm">
+            <Box className={classes.strips}>
+              <ConnectionStrip kind="reconnecting" open />
+              <ConnectionStrip kind="offline" open />
+              <ConnectionStrip kind="restored" open />
+            </Box>
+            <Group align="stretch" gap="sm" wrap="wrap">
+              <StatSkeleton />
+              <StatSkeleton />
+              <CardSkeleton />
+              <Skeleton w={120} h={12} />
+            </Group>
+            <EmptyState
+              tone="red"
+              icon={<WifiOff size={22} strokeWidth={1.75} />}
+              title="Couldn't load your sessions"
+              message="The server didn't answer. Check your connection and try again."
+              action={<Button size="xs" variant="light" radius="xl">Retry</Button>}
+            />
+            <Group gap="sm" align="center">
+              <StatCard tone="accent" label="Ticks on change" value={<Tick value={tick} />} />
+              <Button variant="default" size="xs" onClick={() => setTick((t) => t + 1)}>
+                Bump
+              </Button>
+            </Group>
+          </Stack>
+        </Section>
+
         <Section title="Feedback">
           <Callout tone="info" title="Heads up">
             Linking keeps your secret in this browser only.
@@ -424,7 +457,7 @@ export function DemoScreen() {
               <BlockList blocks={view.blocks} onPermission={async (id, approved, decision) => void note(`permission ${id}: ${approved ? "allow" : "deny"}${decision ? ` (${decision})` : ""}`)} />
             </Stack>
             <Box style={{ padding: 12, borderTop: "0.5px solid var(--happy-separator)" }}>
-              <Composer canAbort={view.turnOpen} onSend={(t) => note(`send: ${t}`)} onAbort={() => note("abort")} />
+              <Composer draftKey="demo" canAbort={view.turnOpen} onSend={(t) => note(`send: ${t}`)} onAbort={() => note("abort")} />
             </Box>
           </Box>
         </Section>

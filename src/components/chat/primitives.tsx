@@ -3,6 +3,7 @@ import { CopyButton, Tooltip, UnstyledButton } from "@mantine/core";
 import { Check, Copy, Image as ImageIcon, Link2 } from "lucide-react";
 import { memo, useState, type ReactNode } from "react";
 import { IconButton } from "@/ui/IconButton";
+import { lineCount, lines } from "./text";
 import { inlineValue, isObj, resultParts, type ResultPart } from "./tools/format";
 import classes from "./chat.module.css";
 
@@ -60,7 +61,12 @@ const CLIP_LINES = 14;
 const CLIP_CHARS = 2400;
 const HARD_CAP = 200_000;
 
-function clipText(text: string, open: boolean): { shown: string; hidden: number } {
+function clipText(text: string, open: boolean): { shown: string; hidden: number; hiddenLines: number } {
+  const r = clipChars(text, open);
+  return { ...r, hiddenLines: Math.max(0, lineCount(text) - lineCount(r.shown)) };
+}
+
+function clipChars(text: string, open: boolean): { shown: string; hidden: number } {
   if (open) return text.length > HARD_CAP ? { shown: text.slice(0, HARD_CAP), hidden: text.length - HARD_CAP } : { shown: text, hidden: 0 };
   let end = Math.min(text.length, CLIP_CHARS);
   let nl = -1;
@@ -72,11 +78,11 @@ function clipText(text: string, open: boolean): { shown: string; hidden: number 
   return { shown: text.slice(0, end), hidden: text.length - end };
 }
 
-function ShowMore({ open, hidden, onToggle }: { open: boolean; hidden: number; onToggle: () => void }) {
+function ShowMore({ open, hidden, hiddenLines, onToggle }: { open: boolean; hidden: number; hiddenLines: number; onToggle: () => void }) {
   if (!open && hidden === 0) return null;
   return (
-    <UnstyledButton className={classes.more} onClick={onToggle}>
-      {open ? "Show less" : `Show more (${hidden.toLocaleString()} more characters)`}
+    <UnstyledButton className={classes.more} onClick={onToggle} aria-expanded={open}>
+      {open ? "Show less" : hiddenLines > 0 ? `Show ${lines(hiddenLines)} more` : `Show more (${hidden.toLocaleString()} more characters)`}
     </UnstyledButton>
   );
 }
@@ -84,14 +90,16 @@ function ShowMore({ open, hidden, onToggle }: { open: boolean; hidden: number; o
 /** Monospace output with truncation and "show more". */
 export function Clip({ text, tone, wrap = true }: { text: string; tone?: "error" | "dim" | undefined; wrap?: boolean }) {
   const [open, setOpen] = useState(false);
-  const { shown, hidden } = clipText(text, open);
+  const { shown, hidden, hiddenLines } = clipText(text, open);
   if (!text) return null;
   return (
     <div>
-      <pre className={classes.out} data-tone={tone} data-nowrap={!wrap || undefined}>
-        {shown}
-      </pre>
-      <ShowMore open={open} hidden={hidden} onToggle={() => setOpen((o) => !o)} />
+      <div className={classes.clip} data-fade={(!open && hidden > 0 && tone !== "error") || undefined}>
+        <pre className={classes.out} data-tone={tone} data-nowrap={!wrap || undefined}>
+          {shown}
+        </pre>
+      </div>
+      <ShowMore open={open} hidden={hidden} hiddenLines={hiddenLines} onToggle={() => setOpen((o) => !o)} />
     </div>
   );
 }
@@ -130,11 +138,13 @@ const pretty = (v: unknown) => {
 export const JsonView = memo(function JsonView({ value }: { value: unknown }) {
   const [open, setOpen] = useState(false);
   const text = pretty(value);
-  const { shown, hidden } = clipText(text, open);
+  const { shown, hidden, hiddenLines } = clipText(text, open);
   return (
     <div>
-      <pre className={classes.out}>{highlightJson(shown)}</pre>
-      <ShowMore open={open} hidden={hidden} onToggle={() => setOpen((o) => !o)} />
+      <div className={classes.clip} data-fade={(!open && hidden > 0) || undefined}>
+        <pre className={classes.out}>{highlightJson(shown)}</pre>
+      </div>
+      <ShowMore open={open} hidden={hidden} hiddenLines={hiddenLines} onToggle={() => setOpen((o) => !o)} />
     </div>
   );
 });

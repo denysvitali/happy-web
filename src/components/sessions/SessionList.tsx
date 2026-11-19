@@ -1,9 +1,10 @@
-import { Menu } from "@mantine/core";
+import { Button, Menu, Tooltip } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, CircleAlert, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { Check, CircleAlert, Command, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCompact } from "@/components/shell/nav";
 import { agentLabel, facets, flattenGroups, GROUP_LABEL, groupViews, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
+import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
 import { IconButton } from "@/ui/IconButton";
 import { ListSkeleton } from "@/ui/List";
@@ -12,6 +13,7 @@ import { SectionHeader } from "@/ui/SectionHeader";
 import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow } from "./SessionRow";
 import classes from "./sessions.module.css";
 
+const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
 
 function isTyping(t: EventTarget | null): boolean {
@@ -29,10 +31,12 @@ interface Props {
   error: Error | null;
   activeId: string | undefined;
   onOpen: (id: string) => void;
+  onPalette: () => void;
+  onRetry?: (() => void) | undefined;
 }
 
 /** Grouped, searchable, virtualized session list with keyboard navigation. */
-export function SessionList({ views, loading, error, activeId, onOpen }: Props) {
+export function SessionList({ views, loading, error, activeId, onOpen, onPalette, onRetry }: Props) {
   const [query, setQuery] = useState("");
   const [agent, setAgent] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
@@ -149,6 +153,9 @@ export function SessionList({ views, loading, error, activeId, onOpen }: Props) 
             onKeyDown={onSearchKey}
           />
         </div>
+        <Tooltip label={`Command palette (${PALETTE_KEY})`} openDelay={400}>
+          <IconButton className={classes.filterButton} label="Command palette" icon={<Command size={15} strokeWidth={2} />} onClick={onPalette} />
+        </Tooltip>
         <Menu position="bottom-end" width={200} closeOnItemClick={false} shadow="md">
           <Menu.Target>
             <IconButton
@@ -207,9 +214,21 @@ export function SessionList({ views, loading, error, activeId, onOpen }: Props) 
       <div ref={scrollRef} className={classes.list} onKeyDown={onListKey} role="navigation" aria-label="Sessions">
         {loading && <ListSkeleton rows={6} />}
         {error && (
-          <p className={classes.error} role="alert">
-            {error.message}
-          </p>
+          <div className={classes.errorBox}>
+            <Callout
+              tone="danger"
+              title="Couldn't load sessions"
+              action={
+                onRetry && (
+                  <Button size="xs" variant="default" onClick={onRetry}>
+                    Retry
+                  </Button>
+                )
+              }
+            >
+              {error.message}
+            </Callout>
+          </div>
         )}
         {!loading && !error && rows.length === 0 && (
           <EmptyState

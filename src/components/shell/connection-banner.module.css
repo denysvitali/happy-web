@@ -1,0 +1,45 @@
+/* Collapses to zero height (grid 0fr -> 1fr) so content slides rather than jumps. */
+.root {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-rows: 0fr;
+  z-index: 2;
+  transition: grid-template-rows var(--happy-dur) var(--happy-ease), visibility 0s linear var(--happy-dur);
+  visibility: hidden;
+}
+.root[data-open] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows var(--happy-dur) var(--happy-ease), visibility 0s;
+}
+.clip { min-height: 0; overflow: hidden; }
+
+.bar {
+  --banner-ink: var(--happy-orange-ink);
+  --banner-tint: var(--happy-orange-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 16px;
+  font-size: var(--happy-text-footnote);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--banner-ink);
+  background: var(--banner-tint);
+  border-bottom: 0.5px solid color-mix(in srgb, var(--banner-ink) 18%, transparent);
+  opacity: 0;
+  transition: opacity var(--happy-dur) var(--happy-ease-out);
+}
+.root[data-open] .bar { opacity: 1; }
+.root[data-kind="offline"] .bar { --banner-ink: var(--happy-red); --banner-tint: var(--happy-red-tint); }
+.root[data-kind="restored"] .bar { --banner-ink: var(--happy-green); --banner-tint: var(--happy-green-tint); }
+
+.icon { flex-shrink: 0; }
+.root[data-kind="reconnecting"] .icon { animation: spin 1.1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .root[data-kind="reconnecting"] .icon { animation: none; }
+}
