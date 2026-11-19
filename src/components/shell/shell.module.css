@@ -70,7 +70,7 @@
 
 .barTitle { display: none; }
 
-/* ---- Footer ---- */
+/* ---- Footer: only shown when no machine is online. ---- */
 .footer {
   display: flex;
   align-items: center;
@@ -80,11 +80,11 @@
   height: 34px;
   padding: 0 16px;
   border-top: 0.5px solid var(--happy-separator);
-  font-size: var(--happy-text-caption);
+  font-size: var(--happy-text-footnote);
+  font-weight: 500;
   color: var(--happy-label-2);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.footerStatus { display: inline-flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; }
 
 /* ---- Gate splash ---- */
 .splash {
@@ -132,16 +132,13 @@
     color: var(--happy-label);
   }
 
-  /* A toolbar, like Mail's "Updated just now". */
   .footer {
-    justify-content: center;
-    height: 36px;
+    height: 40px;
     padding-bottom: env(safe-area-inset-bottom);
     box-sizing: content-box;
     background: var(--happy-material);
     backdrop-filter: var(--happy-backdrop);
     -webkit-backdrop-filter: var(--happy-backdrop);
-    font-size: var(--happy-text-footnote);
   }
 }
 
@@ -153,3 +150,18 @@
   from { transform: translateX(-8%); opacity: 0.6; }
   to { transform: none; opacity: 1; }
 }
+
+/* ---- Back chevron (NavButton): phones only. ---- */
+.back {
+  display: none;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 40px;
+  border-radius: var(--happy-radius-md);
+  color: var(--happy-accent);
+  -webkit-tap-highlight-color: transparent;
+}
+.back:active { opacity: 0.5; }
+.back:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+@media (width < $mantine-breakpoint-sm) { .back { display: inline-grid; } }

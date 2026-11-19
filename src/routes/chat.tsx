@@ -2,7 +2,7 @@ import { useParams } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { CircleAlert, Ellipsis, History, LoaderCircle, RotateCcw } from "lucide-react";
+import { CircleAlert, History, LoaderCircle, RotateCcw } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
@@ -11,20 +11,15 @@ import { BlockView, type PermissionHandler } from "@/components/chat/blocks";
 import { Composer } from "@/components/chat/composer";
 import { useSessionSwitch } from "@/components/session/hooks";
 import { SessionToolbar } from "@/components/session/SessionToolbar";
-import { UsagePill } from "@/components/session/UsagePill";
-import { SessionMenu } from "@/components/sessions/SessionMenu";
-import { NavButton } from "@/components/shell/NavButton";
-import { AgentAvatar, StatusBadge } from "@/components/status";
+import { SessionHeader, SessionHeaderEmpty } from "@/components/sessions/SessionHeader";
 import classes from "@/components/chat/chat.module.css";
 import { buildView, emptyChat, isAgent, type Block, type ChatView, type ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
 import { Store } from "@/lib/sync/store";
 import { PlanChip } from "@/components/chat/plan";
 import { latestPlan } from "@/components/chat/tools/steps";
-import { displayPath, sessionTitle } from "@/lib/sync/decode";
 import { agentOf } from "@/lib/sync/sessionList";
 import type { SessionItem } from "@/lib/sync/account";
-import { IconButton } from "@/ui/IconButton";
 
 function useChat(session: SessionItem | undefined): ChatStore | null {
   const account = useAccount();
@@ -218,9 +213,7 @@ export function ChatScreen() {
   if (sessions.isPending || !session) {
     return (
       <>
-        <header className={classes.header}>
-          <NavButton />
-        </header>
+        <SessionHeaderEmpty />
         <div className={classes.empty}>{sessions.isPending ? <LoaderCircle size={18} className={classes.spinner} aria-label="Loading" /> : "Session not found."}</div>
       </>
     );
@@ -231,19 +224,7 @@ export function ChatScreen() {
 
   return (
     <>
-      <header className={classes.header}>
-        <NavButton />
-        <AgentAvatar agent={agentOf(session.meta.flavor)} size={28} />
-        <div className={classes.headerMain}>
-          <div className={classes.headerTitle}>{sessionTitle(session.meta, session.id)}</div>
-          <div className={classes.headerSub}>{displayPath(session.meta)}</div>
-        </div>
-        <div className={classes.headerTrailing}>
-          <UsagePill session={session} />
-          <StatusBadge status={status} compact />
-          <SessionMenu session={session} target={<IconButton label="Session actions" icon={<Ellipsis size={18} />} />} />
-        </div>
-      </header>
+      <SessionHeader session={session} status={status} />
       {store && view ? <Messages store={store} view={view} onPermission={onPermission} /> : <div className={classes.scroller} />}
       <ComposerArea session={session} store={store} plan={plan} canAbort={status === "thinking"} run={run} />
     </>

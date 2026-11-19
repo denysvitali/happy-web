@@ -311,6 +311,17 @@ export function isMachineOnline(m: MachineItem, now: number): boolean {
 
 export const STATUS_LABEL: Record<SessionStatus, string> = { thinking: "Thinking", active: "Active", idle: "Idle", archived: "Archived" };
 
+/** Status words for a session; a pending approval blocks the agent, so it outranks "thinking". */
+export function statusText(v: Pick<SessionView, "status" | "pending">): string {
+  return v.pending > 0 && v.status !== "archived" ? "Needs approval" : STATUS_LABEL[v.status];
+}
+
+/** Secondary line for a session: project, then where it runs: the machine
+ * for local runs, "K8s" for Kubernetes (whichever pod hosts it). */
+export function metaLine(v: Pick<SessionView, "project" | "runtime" | "machine">): string {
+  return [v.project, v.runtime === "kubernetes" ? "K8s" : v.machine].filter(Boolean).join(" · ");
+}
+
 /** Whether the session still has a process its daemon can stop. */
 export function isLiveSession(s: SessionItem): boolean {
   return !s.archived && s.active && !!s.meta.machineId;

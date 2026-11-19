@@ -12,7 +12,7 @@
   width: 100%;
   max-width: var(--happy-content-width);
   margin: 0 auto;
-  padding: 56px 32px 64px;
+  padding: 40px 32px 56px;
 }
 
 .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
@@ -36,13 +36,11 @@
 .heroAction { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .hint { font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
 
-.stats { display: flex; flex-wrap: wrap; gap: 12px; }
-.stats > * { flex: 1 1 180px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: 12px; }
 .of { color: var(--happy-label-3); font-weight: 500; }
 
-.cards { display: flex; flex-wrap: wrap; gap: 12px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .card {
-  flex: 1 1 300px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -167,17 +165,3 @@
   letter-spacing: 0;
 }
 
-.footnote {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--happy-text-footnote);
-  color: var(--happy-label-3);
-}
-
-@media (max-width: $mantine-breakpoint-sm) {
-  .inner { padding: 28px 20px 48px; gap: 26px; }
-  .title { font-size: var(--happy-text-title1); }
-  .hero { align-items: flex-start; }
-  .stats > * { flex: 1 1 140px; }
-}

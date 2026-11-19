@@ -12,6 +12,7 @@
 .dot[data-status="online"] { --dot: var(--happy-green); }
 .dot[data-status="thinking"] { --dot: var(--happy-accent); animation: pulse 1.6s var(--happy-ease-out) infinite; }
 .dot[data-status="connecting"] { --dot: var(--happy-orange); animation: pulse 1.6s var(--happy-ease-out) infinite; }
+.dot[data-status="attention"] { --dot: var(--happy-orange); }
 .dot[data-status="idle"] { --dot: var(--happy-label-3); }
 .dot[data-status="archived"],
 .dot[data-status="offline"] { background: none; box-shadow: inset 0 0 0 1.5px var(--happy-label-3); }
@@ -39,7 +40,7 @@
   color: var(--pill);
   background: var(--happy-fill-3);
 }
-.pill[data-kind="k8s"] { --pill: var(--happy-teal); background: color-mix(in srgb, var(--happy-teal) 13%, transparent); }
+.pill[data-kind="pod"] { --pill: var(--happy-teal); background: color-mix(in srgb, var(--happy-teal) 13%, transparent); }
 .pill[data-kind="failed"] { --pill: var(--happy-red); background: var(--happy-red-tint); }
 .pill[data-kind="attention"] { --pill: color-mix(in srgb, var(--happy-orange) 82%, var(--happy-label)); background: var(--happy-orange-tint); }
 
