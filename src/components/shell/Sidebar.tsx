@@ -86,6 +86,7 @@ export function Sidebar() {
           <BrandMark size={22} />
           <span className={classes.wordmark}>Happy</span>
         </Link>
+        <h1 className={classes.barTitle}>Sessions</h1>
         <ConnectionIndicator compact />
         <div className={classes.spacer} />
         <UserMenu />
@@ -94,7 +95,6 @@ export function Sidebar() {
         </Tooltip>
       </div>
 
-      <h1 className={classes.largeTitle}>Sessions</h1>
 
       <SessionList views={views} loading={sessions.isPending} error={sessions.error} activeId={params.sessionId} onOpen={open} />
 

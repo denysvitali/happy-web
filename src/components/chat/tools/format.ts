@@ -302,7 +302,7 @@ export function countTools(blocks: readonly Block[]): number {
   let n = 0;
   for (const b of blocks) {
     if (b.type === "tool") n += 1 + countTools(b.children);
-    else if (b.type === "explore") n += b.tools.length;
+    else if (b.type === "steps") n += countTools(b.items);
   }
   return n;
 }

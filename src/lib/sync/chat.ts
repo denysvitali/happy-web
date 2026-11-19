@@ -16,6 +16,8 @@ export interface ChatMessage {
 export interface Pending {
   localId: string;
   text: string;
+  /** Attached images as data: URLs. */
+  images?: string[] | undefined;
   createdAt: number;
   failed?: boolean;
 }
@@ -142,14 +144,14 @@ export interface ToolBlock {
 }
 
 export type Block =
-  | { type: "user"; key: string; text: string; pending?: "sending" | "failed"; at?: number | undefined }
+  | { type: "user"; key: string; text: string; images?: string[] | undefined; pending?: "sending" | "failed"; at?: number | undefined }
   | { type: "text"; key: string; text: string; streaming?: boolean; at?: number | undefined }
   | { type: "thinking"; key: string; text: string; at?: number | undefined }
   | { type: "event"; key: string; text: string; at?: number | undefined }
   | { type: "unknown"; key: string; label: string }
   | ToolBlock
-  /** Consecutive read-only calls (Read/Grep/Glob/LS) shown as one row. */
-  | { type: "explore"; key: string; tools: ToolBlock[] }
+  /** A run of plain tool calls and thinking, shown as one collapsible line. */
+  | { type: "steps"; key: string; items: StepBlock[] }
   /** Local-day separator before the first top-level block of each day. */
   | { type: "day"; key: string; at: number }
   | { type: "permission"; key: string; id: string; tool: string; input: unknown };
@@ -161,24 +163,31 @@ export interface ChatView {
 }
 
 export const AGENT_TOOLS: ReadonlySet<string> = new Set(["Agent", "Task", "Workflow"]);
-export const EXPLORE_TOOLS: ReadonlySet<string> = new Set(["Read", "Grep", "Glob", "LS", "NotebookRead"]);
+/** Calls that ask the user something: not folded while unanswered. */
+const ASKING_TOOLS: ReadonlySet<string> = new Set(["AskUserQuestion", "ExitPlanMode", "exit_plan_mode"]);
 
-const isExplore = (b: Block): b is ToolBlock =>
-  b.type === "tool" && EXPLORE_TOOLS.has(b.name) && b.children.length === 0 && b.permission?.status !== "pending";
+export type StepBlock = ToolBlock | Extract<Block, { type: "thinking" }>;
 
-/** Folds runs of two or more read-only tool calls into one `explore` block,
- * recursively inside anchors. */
-export function groupExplore(blocks: Block[]): Block[] {
+/** A sub-agent anchor (rendered as its own card, never folded). */
+export const isAgent = (b: ToolBlock): boolean => AGENT_TOOLS.has(b.name) || b.children.length > 0;
+
+const isStep = (b: Block): b is StepBlock =>
+  b.type === "thinking" || (b.type === "tool" && !isAgent(b) && !(ASKING_TOOLS.has(b.name) && !b.result) && b.permission?.status !== "pending");
+
+/** Folds runs of two or more steps (plain tool calls and thinking) into one
+ * `steps` block, recursively inside agent anchors. Text, questions, pending
+ * permissions and sub-agents break a run. */
+export function groupSteps(blocks: Block[]): Block[] {
   const out: Block[] = [];
-  let run: ToolBlock[] = [];
+  let run: StepBlock[] = [];
   const flush = () => {
-    if (run.length >= 2) out.push({ type: "explore", key: `explore:${run[0]!.key}`, tools: run });
+    if (run.length >= 2) out.push({ type: "steps", key: `steps:${run[0]!.key}`, items: run });
     else out.push(...run);
     run = [];
   };
   for (const b of blocks) {
-    if (b.type === "tool" && b.children.length > 0) b.children = groupExplore(b.children);
-    if (isExplore(b)) run.push(b);
+    if (b.type === "tool" && b.children.length > 0) b.children = groupSteps(b.children);
+    if (isStep(b)) run.push(b);
     else {
       flush();
       out.push(b);
@@ -189,7 +198,7 @@ export function groupExplore(blocks: Block[]): Block[] {
 }
 
 export const blockTime = (b: Block): number | undefined =>
-  b.type === "explore" ? b.tools[0]?.at : "at" in b ? b.at : undefined;
+  b.type === "steps" ? b.items[0]?.at : "at" in b ? b.at : undefined;
 
 const dayKey = (t: number) => {
   const d = new Date(t);
@@ -237,7 +246,11 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
     const to = parentAnchor ? parentAnchor.children : top;
     switch (item.kind) {
       case "text":
-        to.push(item.role === "user" ? { type: "user", key, text: item.text, at } : { type: "text", key, text: item.text, at });
+        to.push(
+          item.role === "user"
+            ? { type: "user", key, text: item.text, ...(item.images ? { images: item.images } : {}), at }
+            : { type: "text", key, text: item.text, at },
+        );
         break;
       case "thinking":
         to.push({ type: "thinking", key, text: item.text, at });
@@ -303,7 +316,7 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
   }
 
   for (const p of state.pending) {
-    top.push({ type: "user", key: `pending:${p.localId}`, text: p.text, pending: p.failed ? "failed" : "sending", at: p.createdAt });
+    top.push({ type: "user", key: `pending:${p.localId}`, text: p.text, ...(p.images ? { images: p.images } : {}), pending: p.failed ? "failed" : "sending", at: p.createdAt });
   }
   for (const p of [...state.previews.values()].sort((a, b) => a.at - b.at)) {
     // A child preview whose anchor is unknown is dropped, never shown in the parent chat.
@@ -323,7 +336,7 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
     else orphans.push({ type: "permission", key: `perm:${id}`, id, tool: r.tool, input: r.arguments });
   }
 
-  return { blocks: [...withDays(groupExplore(top)), ...orphans], turnOpen };
+  return { blocks: [...withDays(groupSteps(top)), ...orphans], turnOpen };
 }
 
 // ---- memo support ---------------------------------------------------------
@@ -360,7 +373,7 @@ export function sameBlock(a: Block, b: Block): boolean {
   if (a === b) return true;
   if (a.type !== b.type || a.key !== b.key) return false;
   if (a.type === "tool") return sameTool(a, b as ToolBlock);
-  if (a.type === "explore") return sameList(a.tools, (b as typeof a).tools);
+  if (a.type === "steps") return sameList(a.items, (b as typeof a).items);
   const ao = a as unknown as Record<string, unknown>;
   const bo = b as unknown as Record<string, unknown>;
   const ak = Object.keys(ao);

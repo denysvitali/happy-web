@@ -2,6 +2,7 @@
 // Output: screenshots/<viewport>-<name>.png, gallery built by
 // scripts/screenshot-gallery.mjs. Run: pnpm screenshots
 import { expect, test, type Page } from "@playwright/test";
+import { DEMO_IMAGE } from "../src/components/chat/fixtures";
 import { createMock, linkAndOpen, watchCsp } from "./mock";
 
 const VIEWPORTS = [
@@ -117,6 +118,46 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/${vp.name}-08-components-demo.png`, fullPage: true });
 
+      expect(violations).toEqual([]);
+    });
+
+    // A long, realistic transcript: the main visual check for chat changes.
+    test("ops conversation", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await page.getByText("pmos-galaxy").first().click();
+      await expect(page.getByText("Rebuild the initramfs on the tab")).toBeVisible();
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(500);
+      await shot(page, "10-ops");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "10b-ops-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      // Expanded: the run of steps, one step inside it, the working agent.
+      await page.getByRole("button", { name: /^Ran \d+ commands/ }).click();
+      await page.getByRole("button", { name: /Dry-run the staging script/ }).click();
+      await page.getByRole("button", { name: /Diff module trees/ }).click();
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await page.setViewportSize({ width: vp.width, height: 1800 });
+      await page.waitForTimeout(300);
+      await shot(page, "12-ops-expanded");
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      // Attaching an image in the composer.
+      await page.locator('input[type="file"]').setInputFiles({ name: "boot.png", mimeType: "image/png", buffer: Buffer.from(DEMO_IMAGE, "base64") });
+      await page.getByLabel("Message").fill("Same screen after the rebuild");
+      await expect(page.getByRole("button", { name: "Remove image 1" })).toBeVisible();
+      await shot(page, "13-ops-attach");
+      await page.getByRole("button", { name: "Send" }).click();
+      await expect.poll(() => mock.sent.length).toBe(1);
+      expect(JSON.stringify(mock.sent[0]!.record)).toContain('"type":"image"');
+      // Tall viewport: the whole transcript in one picture.
+      await page.setViewportSize({ width: vp.width, height: 1400 });
+      await page.waitForTimeout(400);
+      await shot(page, "11-ops-full");
       expect(violations).toEqual([]);
     });
   });

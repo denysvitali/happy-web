@@ -68,7 +68,7 @@
 .conn[data-state="offline"] { padding: 0 8px; color: var(--happy-red); background: var(--happy-red-tint); }
 .conn[data-state="connecting"] { padding: 0 8px; color: color-mix(in srgb, var(--happy-orange) 82%, var(--happy-label)); background: var(--happy-orange-tint); }
 
-.largeTitle { display: none; }
+.barTitle { display: none; }
 
 /* ---- Footer ---- */
 .footer {
@@ -111,24 +111,23 @@
 
   .sidebar { border-right: 0; background: var(--happy-bg-grouped); }
 
-  .bar { height: 44px; padding: 0 8px 0 16px; padding-top: env(safe-area-inset-top); box-sizing: content-box; }
+  .bar { height: 52px; padding: 0 8px 0 20px; padding-top: env(safe-area-inset-top); box-sizing: content-box; }
   .brand { display: none; }
   .bar .barButton { --ib-size: 38px; --ib-color: var(--happy-accent); }
   .bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-accent); }
   .bar .barButton svg { width: 22px; height: 22px; }
-  .conn { margin-left: -6px; font-size: var(--happy-text-footnote); }
+  .conn { margin-left: 2px; font-size: var(--happy-text-footnote); }
   /* Live is the norm; on phones only trouble earns a spot in the bar. */
   .conn[data-state="online"] { display: none; }
 
-  .largeTitle {
+  /* Phones: the title shares the bar with the actions instead of a large
+     title of its own, so the list starts high. */
+  .barTitle {
     display: block;
-    flex-shrink: 0;
     margin: 0;
-    padding: 0 20px 8px;
     font-family: var(--happy-font-display);
-    font-size: var(--happy-text-large);
+    font-size: var(--happy-text-title2);
     font-weight: 700;
-    line-height: 41px;
     letter-spacing: var(--happy-tracking-tight);
     color: var(--happy-label);
   }
@@ -136,7 +135,7 @@
   /* A toolbar, like Mail's "Updated just now". */
   .footer {
     justify-content: center;
-    height: 44px;
+    height: 36px;
     padding-bottom: env(safe-area-inset-bottom);
     box-sizing: content-box;
     background: var(--happy-material);

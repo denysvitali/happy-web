@@ -7,8 +7,8 @@ import classes from "./sessions.module.css";
 /** Virtualizer slot heights (px); phones get taller, inset-grouped rows. */
 export const ROW_HEIGHT = 56;
 export const HEADER_HEIGHT = 34;
-export const ROW_HEIGHT_COMPACT = 68;
-export const HEADER_HEIGHT_COMPACT = 50;
+export const ROW_HEIGHT_COMPACT = 60;
+export const HEADER_HEIGHT_COMPACT = 40;
 
 interface Props {
   view: SessionView;

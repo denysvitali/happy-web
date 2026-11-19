@@ -16,8 +16,11 @@ import { SessionMenu } from "@/components/sessions/SessionMenu";
 import { NavButton } from "@/components/shell/NavButton";
 import { AgentAvatar, StatusBadge } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
-import { buildView, type Block } from "@/lib/sync/chat";
-import type { ChatStore } from "@/lib/sync/chatStore";
+import { buildView, emptyChat, isAgent, type Block, type ChatView, type ToolBlock } from "@/lib/sync/chat";
+import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
+import { Store } from "@/lib/sync/store";
+import { PlanChip } from "@/components/chat/plan";
+import { latestPlan } from "@/components/chat/tools/steps";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
 import { agentOf } from "@/lib/sync/sessionList";
 import type { SessionItem } from "@/lib/sync/account";
@@ -47,22 +50,31 @@ function useChat(session: SessionItem | undefined): ChatStore | null {
   return store;
 }
 
-const TOOLISH = new Set<Block["type"]>(["tool", "explore", "permission"]);
+const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission"]);
+
+const isCard = (b: Block) => b.type === "permission" || (b.type === "tool" && (isAgent(b) || b.permission?.status === "pending"));
 
 /** Space above a block, from what precedes it: a speaker change is a new
  * turn, runs of tool rows sit tight, everything else is one block apart. */
-function gapOf(prev: Block | undefined, b: Block): "tight" | "block" | "turn" | undefined {
+function gapOf(prev: Block | undefined, b: Block): "tight" | "near" | "block" | "turn" | undefined {
   if (!prev) return undefined;
   if (prev.type === "day" || b.type === "day") return "block";
   if ((b.type === "user") !== (prev.type === "user")) return "turn";
-  if (TOOLISH.has(b.type) && TOOLISH.has(prev.type)) return "tight";
+  // Cards (sub-agents, attention) need air between them; one-line steps do not.
+  if (TOOLISH.has(b.type) && TOOLISH.has(prev.type)) return isCard(b) || isCard(prev) ? "near" : "tight";
   return "block";
 }
 
-function Messages({ store, session, onPermission }: { store: ChatStore; session: SessionItem; onPermission: PermissionHandler }) {
+function useChatView(store: ChatStore | null, session: SessionItem | undefined): ChatView | null {
+  const state = useStore(store?.state ?? EMPTY);
+  const agentState = session?.agentState;
+  return useMemo(() => (store && session ? buildView(state, agentState ?? {}) : null), [store, session, state, agentState]);
+}
+const EMPTY = new Store(emptyChat);
+
+function Messages({ store, view, onPermission }: { store: ChatStore; view: ChatView; onPermission: PermissionHandler }) {
   const state = useStore(store.state);
   const meta = useStore(store.meta);
-  const view = useMemo(() => buildView(state, session.agentState), [state, session.agentState]);
   const parentRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const v = useVirtualizer({
@@ -140,25 +152,42 @@ function Messages({ store, session, onPermission }: { store: ChatStore; session:
   );
 }
 
+/** Agents whose input is text only (happy_flutter refuses images for them). */
+const TEXT_ONLY = new Set(["har", "opencode"]);
+
 /** Composer plus the model/permission/context toolbar; the switch rides on
  * the next message. */
-function ComposerArea({ session, store, canAbort, run }: { session: SessionItem; store: ChatStore | null; canAbort: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }) {
+function ComposerArea({
+  session,
+  store,
+  plan,
+  canAbort,
+  run,
+}: {
+  session: SessionItem;
+  store: ChatStore | null;
+  plan: ToolBlock | undefined;
+  canAbort: boolean;
+  run: (fn: () => Promise<unknown>) => Promise<void>;
+}) {
   const account = useAccount();
   const sw = useSessionSwitch(session);
-  const send = async (text: string) => {
+  const send = async (text: string, images: OutgoingImage[]) => {
     if (!store) return;
     const opts = sw.options();
-    await store.send(text, opts);
+    await store.send(text, opts, images);
     sw.markSent(opts);
   };
   return (
     <div className={classes.composer}>
       <div className={classes.column}>
+        {plan && <PlanChip plan={plan} />}
         <Composer
           tools={session.archived ? undefined : <SessionToolbar session={session} sw={sw} store={store} />}
           canAbort={canAbort}
           onAbort={() => void run(() => account.abort(session.id))}
-          onSend={(t) => void run(() => send(t))}
+          onSend={(t, images) => void run(() => send(t, images))}
+          canAttach={!TEXT_ONLY.has(agentOf(session.meta.flavor))}
           disabled={!store}
         />
       </div>
@@ -174,6 +203,8 @@ export function ChatScreen() {
   const now = useNow();
   const session = sessions.data?.find((s) => s.id === sessionId);
   const store = useChat(session);
+  const view = useChatView(store, session);
+  const plan = useMemo(() => (view ? latestPlan(view.blocks) : undefined), [view]);
   const status = session ? statusOf(session, presence, now) : "idle";
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -213,8 +244,8 @@ export function ChatScreen() {
           <SessionMenu session={session} target={<IconButton label="Session actions" icon={<Ellipsis size={18} />} />} />
         </div>
       </header>
-      {store ? <Messages store={store} session={session} onPermission={onPermission} /> : <div style={{ flex: 1 }} />}
-      <ComposerArea session={session} store={store} canAbort={status === "thinking"} run={run} />
+      {store && view ? <Messages store={store} view={view} onPermission={onPermission} /> : <div className={classes.scroller} />}
+      <ComposerArea session={session} store={store} plan={plan} canAbort={status === "thinking"} run={run} />
     </>
   );
 }

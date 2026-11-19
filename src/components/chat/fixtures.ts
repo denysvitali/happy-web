@@ -160,3 +160,59 @@ export function demoChat(): { state: ChatState; agentState: AgentState } {
   s = addPending(s, { localId: "p2", text: "This one failed to send", createdAt: now, failed: true });
   return { state: s, agentState: demoAgentState };
 }
+
+// ---- an ops session, shaped like a real long-running one ---------------------
+// Thinking interleaved with shell/MCP runs, a failure, a plan, parallel
+// sub-agents (one still working), an attached screenshot and a live command.
+
+/** A tiny PNG "screenshot" for attachment rendering. */
+export const DEMO_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAAA3ElEQVR42u3ZsQ2AIBRFUYaycgJGt6F2CULDALiBjYkhL+flTuCpPpbjrAqu+ASABViABViABViAAQuwAAuwAOsTcB9TwQEGLMACLMACLMACDFiAlQW8bL8BBgwYMGDABtgAG2ADDBgwYMCADbABNsD2D7D88BdgARZgARZgwAKsGOCr3QIMGDBgwIABAwYMGDBgeegQYAEWYAEWYMDu4KwbGjBgwIAFGDBgwIABu4MFGLAAC7AAC7AACzBgARZgARZgARZgAQYswAIswAIswAIMWIAFWIAFWID13gMGBUWHAfp8+AAAAABJRU5ErkJggg==";
+
+const think = (t: string) => ({ type: "thinking", thinking: t });
+const ssh = (id: string, command: string) => call(id, "mcp__ssh__ssh_execute", { host: "galaxy", command });
+
+export const opsRecords: unknown[] = [
+  {
+    role: "user",
+    content: [
+      { type: "text", text: "Rebuild the initramfs on the tab and make sure /boot is not touched. This is what the boot screen shows now:" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: DEMO_IMAGE } },
+    ],
+  },
+  say([think("Start with the staging script: it should build into /var/tmp/stage and never write /boot."), text("Let me check the staging script first."), call("o1", "Bash", { command: "./stage-initramfs.sh --dry-run", description: "Dry-run the staging script" })]),
+  results([out("o1", "staging into /var/tmp/stage\nmkinitfs: using config /etc/mkinitfs/mkinitfs.conf\nboot-deploy: not found\nExit code 1", true)]),
+  say([think("The script failed as designed and kernel.release is missing. Check what the stage dir holds.\nIf it is empty, mkinitfs never ran."), ssh("o2", "ls -la /var/tmp/stage/initramfs")]),
+  results([out("o2", "total 0\ndrwxr-xr-x 2 root root 40 Nov 19 09:58 .\ndrwxr-xr-x 4 root root 80 Nov 19 09:58 ..")]),
+  say([think("The output directory is empty, though mkinitfs logged a config. Compare /boot timestamps."), ssh("o3", "ls -la --time-style=+%m-%d /boot/"), ssh("o4", "ls -la /boot/ 2>&1 | head -20")]),
+  results([out("o3", "-rw-r--r-- 1 root root 7340032 11-03 initramfs\n-rw-r--r-- 1 root root 9175040 11-03 vmlinuz"), out("o4", "initramfs  vmlinuz  dtbs/")]),
+  say([think("/boot hasn't changed since Nov 3, good. mkinitfs calls boot-deploy by bare name, so a stub on PATH keeps it from touching /boot."), ssh("o5", "strings $(command -v mkinitfs) | grep -n boot-deploy")]),
+  results([out("o5", "412:boot-deploy -i initramfs -k vmlinuz -d /boot")]),
+  say([call("o6", "TodoWrite", { todos: [
+    { content: "Stub boot-deploy in the staging PATH", status: "completed", activeForm: "Stubbing boot-deploy" },
+    { content: "Rebuild the initramfs into /var/tmp/stage", status: "in_progress", activeForm: "Rebuilding the initramfs" },
+    { content: "Verify /boot and KERNEL are untouched", status: "pending", activeForm: "Verifying /boot" },
+    { content: "Summarise the change", status: "pending", activeForm: "Summarising" },
+  ] })]),
+  results([out("o6", "Todos have been modified successfully.")]),
+  say([call("o7", "Edit", { file_path: "/root/stage-initramfs.sh", old_string: "export PATH=\"/usr/sbin:/usr/bin\"", new_string: "mkdir -p \"$STAGE/bin\"\nprintf '#!/bin/sh\\nexit 0\\n' > \"$STAGE/bin/boot-deploy\"\nchmod +x \"$STAGE/bin/boot-deploy\"\nexport PATH=\"$STAGE/bin:/usr/sbin:/usr/bin\"" })]),
+  results([out("o7", "The file /root/stage-initramfs.sh has been updated.")]),
+  say([text("Stubbed `boot-deploy`. While the rebuild runs, two helpers check the kernel config and diff the module trees:"),
+    call("a1", "Task", { description: "Check kernel config for initramfs", subagent_type: "Explore", model: "haiku", prompt: "On host galaxy, confirm CONFIG_BLK_DEV_INITRD and the compression the initramfs needs." }),
+    call("a2", "Task", { description: "Diff module trees 7.1.4 vs 7.1.5", subagent_type: "general-purpose", prompt: "Compare /lib/modules/7.1.4 and 7.1.5 on galaxy; list modules missing from 7.1.5." }),
+  ]),
+  say([call("a1t1", "mcp__ssh__ssh_execute", { host: "galaxy", command: "zcat /proc/config.gz | grep -E 'INITRD|RD_GZIP|RD_ZSTD'" })], { parent_tool_use_id: "a1" }),
+  results([out("a1t1", "CONFIG_BLK_DEV_INITRD=y\nCONFIG_RD_GZIP=y\nCONFIG_RD_ZSTD=y")], { parent_tool_use_id: "a1" }),
+  say([call("a1t2", "Read", { file_path: "/etc/mkinitfs/mkinitfs.conf" })], { parent_tool_use_id: "a1" }),
+  results([out("a1t2", "     1\tcompression=zstd")], { parent_tool_use_id: "a1" }),
+  results([out("a1", [text("Kernel supports **zstd** initramfs (`CONFIG_RD_ZSTD=y`) and mkinitfs is configured for zstd. Nothing to change.")])]),
+  say([call("a2t1", "mcp__ssh__ssh_execute", { host: "galaxy", command: "cd /lib/modules && diff <(cd 7.1.4 && find . -name '*.ko*' | sort) <(cd 7.1.5 && find . -name '*.ko*' | sort)" })], { parent_tool_use_id: "a2" }),
+  results([out("a2t1", "< ./kernel/drivers/gpu/drm/panel/panel-samsung-s6e3fa7.ko.zst\n< ./kernel/drivers/input/touchscreen/stm-fts.ko.zst")], { parent_tool_use_id: "a2" }),
+  say([call("a2t2", "Grep", { pattern: "s6e3fa7|stm-fts", path: "/etc/mkinitfs/modules" })], { parent_tool_use_id: "a2" }),
+  results([out("a2t2", "/etc/mkinitfs/modules/galaxy.modules:3:panel-samsung-s6e3fa7")], { parent_tool_use_id: "a2" }),
+  say([call("a2t3", "mcp__ssh__ssh_execute", { host: "galaxy", command: "apk info -W /lib/modules/7.1.5" })], { parent_tool_use_id: "a2" }),
+  say([text("Rerunning the staging script (the 7.1.5 modules dir from the last attempt isn't package-owned, so it's replaced), then checking that `/boot` and KERNEL are still untouched:"),
+    call("o8", "Bash", { command: "./stage-initramfs.sh 2>&1 | tail -20", description: "Rebuild the initramfs into the stage dir" })]),
+];
+
+/** Agent state of the ops session: nothing waiting. */
+export const opsAgentState: AgentState = {};

@@ -114,7 +114,6 @@ const edit: ToolView = {
   summary: (b) => shortPath(pathOf(b) ?? ""),
   badge: diffBadge,
   Body: EditBody,
-  open: (b) => !b.result?.isError && editRows(b.input).length <= 16,
 };
 
 const multiEdit: ToolView = {
@@ -206,7 +205,6 @@ const todo: ToolView = {
     return t.length ? `${t.filter((x) => x.status === "completed").length}/${t.length}` : undefined;
   },
   Body: TodoBody,
-  open: () => true,
 };
 
 const question: ToolView = {
@@ -215,10 +213,10 @@ const question: ToolView = {
   title: "Question",
   summary: (b) => questionsOf(b.input)[0]?.question ?? "",
   Body: QuestionBody,
-  open: () => true,
+  open: (b) => !b.result,
 };
 
-const plan: ToolView = { icon: ClipboardList, kind: "plan", title: "Plan", summary: () => "Ready to code?", Body: PlanBody, open: () => true };
+const plan: ToolView = { icon: ClipboardList, kind: "plan", title: "Plan", summary: () => "Ready to code?", Body: PlanBody, open: (b) => !b.result };
 
 export const toolViews: Record<string, ToolView> = {
   Bash: shell,
@@ -259,6 +257,9 @@ const fallback: ToolView = {
   Body: GenericBody,
 };
 
+/** Inputs that best say what a call does, before falling back to the first one. */
+const SUMMARY_KEYS = ["command", "cmd", "query", "q", "pattern", "url", "path", "file_path", "title", "name"];
+
 const mcp: ToolView = {
   icon: Plug,
   kind: "mcp",
@@ -266,16 +267,23 @@ const mcp: ToolView = {
   chip: (b) => parseMcpName(b.name)?.server,
   summary: (b) => {
     const i = inp(b);
-    const first = Object.values(i).find((v) => typeof v === "string" || typeof v === "number");
+    const key = SUMMARY_KEYS.find((k) => str(i[k]));
+    const first = key ? i[key] : Object.values(i).find((v) => typeof v === "string" || typeof v === "number");
     return first === undefined ? "" : firstLine(inlineValue(first));
   },
   Body: GenericBody,
 };
 
+/** MCP tools that run a command (ssh_execute, run_command, …) read as shell. */
+const MCP_SHELL = /(^|_)(exec|execute|run_command|shell|bash|command)($|_)/i;
+const mcpShell: ToolView = { ...mcp, icon: SquareTerminal, kind: "shell" };
+
 const lower = new Map(Object.entries(toolViews).map(([k, v]) => [k.toLowerCase(), v]));
 
 export function viewFor(name: string): ToolView {
-  return toolViews[name] ?? (name.startsWith("mcp__") && parseMcpName(name) ? mcp : lower.get(name.toLowerCase()) ?? fallback);
+  const m = name.startsWith("mcp__") ? parseMcpName(name) : undefined;
+  if (m) return MCP_SHELL.test(m.tool) ? mcpShell : mcp;
+  return toolViews[name] ?? lower.get(name.toLowerCase()) ?? fallback;
 }
 
 export const titleOf = (v: ToolView, b: ToolBlock) => (typeof v.title === "string" ? v.title : v.title(b));

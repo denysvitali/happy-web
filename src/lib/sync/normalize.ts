@@ -10,7 +10,7 @@
 export type AgentMetadata = Record<string, unknown>;
 
 export type Item =
-  | { kind: "text"; role: "user" | "agent"; text: string; streamId?: string }
+  | { kind: "text"; role: "user" | "agent"; text: string; streamId?: string; images?: string[] }
   | { kind: "thinking"; text: string }
   | { kind: "tool-call"; id: string; name: string; input: unknown; agentId?: string }
   | {
@@ -83,6 +83,20 @@ function blocksText(content: unknown): string {
     .map((b) => (b.type === "text" ? (s(b.text) ?? "") : ""))
     .filter(Boolean)
     .join("\n");
+}
+
+/** Inline image blocks of a user content array, as `data:` URLs. URL
+ * sources are left out: the CSP only admits self/data/blob images. */
+function imagesOf(content: unknown): string[] {
+  if (!Array.isArray(content)) return [];
+  const out: string[] = [];
+  for (const b of content) {
+    if (!isObj(b) || b.type !== "image" || !isObj(b.source) || b.source.type !== "base64") continue;
+    const mime = s(b.source.media_type);
+    const data = s(b.source.data);
+    if (mime?.startsWith("image/") && data && /^[A-Za-z0-9+/=]+$/.test(data)) out.push(`data:${mime};base64,${data}`);
+  }
+  return out;
 }
 
 // ---- Claude `output` (stream-json SDK messages) ---------------------------
@@ -275,7 +289,9 @@ export function normalizeRecord(record: unknown): Normalized {
     const c = record.content;
     const meta = isObj(record.meta) ? record.meta : {};
     const text = s(meta.displayText) ?? (isObj(c) && c.type === "text" ? (s(c.text) ?? "") : blocksText(c));
-    return { role: "user", items: text ? [{ kind: "text", role: "user", text }] : [] };
+    const images = imagesOf(c);
+    if (!text && images.length === 0) return { role: "user", items: [] };
+    return { role: "user", items: [images.length ? { kind: "text", role: "user", text, images } : { kind: "text", role: "user", text }] };
   }
   if (record.role === "session") {
     const ev = isObj(record.ev) ? record.ev : isObj(record.event) ? record.event : undefined;

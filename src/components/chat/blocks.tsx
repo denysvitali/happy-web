@@ -5,17 +5,16 @@
 // growing stream preview) only re-renders the block that actually changed.
 // The permission handler is made stable here, so callers may pass a fresh
 // closure on every render.
-import { UnstyledButton } from "@mantine/core";
-import { Brain, ChevronRight, ShieldQuestion } from "lucide-react";
-import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AGENT_TOOLS, sameBlock, type Block } from "@/lib/sync/chat";
+import { ShieldQuestion } from "lucide-react";
+import { memo, useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
+import { isAgent, sameBlock, type Block } from "@/lib/sync/chat";
+import { ImageStrip } from "./images";
 import { Markdown } from "./markdown";
 import { PermissionBar, type PermissionHandler } from "./permission";
 import { CopyIcon, TimeLabel } from "./primitives";
 import { AgentCard } from "./tools/agent";
-import { firstLine } from "./tools/format";
 import { titleOf, viewFor } from "./tools/registry";
-import { ExploreGroup, Glyph, ToolCard } from "./tools/tool-card";
+import { Glyph, StepsGroup, ThinkingStep, ToolCard } from "./tools/tool-card";
 import classes from "./chat.module.css";
 
 export type { PermissionHandler } from "./permission";
@@ -29,21 +28,6 @@ function useStableHandler(h: PermissionHandler | undefined): PermissionHandler |
     await ref.current?.(...args);
   }, []);
   return h ? stable : undefined;
-}
-
-function Thinking({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className={classes.thinking} data-open={open || undefined}>
-      <UnstyledButton className={classes.thinkingHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <Brain size={13} />
-        <span className={classes.thinkingLabel}>Thinking</span>
-        {!open && <span className={classes.thinkingPeek}>{firstLine(text, 120)}</span>}
-        <ChevronRight size={12} className={classes.chevron} data-open={open || undefined} />
-      </UnstyledButton>
-      {open && <div className={classes.thinkingBody}>{text}</div>}
-    </div>
-  );
 }
 
 const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
@@ -81,18 +65,21 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       return (
         <div className={classes.userRow}>
           <div className={`${classes.userInner} ${classes.hoverable}`}>
-            <div className={classes.user} data-pending={b.pending}>
-              <div className={classes.userText}>{b.text}</div>
-              {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
-              {b.pending === "failed" && (
-                <div className={classes.userNote} data-tone="error">
-                  Not sent
-                </div>
-              )}
-            </div>
+            {b.images && <ImageStrip images={b.images} align="end" />}
+            {b.text && (
+              <div className={classes.user} data-pending={b.pending}>
+                <div className={classes.userText}>{b.text}</div>
+              </div>
+            )}
+            {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
+            {b.pending === "failed" && (
+              <div className={classes.userNote} data-tone="error">
+                Not sent
+              </div>
+            )}
             <div className={classes.rowTools}>
               <TimeLabel at={b.at} />
-              <CopyIcon text={b.text} />
+              {b.text && <CopyIcon text={b.text} />}
             </div>
           </div>
         </div>
@@ -112,7 +99,7 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
         </div>
       );
     case "thinking":
-      return <Thinking text={b.text} />;
+      return <ThinkingStep text={b.text} />;
     case "event":
       return (
         <div className={classes.event} title={b.at ? new Date(b.at).toLocaleString() : undefined}>
@@ -127,10 +114,10 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       );
     case "unknown":
       return <div className={classes.unknown}>Unsupported message ({b.label})</div>;
-    case "explore":
-      return <ExploreGroup tools={b.tools} onPermission={onPermission} />;
+    case "steps":
+      return <StepsGroup items={b.items} onPermission={onPermission} />;
     case "tool":
-      if (AGENT_TOOLS.has(b.name) || b.children.length > 0) {
+      if (isAgent(b)) {
         return <AgentCard b={b} onPermission={onPermission} renderChildren={childrenFor(onPermission)} />;
       }
       return <ToolCard b={b} onPermission={onPermission} />;

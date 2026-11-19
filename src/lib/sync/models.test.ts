@@ -108,6 +108,10 @@ describe("sending a switch", () => {
       fallbackModel: null,
     });
     expect(userRecord("hi", { model: "p", permissionMode: "default", reasoningEffort: "high" }).meta).toMatchObject({ reasoning_effort: "high" });
+    expect(userRecord("see", undefined, [{ mime: "image/png", data: "AAAA" }]).content).toEqual([
+      { type: "text", text: "see" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } },
+    ]);
   });
 });
 

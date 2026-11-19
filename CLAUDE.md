@@ -41,3 +41,11 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Phones (<48em) use push navigation, not a drawer: `/` is the session list, a chat opens
   full-screen with a back button.
 - Pinned deps (`save-exact`), Renovate keeps them fresh.
+- Visual inspection is required after any UI change: `pnpm screenshots` (phone + desktop,
+  light + dark) and look at the PNGs; a Stop hook (`.claude/hooks/visual-check.sh`) blocks
+  finishing while UI sources are newer than the last screenshots. Chat changes are judged on
+  the mocked ops session (`opsRecords` in `src/components/chat/fixtures.ts`, shots `screenshots/*-ops*.png`).
+- Transcript: plain tool calls and thinking fold into one-line `steps` runs (`groupSteps`);
+  sub-agents, unanswered questions and pending permissions stay out as cards.
+- Image attachments follow happy_flutter: user content becomes a block array with base64
+  `image` blocks (≤1568px, ≤3.4 MB base64); Har/OpenCode are text-only.

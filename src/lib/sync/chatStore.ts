@@ -31,8 +31,17 @@ export interface ChatMeta {
 /** Newest main-thread context usage reported in this chat, and its seq. */
 export type ContextSnapshot = ContextUsage & { seq: number };
 
-/** The decrypted user record `send()` writes. */
-export function userRecord(text: string, opts?: SendOptions) {
+/** An attached image: an Anthropic base64 `image` block. */
+export interface OutgoingImage {
+  mime: string;
+  data: string;
+}
+
+/** The decrypted user record `send()` writes. Plain text keeps the legacy
+ * single-block shape (the daemon special-cases it for slash commands); with
+ * images the content becomes a block array the daemon forwards verbatim to
+ * the agent (as happy_flutter sends it). */
+export function userRecord(text: string, opts?: SendOptions, images: readonly OutgoingImage[] = []) {
   const meta: Record<string, unknown> = { sentFrom: "web" };
   if (opts) {
     meta.permissionMode = opts.permissionMode;
@@ -40,7 +49,10 @@ export function userRecord(text: string, opts?: SendOptions) {
     meta.fallbackModel = null;
     if (opts.reasoningEffort) meta.reasoning_effort = opts.reasoningEffort;
   }
-  return { role: "user", content: { type: "text", text }, meta };
+  if (images.length === 0) return { role: "user", content: { type: "text", text }, meta };
+  const content: object[] = text.trim() ? [{ type: "text", text }] : [];
+  for (const i of images) content.push({ type: "image", source: { type: "base64", media_type: i.mime, data: i.data } });
+  return { role: "user", content, meta };
 }
 
 export class ChatStore {
@@ -50,7 +62,7 @@ export class ChatStore {
   readonly context = new Store<ContextSnapshot | null>(null);
   private chain: Promise<void> = Promise.resolve();
   private loaded = false;
-  private texts = new Map<string, { text: string; opts: SendOptions | undefined }>();
+  private texts = new Map<string, { text: string; opts: SendOptions | undefined; images: readonly OutgoingImage[] }>();
 
   constructor(
     readonly sessionId: string,
@@ -159,11 +171,12 @@ export class ChatStore {
   }
 
   /** `opts` carries the model/permission switch on the message meta. */
-  async send(text: string, opts?: SendOptions, localId: string = crypto.randomUUID()): Promise<void> {
-    this.texts.set(localId, { text, opts });
-    this.state.update((s) => addPending(s, { localId, text, createdAt: Date.now() }));
+  async send(text: string, opts?: SendOptions, images: readonly OutgoingImage[] = [], localId: string = crypto.randomUUID()): Promise<void> {
+    this.texts.set(localId, { text, opts, images });
+    const urls = images.length ? images.map((i) => `data:${i.mime};base64,${i.data}`) : undefined;
+    this.state.update((s) => addPending(s, { localId, text, images: urls, createdAt: Date.now() }));
     try {
-      const content = await this.cipher.encrypt(userRecord(text, opts));
+      const content = await this.cipher.encrypt(userRecord(text, opts, images));
       await this.api.sendMessage(this.sessionId, content, localId);
       this.texts.delete(localId);
       // The socket usually delivers the row; catch up in case it does not.
@@ -177,6 +190,6 @@ export class ChatStore {
   /** Retries reuse the localId, so the server deduplicates. */
   retry(localId: string): Promise<void> {
     const t = this.texts.get(localId);
-    return t === undefined ? Promise.resolve() : this.send(t.text, t.opts, localId);
+    return t === undefined ? Promise.resolve() : this.send(t.text, t.opts, t.images, localId);
   }
 }

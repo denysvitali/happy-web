@@ -165,32 +165,40 @@ const use = (id: string, name: string, input: object = {}, parent?: string) =>
 const res = (id: string, content: unknown, isError = false) =>
   claude({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] } });
 
-describe("explore grouping", () => {
-  it("folds two or more consecutive read-only calls, recursively", () => {
+describe("steps grouping", () => {
+  const think = (t: string) => claude({ type: "assistant", message: { content: [{ type: "thinking", thinking: t }] } });
+  it("folds runs of tool calls and thinking, recursively; text and agents break a run", () => {
     const s = addMessages(emptyChat, [
       msg(use("r1", "Read", { file_path: "a.ts" })),
-      msg(use("r2", "Grep", { pattern: "x" })),
-      msg(res("r1", "…")),
+      msg(think("hmm")),
       msg(use("b1", "Bash", { command: "ls" })),
+      msg(res("r1", "…")),
+      msg(claude({ type: "assistant", message: { content: [{ type: "text", text: "Now the agent." }] } })),
       msg(use("r3", "Read", { file_path: "b.ts" })),
       msg(use("task", "Task", {})),
       msg(use("c1", "Glob", { pattern: "*.ts" }, "task")),
       msg(use("c2", "LS", { path: "." }, "task")),
     ]);
     const blocks = buildView(s, {}).blocks;
-    expect(types(blocks)).toEqual(["explore", "tool", "tool", "tool"]);
-    const [group, , single, task] = blocks as [Extract<Block, { type: "explore" }>, ToolBlock, ToolBlock, ToolBlock];
-    expect(group.tools.map((t) => t.id)).toEqual(["r1", "r2"]);
-    expect(group.tools[0]!.result).toMatchObject({ output: "…" });
-    expect(group.key).toBe(`explore:${group.tools[0]!.key}`);
+    expect(types(blocks)).toEqual(["steps", "text", "tool", "tool"]);
+    const [group, , single, task] = blocks as [Extract<Block, { type: "steps" }>, Block, ToolBlock, ToolBlock];
+    expect(group.items.map((t) => t.type)).toEqual(["tool", "thinking", "tool"]);
+    expect(group.items[0]).toMatchObject({ result: { output: "…" } });
+    expect(group.key).toBe(`steps:${group.items[0]!.key}`);
     expect(single.id).toBe("r3");
-    expect(types(task.children)).toEqual(["explore"]);
+    expect(types(task.children)).toEqual(["steps"]);
   });
 
-  it("never hides a call that waits for permission", () => {
-    const s = addMessages(emptyChat, [msg(use("r1", "Read")), msg(use("r2", "Read"))]);
+  it("never folds a call that waits for permission or asks the user", () => {
+    const s = addMessages(emptyChat, [msg(use("r1", "Read")), msg(use("r2", "Read")), msg(use("q", "AskUserQuestion")), msg(use("r4", "Read"))]);
     const v = buildView(s, { requests: { r2: { tool: "Read", arguments: {}, createdAt: 1 } } });
-    expect(types(v.blocks)).toEqual(["tool", "tool"]);
+    expect(types(v.blocks)).toEqual(["tool", "tool", "tool", "tool"]);
+  });
+
+  it("carries attached images on user messages", () => {
+    const img = { type: "image", source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgo=" } };
+    const s = addMessages(emptyChat, [msg({ role: "user", content: [{ type: "text", text: "look" }, img] })]);
+    expect(buildView(s, {}).blocks[0]).toMatchObject({ type: "user", text: "look", images: ["data:image/png;base64,iVBORw0KGgo="] });
   });
 });
 

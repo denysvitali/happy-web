@@ -3,7 +3,7 @@
 // a per-test account secret (legacy secretbox) like a real server would hold.
 import { expect, type Page } from "@playwright/test";
 import nacl from "tweetnacl";
-import { demoAgentState, demoRecords } from "../src/components/chat/fixtures";
+import { demoAgentState, demoRecords, opsAgentState, opsRecords } from "../src/components/chat/fixtures";
 import { decodeBase64, encodeBase64 } from "../src/lib/crypto/base64";
 import { decryptLegacyJson, encryptForPublicKey, encryptLegacyJson } from "../src/lib/crypto/primitives";
 
@@ -62,11 +62,13 @@ export function createMock() {
     mkSession("s2", { path: "/workspace/happy-web", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", model: "gpt-5.5", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/happy-web", summary: { text: "Build the web client" } }, { ago: 2 * min }),
     mkSession("s3", { path: "/workspace/infra", host: "happy-daemon", machineId: "m-k8s", flavor: "claude", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/infra", summary: { text: "Terraform drift report" } }, { ago: 40 * min, active: false }),
     mkSession("s4", { path: "/home/denys/notes", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", summary: { text: "Weekly notes cleanup" } }, { archived: true, active: false, ago: 2 * 24 * 60 * min }),
+    mkSession("s6", { path: "/root/pmos-gt-p5110", homeDir: "/root", host: "happy", machineId: "m-laptop", flavor: "claude", model: "opus", repoUrl: "https://github.com/acme/pmos-gt-p5110", summary: { text: "pmos-galaxy" } }, { lastSeq: opsRecords.length, agentState: opsAgentState }),
     mkSession("s5", { path: "/workspace/old", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", runtimeType: "kubernetes", summary: { text: "Spike: websocket fallback" } }, { archived: true, active: false, ago: 6 * 24 * 60 * min }),
   ];
 
   const messages: Record<string, { id: string; seq: number; localId: string | null; createdAt: number; content: string }[]> = {
     s1: demoRecords.map((r, i) => ({ id: `m${i + 1}`, seq: i + 1, localId: null, createdAt: now - (demoRecords.length - i) * 20_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
+    s6: opsRecords.map((r, i) => ({ id: `o${i + 1}`, seq: i + 1, localId: null, createdAt: now - (opsRecords.length - i) * 15_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
   };
 
   // Account settings as the Happy app syncs them (Flutter Settings.toJson):
@@ -142,7 +144,7 @@ export function createMock() {
           socketAuth = JSON.parse(msg.slice(2));
           ws.send(`40${JSON.stringify({ sid: "sock" })}`);
           // Mark s1 as thinking so status/abort UI shows up.
-          ws.send(`42${JSON.stringify(["ephemeral", { type: "alive-batch", sessions: [{ id: "s1", activeAt: Date.now(), thinking: true }, { id: "s2", activeAt: Date.now(), thinking: false }] }])}`);
+          ws.send(`42${JSON.stringify(["ephemeral", { type: "alive-batch", sessions: [{ id: "s1", activeAt: Date.now(), thinking: true }, { id: "s2", activeAt: Date.now(), thinking: false }, { id: "s6", activeAt: Date.now(), thinking: true }] }])}`);
           return;
         }
         // Event with ack: 42<ackId>["rpc-call",{...}]
