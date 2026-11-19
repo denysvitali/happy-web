@@ -148,17 +148,70 @@ export function inlineValue(v: unknown, max = 200): string {
 
 // ---- shell -------------------------------------------------------------------
 
-/** `command` as string or argv; unwraps `bash -lc "<script>"`. */
+/** `command` as string or argv, with a `bash -lc <script>` wrapper (argv or
+ * one quoted string, as Codex sends it) unwrapped to the script. */
 export function commandOf(input: unknown): string | undefined {
   if (!isObj(input)) return undefined;
   const c = input.command ?? input.cmd ?? input.argv;
-  if (typeof c === "string") return c;
+  if (typeof c === "string") return unwrapShell(c);
   if (Array.isArray(c) && c.every((x) => typeof x === "string")) {
     const argv = c as string[];
-    if (argv.length === 3 && /(^|\/)(ba|z)?sh$/.test(argv[0]!) && /^-l?c$/.test(argv[1]!)) return argv[2];
+    if (argv.length === 1) return unwrapShell(argv[0]!);
+    if (argv.length === 3 && SHELL.test(argv[0]!) && SHELL_C.test(argv[1]!)) return argv[2];
     return argv.map((a) => (/[\s"'$]/.test(a) ? JSON.stringify(a) : a)).join(" ");
   }
   return undefined;
+}
+
+const SHELL = /^(?:\S*\/)?(?:ba|z|da)?sh$/;
+const SHELL_C = /^-l?c$/;
+
+/** `/bin/bash -lc "<script>"` → `<script>`; anything else is returned as is. */
+function unwrapShell(cmd: string): string {
+  const m = /^\s*(\S+)\s+(-l?c)\s+/.exec(cmd);
+  if (!m || !SHELL.test(m[1]!)) return cmd;
+  const script = shellWord(cmd.slice(m[0].length).trimEnd());
+  return script ?? cmd;
+}
+
+/** Parses `s` as exactly one POSIX shell word made of quoted/bare segments;
+ * undefined if it is more than one word or malformed. */
+function shellWord(s: string): string | undefined {
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i]!;
+    if (ch === "'") {
+      const end = s.indexOf("'", i + 1);
+      if (end < 0) return undefined;
+      out += s.slice(i + 1, end);
+      i = end + 1;
+    } else if (ch === '"') {
+      i++;
+      for (;;) {
+        if (i >= s.length) return undefined;
+        const d = s[i]!;
+        if (d === '"') break;
+        if (d === "\\" && i + 1 < s.length && '"\\$`\n'.includes(s[i + 1]!)) {
+          if (s[i + 1] !== "\n") out += s[i + 1];
+          i += 2;
+        } else {
+          out += d;
+          i++;
+        }
+      }
+      i++;
+    } else if (ch === "\\" && i + 1 < s.length) {
+      out += s[i + 1];
+      i += 2;
+    } else if (/\s/.test(ch)) {
+      return undefined;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out || undefined;
 }
 
 export interface ShellOutput {

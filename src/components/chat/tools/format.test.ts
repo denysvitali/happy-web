@@ -38,6 +38,19 @@ describe("shell", () => {
     expect(commandOf({ command: ["bash", "-lc", "pnpm test"] })).toBe("pnpm test");
     expect(commandOf({ command: ["git", "commit", "-m", "a b"] })).toBe('git commit -m "a b"');
     expect(commandOf({ command: "ls" })).toBe("ls");
+    expect(commandOf({ command: ["/bin/bash", "-lc", "ls"] })).toBe("ls");
+  });
+  it("unwraps a bash -lc wrapper sent as one string", () => {
+    const script = `rg -n 'card|pcm' ../app | head -140`;
+    expect(commandOf({ command: `/bin/bash -lc ${JSON.stringify(script)}` })).toBe(script);
+    expect(commandOf({ command: [`/bin/bash -lc ${JSON.stringify(script)}`] })).toBe(script);
+    expect(commandOf({ command: `bash -c 'echo "$HOME"'` })).toBe('echo "$HOME"');
+    expect(commandOf({ command: `sh -c 'it'\\''s'` })).toBe("it's");
+    expect(commandOf({ command: `bash -lc "a \\$x \\"q\\" \\\\n"` })).toBe('a $x "q" \\n');
+    // Not a single wrapped script: left alone.
+    expect(commandOf({ command: `bash -lc "a" && rm x` })).toBe(`bash -lc "a" && rm x`);
+    expect(commandOf({ command: "bash script.sh" })).toBe("bash script.sh");
+    expect(commandOf({ command: "rg -c foo" })).toBe("rg -c foo");
   });
   it("reads exit codes from text and records", () => {
     expect(shellOutput("Exit code 2\nboom")).toEqual({ stdout: "boom", stderr: "", exitCode: 2 });
