@@ -1,7 +1,8 @@
-// The agent's current todo list, pinned above the composer while unfinished,
-// so "where is it at?" never needs scrolling back through the transcript.
+// The agent's current todo list, pinned in the composer toolbar while
+// unfinished, so "where is it at?" never needs scrolling back. Phones show
+// the count only; the popover has the list.
 import { Popover, UnstyledButton } from "@mantine/core";
-import { ChevronUp, ListChecks } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import type { ToolBlock } from "@/lib/sync/chat";
 import { field, todosOf } from "./tools/format";
 import { TodoBody } from "./tools/views";
@@ -15,15 +16,14 @@ export function PlanChip({ plan }: { plan: ToolBlock }) {
   const currentIdx = todos.findIndex((t) => t.status === "in_progress");
   const current = currentIdx >= 0 ? (field(raw[currentIdx], "activeForm") ?? todos[currentIdx]!.content) : todos.find((t) => t.status === "pending")?.content;
   return (
-    <Popover position="top-start" width="target" offset={6} shadow="md">
+    <Popover position="top-end" width={320} offset={6} shadow="md" radius="md" withinPortal>
       <Popover.Target>
-        <UnstyledButton className={classes.planChip} aria-label={`Plan: ${done} of ${todos.length} done`}>
+        <UnstyledButton className={classes.planChip} aria-label={`Plan: ${done} of ${todos.length} done`} title={current}>
           <ListChecks size={14} className={classes.planIcon} />
           <span className={classes.planCount}>
             {done}/{todos.length}
           </span>
-          <span className={classes.planNow}>{current}</span>
-          <ChevronUp size={13} className={classes.planChevron} />
+          {current && <span className={classes.planNow}>{current}</span>}
         </UnstyledButton>
       </Popover.Target>
       <Popover.Dropdown>

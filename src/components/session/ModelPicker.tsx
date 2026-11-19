@@ -51,6 +51,7 @@ export function ModelPicker({ sw }: { sw: SessionSwitch }) {
           data-pending={sw.pending || undefined}
           onClick={() => combobox.toggleDropdown()}
           aria-label={`Model: ${label}`}
+          title={sw.pending ? "Switches with your next message" : undefined}
         >
           <Sparkles size={14} className={classes.chipIcon} />
           <span className={classes.chipLabel}>
@@ -62,6 +63,7 @@ export function ModelPicker({ sw }: { sw: SessionSwitch }) {
       </Combobox.Target>
       <Combobox.Dropdown p={0}>
         <Combobox.Options className={classes.options} aria-label="Models">
+          {sw.pending && <div className={classes.optionsNote}>Switches with your next message</div>}
           {sw.catalogLoading && catalog.groups.length === 0 && (
             <Combobox.Empty>
               <Loader size="xs" />

@@ -1,8 +1,8 @@
 import { useParams } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { UnstyledButton } from "@mantine/core";
+import { Button, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { CircleAlert, Ellipsis, History, LoaderCircle, RotateCcw } from "lucide-react";
+import { Archive, CircleAlert, Ellipsis, History, LoaderCircle, RotateCcw } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
@@ -23,6 +23,7 @@ import { PlanChip } from "@/components/chat/plan";
 import { latestPlan } from "@/components/chat/tools/steps";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
 import { agentOf } from "@/lib/sync/sessionList";
+import { selectionLabel } from "@/lib/sync/models";
 import type { SessionItem } from "@/lib/sync/account";
 import { IconButton } from "@/ui/IconButton";
 
@@ -178,17 +179,35 @@ function ComposerArea({
     await store.send(text, opts, images);
     sw.markSent(opts);
   };
+  if (session.archived) {
+    // Nothing runs it: say so instead of offering a composer that goes nowhere.
+    return (
+      <div className={classes.composer}>
+        <div className={`${classes.column} ${classes.archivedBand}`}>
+          <Archive size={15} className={classes.archivedIcon} />
+          <span className={classes.archivedText}>Archived · read-only</span>
+          <Button size="compact-sm" variant="light" onClick={() => void run(() => account.unarchive(session))}>
+            Unarchive
+          </Button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={classes.composer}>
       <div className={classes.column}>
-        {plan && <PlanChip plan={plan} />}
         <Composer
-          tools={session.archived ? undefined : <SessionToolbar session={session} sw={sw} store={store} />}
+          tools={
+            <SessionToolbar session={session} sw={sw} store={store}>
+              {plan && <PlanChip plan={plan} />}
+            </SessionToolbar>
+          }
           canAbort={canAbort}
           onAbort={() => void run(() => account.abort(session.id))}
           onSend={(t, images) => void run(() => send(t, images))}
           canAttach={!TEXT_ONLY.has(agentOf(session.meta.flavor))}
           disabled={!store}
+          placeholder={sw.pending ? `Message · switches to ${selectionLabel(sw.catalog, sw.model)}` : undefined}
         />
       </div>
     </div>

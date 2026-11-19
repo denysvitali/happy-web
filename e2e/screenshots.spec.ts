@@ -158,6 +158,32 @@ for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.width, height: 1400 });
       await page.waitForTimeout(400);
       await shot(page, "11-ops-full");
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      // Composer band states: dropdowns, a nearly full context, a pending
+      // model switch with a long draft, an archived session.
+      await page.getByRole("button", { name: /^Permission mode:/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "14-ops-permission");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: /^Context \d+% used/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "14b-ops-context");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: /^Model:/ }).click();
+      await page.getByRole("option", { name: /^Sonnet/ }).first().click();
+      await page.waitForTimeout(250);
+      await shot(page, "14c-ops-model-pending");
+      await page.getByLabel("Message").fill("Before you flash it:\n- keep /boot untouched\n- diff the module trees again\n- show me the initramfs size\n- then wait for my go\n\nThanks!");
+      await page.waitForTimeout(250);
+      await shot(page, "14d-ops-draft");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "14e-ops-draft-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.goto("/#/s/s4");
+      await expect(page.getByRole("button", { name: "Unarchive" })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "15-archived");
       expect(violations).toEqual([]);
     });
   });
