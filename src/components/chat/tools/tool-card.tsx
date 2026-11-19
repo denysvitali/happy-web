@@ -44,9 +44,12 @@ export const ToolCard = memo(
   function ToolCard({ b, onPermission }: CardProps) {
     const view = viewFor(b.name);
     const pending = b.permission?.status === "pending";
-    const [userOpen, setUserOpen] = useState<boolean | null>(null);
-    const open = userOpen ?? (pending || (view.open?.(b) ?? false));
     const state = toolState(b);
+    // Open while the call runs (or awaits permission), collapsed once it
+    // finishes, unless the user toggled it. Views that are content rather
+    // than output (plan, todos, questions) set `open` and stay expanded.
+    const [userOpen, setUserOpen] = useState<boolean | null>(null);
+    const open = userOpen ?? (pending || state === "running" || (view.open?.(b) ?? false));
     const chip = view.chip?.(b);
     const badge = view.badge?.(b);
     const summary = view.summary?.(b) ?? "";
