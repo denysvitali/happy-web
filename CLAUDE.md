@@ -43,7 +43,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   (`/s/$sessionId/agent/$toolId`, built from the parent chat's store).
 - Pinned deps (`save-exact`), Renovate keeps them fresh.
 - Visual inspection is required after any UI change: `pnpm screenshots` (phone + desktop,
-  light + dark) and look at the PNGs; a Stop hook (`.claude/hooks/visual-check.sh`) blocks
+  light + dark) and look at the PNGs. It self-provisions Chromium, even rootless (no apt
+  needed; `scripts/e2e-setup.sh`), so "can't launch the browser" is a bug to fix, not a skip; a Stop hook (`.claude/hooks/visual-check.sh`) blocks
   finishing while UI sources are newer than the last screenshots. Chat changes are judged on
   the mocked ops session (`opsRecords` in `src/components/chat/fixtures.ts`, shots `screenshots/*-ops*.png`).
 - Transcript: plain tool calls and thinking fold into one-line `steps` runs (`groupSteps`);

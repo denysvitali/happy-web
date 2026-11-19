@@ -11,12 +11,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:e2e": "playwright test --grep-invert @screens \"e2e/(smoke|a11y|palette|states|chat-polish|chat-images|folders|inbox)\\.spec\"",
-    "generate": "buf generate",
+    "test:e2e": "sh scripts/e2e-setup.sh && playwright test --grep-invert @screens \"e2e/(smoke|a11y|palette|states|chat-polish|chat-images|folders|inbox)\\.spec\"",
+    "generate": "sh scripts/generate.sh",
     "vectors": "sh scripts/gen-crypto-vectors.sh",
     "size": "size-limit",
     "prepare": "git config core.hooksPath .githooks || true",
-    "screenshots": "playwright test e2e/screenshots.spec.ts && node scripts/screenshot-gallery.mjs screenshots"
+    "screenshots": "sh scripts/e2e-setup.sh && playwright test e2e/screenshots.spec.ts && node scripts/screenshot-gallery.mjs screenshots"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",

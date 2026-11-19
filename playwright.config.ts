@@ -1,6 +1,18 @@
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
 
 import { MOCK_SERVER } from "./e2e/mock";
+
+// Rootless Chromium deps unpacked by scripts/e2e-setup.sh (same path there).
+const browserDeps = join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "happy-web/chromium-deps");
+if (existsSync(browserDeps)) {
+  const ld = process.env.LD_LIBRARY_PATH;
+  process.env.LD_LIBRARY_PATH = join(browserDeps, "lib") + (ld ? `:${ld}` : "");
+  process.env.FONTCONFIG_FILE = join(browserDeps, "fonts.conf");
+}
 
 // E2E_PORT lets parallel checkouts (worktrees) run their own preview server.
 const port = Number(process.env.E2E_PORT ?? 4173);

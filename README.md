@@ -21,6 +21,11 @@ pnpm dev              # http://localhost:5173
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | ESLint, `tsc --noEmit`, Vitest unit tests |
 | `pnpm test:e2e` | Playwright smoke test against a mocked server (also fails on CSP violations) |
 | `pnpm screenshots` | Renders key screens (desktop + mobile, light + dark) into `screenshots/` with an HTML gallery |
+
+`test:e2e` and `screenshots` first run `scripts/e2e-setup.sh`: it generates `src/gen` if
+missing, installs Playwright's headless Chromium and, when system libs are missing and
+there is no root (agent containers), unpacks them plus fonts from Debian packages into
+`$XDG_CACHE_HOME/happy-web/chromium-deps` (picked up by `playwright.config.ts`).
 | `pnpm build` / `pnpm size` | Production build and the initial-JS size guardrail |
 | `pnpm vectors` | Regenerates crypto test vectors from a sibling `happy-cli-go` checkout (needs Go) |
 
