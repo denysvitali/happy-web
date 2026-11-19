@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { splitStable } from "../markdown-split";
 import type { ToolBlock } from "@/lib/sync/chat";
-import { commandOf, diffStats, duration, humanize, lineDiff, numberedLines, parseMcpName, resultParts, shellOutput } from "./format";
+import { asText, commandOf, diffStats, duration, humanize, lineDiff, numberedLines, parseMcpName, resultParts, shellOutput } from "./format";
 import { stepLabel, stepsSummary } from "./steps";
 
 describe("parseMcpName", () => {
@@ -111,5 +111,22 @@ describe("step lines", () => {
     expect(stepLabel(call("1", "mcp__loki__loki_query")).title).toBe("Query");
     expect(stepLabel(call("1", "mcp__github-actions__github_actions_list")).title).toBe("List");
     expect(stepLabel(call("1", "mcp__playwright__browser_take_screenshot")).title).toBe("Browser take screenshot");
+  });
+});
+
+describe("image tool results", () => {
+  const png = "iVBORw0KGgo=";
+  it("keeps inline base64 as a data URL (Claude and MCP shapes)", () => {
+    expect(resultParts([{ type: "image", source: { type: "base64", media_type: "image/png", data: png } }])).toEqual([
+      { kind: "image", mime: "image/png", url: `data:image/png;base64,${png}` },
+    ]);
+    expect(resultParts([{ type: "image", data: png, mimeType: "image/jpeg" }])).toEqual([{ kind: "image", mime: "image/jpeg", url: `data:image/jpeg;base64,${png}` }]);
+  });
+  it("does not build a URL from non-image or malformed data", () => {
+    expect(resultParts([{ type: "image", source: { media_type: "text/html", data: png } }])[0]).toEqual({ kind: "image", mime: "text/html" });
+    expect(resultParts([{ type: "image", source: { media_type: "image/png", data: "<script>" } }])[0]).toEqual({ kind: "image", mime: "image/png" });
+  });
+  it("never dumps base64 as copied text", () => {
+    expect(asText([{ type: "image", source: { media_type: "image/png", data: png } }, { type: "text", text: "hi" }])).toBe("[image]\nhi");
   });
 });

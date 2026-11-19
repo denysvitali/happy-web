@@ -92,6 +92,13 @@ function blocksText(content: unknown): string {
     .join("\n");
 }
 
+/** Claude Code appends "[Image: source: …]" / "[Image: original WxH, …]" notes
+ * after image blocks, for the model. They are not part of what anyone wrote. */
+const IMAGE_NOTE = /^\[Image\b[^\]\n]*\]\s*$/;
+export function withoutImageNotes(text: string): string {
+  return text.split("\n").filter((l) => !IMAGE_NOTE.test(l)).join("\n").trim();
+}
+
 /** Inline image blocks of a user content array, as `data:` URLs. URL
  * sources are left out: the CSP only admits self/data/blob images. */
 function imagesOf(content: unknown): string[] {
@@ -161,14 +168,18 @@ function claudeOutput(data: Obj): Placed[] {
     case "user": {
       const content = msg?.content;
       if (typeof content === "string") {
-        if (content) items.push({ kind: "text", role: "user", text: content });
+        const text = withoutImageNotes(content);
+        if (text) items.push({ kind: "text", role: "user", text });
         break;
       }
       if (!Array.isArray(content)) break;
       const receipt = asyncReceipt(data.tool_use_result);
       for (const b of content) {
         if (!isObj(b)) continue;
-        if (b.type === "text" && s(b.text)) items.push({ kind: "text", role: "user", text: b.text as string });
+        if (b.type === "text" && s(b.text)) {
+          const text = withoutImageNotes(b.text as string);
+          if (text) items.push({ kind: "text", role: "user", text });
+        }
         else if (b.type === "tool_result") {
           const id = first(b, "tool_use_id");
           if (!id) continue;
@@ -337,7 +348,7 @@ export function normalizeRecord(record: unknown): Normalized {
   if (record.role === "user") {
     const c = record.content;
     const meta = isObj(record.meta) ? record.meta : {};
-    const text = s(meta.displayText) ?? (isObj(c) && c.type === "text" ? (s(c.text) ?? "") : blocksText(c));
+    const text = withoutImageNotes(s(meta.displayText) ?? (isObj(c) && c.type === "text" ? (s(c.text) ?? "") : blocksText(c)));
     const task = legacyTaskNotification(text);
     if (task) return { role: "user", items: [task] };
     const images = imagesOf(c);

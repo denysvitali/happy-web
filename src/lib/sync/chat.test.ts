@@ -399,3 +399,11 @@ describe("finished turns", () => {
     expect(types(v.blocks)).toEqual(["user", "work", "tool", "user"]);
   });
 });
+
+describe("image notes", () => {
+  it("drops Claude Code's [Image: …] notes from user messages", () => {
+    const note = "[Image: original 1082x2202, displayed at 983x2000. Multiply coordinates by 1.10 to map to original image.]";
+    expect(normalizeRecord({ role: "user", content: { type: "text", text: note } }).items).toEqual([]);
+    expect(normalizeRecord({ role: "user", content: { type: "text", text: `Look\n${note}` } }).items).toEqual([{ kind: "text", role: "user", text: "Look" }]);
+  });
+});

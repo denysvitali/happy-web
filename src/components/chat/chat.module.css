@@ -1121,7 +1121,8 @@
   cursor: zoom-in;
 }
 .thumbButton:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
-.thumbButton img { display: block; height: 120px; max-width: 240px; object-fit: cover; }
+/* Natural aspect, never cropped: screenshots are often tall. Tap for full size. */
+.thumbButton img { display: block; width: auto; height: auto; max-height: 260px; max-width: min(100%, 320px); object-fit: contain; }
 .images[data-editable] .thumbButton img { width: 56px; height: 56px; }
 .thumbRemove {
   position: absolute;

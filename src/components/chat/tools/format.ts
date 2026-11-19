@@ -18,8 +18,9 @@ export const field = (o: unknown, ...keys: string[]): string | undefined => {
 export function asText(v: unknown): string {
   if (v === undefined || v === null) return "";
   if (typeof v === "string") return v;
-  if (Array.isArray(v) && v.every((b) => isObj(b) && typeof b.text === "string")) {
-    return v.map((b) => String((b as Obj).text)).join("\n");
+  if (Array.isArray(v) && v.every((b) => isObj(b) && (typeof b.text === "string" || b.type === "image"))) {
+    // Image blocks carry base64: never dump it as text.
+    return v.map((b) => (typeof (b as Obj).text === "string" ? String((b as Obj).text) : "[image]")).join("\n");
   }
   try {
     return JSON.stringify(v, null, 2);
@@ -69,7 +70,7 @@ export function humanize(id: string): string {
 export type ResultPart =
   | { kind: "text"; text: string }
   | { kind: "json"; value: unknown }
-  | { kind: "image"; mime: string }
+  | { kind: "image"; mime: string; /** `data:` URL when the block carries inline base64 (CSP admits data: images only). */ url?: string }
   | { kind: "resource"; label: string };
 
 function jsonOf(text: string): unknown {
@@ -95,7 +96,10 @@ function blockPart(b: unknown): ResultPart | undefined {
       return typeof b.text === "string" ? textPart(b.text) : { kind: "json", value: b.text };
     case "image": {
       const src = isObj(b.source) ? b.source : b;
-      return { kind: "image", mime: field(src, "media_type", "mimeType", "mime_type") ?? "image" };
+      const mime = field(src, "media_type", "mimeType", "mime_type") ?? "image";
+      const data = typeof src.data === "string" ? src.data : undefined;
+      const url = mime.startsWith("image/") && data && /^[A-Za-z0-9+/=\s]+$/.test(data) ? `data:${mime};base64,${data.replace(/\s+/g, "")}` : undefined;
+      return url ? { kind: "image", mime, url } : { kind: "image", mime };
     }
     case "resource":
     case "resource_link": {

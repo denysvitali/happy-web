@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:e2e": "playwright test --grep-invert @screens \"e2e/(smoke|a11y|palette|states|chat-polish)\\.spec\"",
+    "test:e2e": "playwright test --grep-invert @screens \"e2e/(smoke|a11y|palette|states|chat-polish|chat-images)\\.spec\"",
     "generate": "buf generate",
     "vectors": "sh scripts/gen-crypto-vectors.sh",
     "size": "size-limit",

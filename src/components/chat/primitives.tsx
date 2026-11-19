@@ -6,6 +6,7 @@ import { IconButton } from "@/ui/IconButton";
 import { lineCount, lines } from "./text";
 import { inlineValue, isObj, resultParts, type ResultPart } from "./tools/format";
 import classes from "./chat.module.css";
+import { ImageStrip } from "./images";
 
 /** Copy-to-clipboard glyph button. `reveal`: shown on hover of its card
  * (always on touch screens). */
@@ -188,6 +189,7 @@ function Part({ part, error }: { part: ResultPart; error: boolean }) {
     case "json":
       return <JsonView value={part.value} />;
     case "image":
+      if (part.url) return <ImageStrip images={[part.url]} />;
       return (
         <span className={classes.chip}>
           <ImageIcon size={12} /> Image ({part.mime})
