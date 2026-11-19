@@ -58,7 +58,7 @@ export function createMock() {
   });
 
   const sessions = [
-    mkSession("s1", { path: "/home/denys/src/app", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", model: "sonnet", summary: { text: "Fix flaky login test" }, claudeModels: [{ id: "default", name: "Default", efforts: [] }, { id: "opus", name: "Opus", efforts: ["low", "medium", "high"] }, { id: "sonnet", name: "Sonnet", efforts: ["low", "medium", "high"] }, { id: "haiku", name: "Haiku", efforts: [] }] }, { lastSeq: demoRecords.length, agentState: demoAgentState }),
+    mkSession("s1", { path: "/home/denys/src/app", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", model: "sonnet", permissionMode: "default", clientProfileId: "anthropic", summary: { text: "Fix flaky login test" }, claudeModels: [{ id: "default", name: "Default", efforts: [] }, { id: "opus", name: "Opus", efforts: ["low", "medium", "high"] }, { id: "sonnet", name: "Sonnet", efforts: ["low", "medium", "high"] }, { id: "haiku", name: "Haiku", efforts: [] }] }, { lastSeq: demoRecords.length, agentState: demoAgentState }),
     mkSession("s2", { path: "/workspace/happy-web", host: "happy-daemon", machineId: "m-k8s", flavor: "codex", model: "gpt-5.5", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/happy-web", summary: { text: "Build the web client" } }, { ago: 2 * min }),
     mkSession("s3", { path: "/workspace/infra", host: "happy-daemon", machineId: "m-k8s", flavor: "claude", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/infra", summary: { text: "Terraform drift report" } }, { ago: 40 * min, active: false }),
     mkSession("s4", { path: "/home/denys/notes", homeDir: "/home/denys", host: "laptop", machineId: "m-laptop", flavor: "claude", summary: { text: "Weekly notes cleanup" } }, { archived: true, active: false, ago: 2 * 24 * 60 * min }),
@@ -67,6 +67,32 @@ export function createMock() {
 
   const messages: Record<string, { id: string; seq: number; localId: string | null; createdAt: number; content: string }[]> = {
     s1: demoRecords.map((r, i) => ({ id: `m${i + 1}`, seq: i + 1, localId: null, createdAt: now - (demoRecords.length - i) * 20_000, content: JSON.stringify({ t: "encrypted", c: enc(r) }) })),
+  };
+
+  // Account settings as the Happy app syncs them (Flutter Settings.toJson):
+  // the built-in Anthropic profile plus a user-defined Z.AI GLM gateway whose
+  // key is a daemon-side reference.
+  const accountSettings = {
+    schemaVersion: 3,
+    profiles: [
+      {
+        id: "zai-work",
+        name: "Z.AI GLM (work)",
+        description: "GLM Coding Plan",
+        environmentVariables: [
+          { name: "ANTHROPIC_BASE_URL", value: "https://api.z.ai/api/anthropic" },
+          { name: "ANTHROPIC_AUTH_TOKEN", value: "${Z_AI_AUTH_TOKEN:-}" },
+          { name: "API_TIMEOUT_MS", value: "3000000" },
+        ],
+        defaultModelMode: "glm-5.1",
+        models: ["glm-5.1", "glm-4.7", "glm-4.5-air"],
+        compatibility: { claude: true, codex: false, agy: false, pi: true },
+        isBuiltIn: false,
+      },
+    ],
+    lastUsedProfilesByAgent: { claude: "anthropic" },
+    favoriteModelsByProfile: {},
+    codexFastMode: false,
   };
 
   const sent: { sessionId: string; localId: string; record: unknown }[] = [];
@@ -85,6 +111,7 @@ export function createMock() {
       expect(req.headers().authorization).toBe("Bearer test-token");
       if (url.pathname === "/v2/sessions") return json({ sessions, nextCursor: null, hasNext: false });
       if (url.pathname === "/v1/machines") return json(machines);
+      if (url.pathname === "/v1/account/settings" && req.method() === "GET") return json({ settings: enc(accountSettings), settingsVersion: 7 });
       const m = url.pathname.match(/^\/v3\/sessions\/([^/]+)\/messages$/);
       if (m && req.method() === "GET") {
         const after = Number(url.searchParams.get("after_seq") ?? 0);
@@ -138,7 +165,14 @@ export function createMock() {
     permission: () => ({ success: true }),
     "stop-session": () => ({ message: "stopped" }),
     "spawn-happy-session": (p) => {
-      const req = p as { sessionId?: string; directory?: string };
+      const req = p as { sessionId?: string; directory?: string; isRestore?: boolean; profileId?: string; model?: string };
+      // A restore replaces the process; the daemon records the new routing.
+      const row = req.isRestore ? sessions.find((x) => x.id === req.sessionId) : undefined;
+      if (row) {
+        const meta = dec(row.metadata) as Record<string, unknown>;
+        row.metadata = enc({ ...meta, clientProfileId: req.profileId, model: req.model });
+        row.metadataVersion++;
+      }
       return { type: "success", sessionId: req.sessionId || "s-new", directory: req.directory || "/workspace/new" };
     },
     "repo-branches": (p) => {

@@ -80,7 +80,7 @@ export function ProviderPicker({ session, sw }: { session: SessionItem; sw: Sess
   const list = profilesForAgent(custom, agent);
   const current = sessionProfileId(session.meta);
   const currentKey = current === NO_PROFILE ? NO_PROFILE : current;
-  const label = switching ?? providerLabel(current, custom) ?? "Provider";
+  const label = providerLabel(current, custom) ?? "Provider";
 
   const choose = (id: string) => {
     combobox.closeDropdown();
@@ -139,7 +139,7 @@ export function ProviderPicker({ session, sw }: { session: SessionItem; sw: Sess
           data-pending={switching ? true : undefined}
           disabled={!!switching}
           onClick={() => combobox.toggleDropdown()}
-          aria-label={`Provider: ${label}`}
+          aria-label={switching ? `Provider: switching to ${switching}` : `Provider: ${label}`}
           title={current ? undefined : "No app chose this session's provider; the daemon's routing applies"}
         >
           {switching ? <Loader size={12} color="currentColor" /> : <Server size={14} className={classes.chipIcon} />}

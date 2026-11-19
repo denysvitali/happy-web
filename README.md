@@ -69,7 +69,8 @@ Then open the Happy app → **Settings → Account → Link New Device** and sca
 src/lib/crypto     base64, secretbox / AES-GCM / box primitives, key derivation, per-row cipher
 src/lib/api        fetch client: protobuf-es for grpc-gateway routes, zod for compat routes
 src/lib/realtime   socket.io (user-scoped), typed events, encrypted RPC
-src/lib/sync       account orchestrator, session/machine decoding, chat reducer, spawn helpers
+src/lib/sync       account orchestrator, session/machine decoding, chat reducer, spawn helpers,
+                   provider profiles (read from the app's synced account settings)
 src/components     Mantine UI (shell, sessions, chat, new-session, session toolbar)
 src/routes         link, overview, chat, /components-demo
 e2e/               Playwright mocks (HTTP + socket.io), smoke test, screenshot capture
@@ -117,3 +118,21 @@ The server wins wherever they disagree. Found while building this client:
 12. **No archived filter on `/v2/sessions`.** All sessions (archived included) are
     downloaded and decrypted. The UI only renders archived ones on demand, but the
     transfer cost remains until the server can filter.
+13. **Codex speed on Claude spawns.** Flutter stamps `HAPPY_CODEX_FAST_MODE` on every
+    spawn; on Claude it is meaningless and, as a non-switchable key, forced every
+    Kubernetes provider switch into a full Pod replacement. The daemon now strips it
+    (`normalizeCodexFastModeEnv`); this client sends it for Codex only.
+14. **OpenRouter's built-in default model is refused.** Flutter's `openrouter` profile
+    defaults to `anthropic/claude-opus-4.6`, a Claude id, and the daemon rejects any Claude
+    model on a third-party `ANTHROPIC_BASE_URL` (`provider_model_mismatch`). This client
+    starts that profile on `default`.
+15. **`model: "default"` on a gateway restore checks the old model.** The daemon's
+    provider/model preflight runs before the restore writes the new model, so a gateway
+    profile with no `ANTHROPIC_MODEL` is checked against the session's previous model.
+    Switching a session on `opus` to such a profile is refused; this client says so before
+    sending.
+16. **In-Pod switch skips `${VAR:-default}` expansion.** Pod spawns expand profile
+    references against the daemon environment (`buildSpawnEnvMap`), but the in-Pod
+    Claude switch forwards the request env as sent (`kube_inpod_switch.go`). Built-in
+    profiles store references, so a Kubernetes switch to one appears to hand Claude the
+    literal reference. Server-side; clients cannot expand the daemon's variables.

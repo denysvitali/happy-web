@@ -43,6 +43,19 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(250);
       await shot(page, "04b-model-picker");
       await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: /^Provider:/ }).click();
+      await page.waitForTimeout(250);
+      await shot(page, "04f-provider-picker");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "04g-provider-picker-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.getByRole("option", { name: /Z\.AI GLM \(work\)/ }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "04h-provider-confirm");
+      await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       if (vp.name === "desktop") {
         // The usage pill lives in the header on desktop only.
         await page.getByRole("button", { name: /usage \d+%/ }).click();
@@ -77,6 +90,12 @@ for (const vp of VIEWPORTS) {
       await dialog.getByLabel("First message").fill("Find why the login test is flaky and fix it");
       await page.waitForTimeout(300);
       await shot(page, "06-new-session");
+      await dialog.getByRole("button", { name: "Advanced" }).click();
+      await dialog.getByRole("combobox", { name: "Provider", exact: true }).click();
+      await page.getByRole("option", { name: "Z.AI GLM (work)" }).click();
+      await page.waitForTimeout(300);
+      await shot(page, "06b-new-session-provider");
+      await dialog.getByRole("button", { name: "Advanced" }).click();
       await dialog.getByRole("radio", { name: /Kubernetes/ }).click();
       await dialog.getByRole("combobox", { name: "Repository" }).fill("acme/happy-web");
       await expect(dialog.getByText(/branches · default main/)).toBeVisible();
