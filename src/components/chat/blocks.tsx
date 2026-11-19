@@ -15,6 +15,7 @@ import { CopyIcon, TimeLabel } from "./primitives";
 import { AgentCard } from "./tools/agent";
 import { titleOf, viewFor } from "./tools/registry";
 import { Glyph, StepsGroup, ThinkingStep, ToolCard } from "./tools/tool-card";
+import { WorkGroup } from "./work";
 import classes from "./chat.module.css";
 
 export type { PermissionHandler } from "./permission";
@@ -137,6 +138,8 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
           <span>Unsupported message · {b.label}</span>
         </div>
       );
+    case "work":
+      return <WorkGroup b={b} renderChildren={childrenFor(onPermission)} />;
     case "steps":
       return <StepsGroup items={b.items} onPermission={onPermission} />;
     case "tool":

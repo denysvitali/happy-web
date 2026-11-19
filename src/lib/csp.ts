@@ -6,8 +6,9 @@ export function narrowConnectSrc(serverUrl: string): void {
   if (!serverUrl) return;
   const u = new URL(serverUrl);
   const ws = `${u.protocol === "https:" ? "wss:" : "ws:"}//${u.host}`;
-  const sources = [u.origin, ws];
-  if (import.meta.env.DEV) sources.push("'self'", "ws:");
+  // 'self': the app's own version.json (update check).
+  const sources = ["'self'", u.origin, ws];
+  if (import.meta.env.DEV) sources.push("ws:");
   const meta = document.createElement("meta");
   meta.httpEquiv = "Content-Security-Policy";
   meta.content = `connect-src ${sources.join(" ")}`;

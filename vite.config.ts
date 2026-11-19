@@ -5,7 +5,7 @@ import { defineConfig, type Plugin } from "vitest/config";
 // The static CSP allows only https/wss connections; at startup the app adds a
 // second, narrower policy for the configured server origin (src/lib/csp.ts).
 function csp(dev: boolean): Plugin {
-  const connect = dev ? "'self' ws: wss: http: https:" : "https: wss:";
+  const connect = dev ? "'self' ws: wss: http: https:" : "'self' https: wss:";
   const policy = [
     "default-src 'self'",
     "script-src 'self'",
@@ -24,9 +24,25 @@ function csp(dev: boolean): Plugin {
   };
 }
 
+// One id per build: the commit in CI, else the build time. Baked into the
+// bundle and written to version.json, which open tabs poll to offer a reload
+// once a newer build is deployed (src/app/version.ts).
+const BUILD_ID = process.env.GITHUB_SHA ?? String(Date.now());
+
+function version(): Plugin {
+  return {
+    name: "happy-version",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ build: BUILD_ID }) });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   base: process.env.HAPPY_WEB_BASE ?? "/",
-  plugins: [react(), csp(command === "serve")],
+  plugins: [react(), csp(command === "serve"), version()],
+  define: { __HAPPY_BUILD__: JSON.stringify(BUILD_ID) },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   build: { target: "es2022", sourcemap: false, assetsInlineLimit: 0 },
   css: { modules: { localsConvention: "camelCaseOnly" } },

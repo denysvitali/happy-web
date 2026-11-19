@@ -40,7 +40,7 @@ export function useChatView(store: ChatStore | null, session: SessionItem | unde
   return useMemo(() => (store && session ? buildView(state, agentState ?? {}) : null), [store, session, state, agentState]);
 }
 
-const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission"]);
+const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission", "work"]);
 
 const isCard = (b: Block) => b.type === "permission" || (b.type === "tool" && (isAgent(b) || b.permission?.status === "pending"));
 

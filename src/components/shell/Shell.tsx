@@ -1,6 +1,7 @@
 import { Outlet, useParams } from "@tanstack/react-router";
 import { useCompact } from "./nav";
 import { Sidebar } from "./Sidebar";
+import { UpdatePrompt } from "./UpdatePrompt";
 import classes from "./shell.module.css";
 
 /**
@@ -19,6 +20,7 @@ export function Shell() {
       </aside>
       {/* Phones never see the overview: the list is home there. */}
       <main className={classes.main}>{compact && !inSession ? null : <Outlet />}</main>
+      <UpdatePrompt />
     </div>
   );
 }

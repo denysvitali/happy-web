@@ -361,3 +361,41 @@ describe("background agents", () => {
     expect(findTool(buildView(s, {}).blocks, "zz")).toBeUndefined();
   });
 });
+
+describe("finished turns", () => {
+  const say = (t: string) => claude({ type: "assistant", message: { content: [{ type: "text", text: t }] } });
+  const turn = [
+    msg(user("go")),
+    msg(say("Looking first.")),
+    msg(use("b1", "Bash", { command: "ls" })),
+    msg(res("b1", "ok")),
+    msg(say("Now the fix.")),
+    msg(use("e1", "Edit", { file_path: "a.ts" })),
+    msg(res("e1", "ok")),
+    msg(say("Done: fixed a.ts.")),
+  ];
+
+  it("folds the working of a finished turn and keeps its final reply", () => {
+    const v = buildView(addMessages(emptyChat, [...turn, msg(ready)]), {});
+    expect(types(v.blocks)).toEqual(["user", "work", "text"]);
+    const w = v.blocks[1] as Extract<Block, { type: "work" }>;
+    expect(types(w.items)).toEqual(["text", "tool", "text", "tool"]);
+    expect((v.blocks[2] as Extract<Block, { type: "text" }>).text).toBe("Done: fixed a.ts.");
+  });
+
+  it("leaves the turn in progress unfolded, even with a queued message after it", () => {
+    const s = addPending(addMessages(emptyChat, turn), { localId: "q", text: "also this", createdAt: 1 });
+    expect(types(buildView(s, {}).blocks)).toEqual(["user", "text", "tool", "text", "tool", "text", "user"]);
+  });
+
+  it("keeps the reply when quiet lines trail it", () => {
+    const compacted = { role: "agent", content: { type: "event", data: { type: "message", message: "Context compacted" } } };
+    const v = buildView(addMessages(emptyChat, [...turn, msg(compacted), msg(ready)]), {});
+    expect(types(v.blocks)).toEqual(["user", "work", "text", "event"]);
+  });
+
+  it("keeps what waits for the user outside the fold", () => {
+    const v = buildView(addMessages(emptyChat, [...turn, msg(use("q1", "AskUserQuestion")), msg(user("next"))]), {});
+    expect(types(v.blocks)).toEqual(["user", "work", "tool", "user"]);
+  });
+});

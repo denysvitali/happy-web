@@ -168,6 +168,9 @@ export type Block =
   | ToolBlock
   /** A run of plain tool calls and thinking, shown as one collapsible line. */
   | { type: "steps"; key: string; items: StepBlock[] }
+  /** A finished turn's working (narration, steps, agents) before its final
+   * reply, folded into one line. `from`/`to` bound the turn. */
+  | { type: "work"; key: string; items: Block[]; from?: number | undefined; to?: number | undefined }
   /** Local-day separator before the first top-level block of each day. */
   | { type: "day"; key: string; at: number }
   | { type: "permission"; key: string; id: string; tool: string; input: unknown };
@@ -216,14 +219,62 @@ export function groupSteps(blocks: Block[]): Block[] {
 /** The call with this id anywhere in a view (agents nest, runs fold). */
 export function findTool(blocks: readonly Block[], id: string): ToolBlock | undefined {
   for (const b of blocks) {
-    const hit = b.type === "tool" ? (b.id === id ? b : findTool(b.children, id)) : b.type === "steps" ? findTool(b.items, id) : undefined;
+    const hit =
+      b.type === "tool" ? (b.id === id ? b : findTool(b.children, id)) : b.type === "steps" || b.type === "work" ? findTool(b.items, id) : undefined;
     if (hit) return hit;
   }
   return undefined;
 }
 
 export const blockTime = (b: Block): number | undefined =>
-  b.type === "steps" ? b.items[0]?.at : "at" in b ? b.at : undefined;
+  b.type === "steps" || b.type === "work" ? (b.items[0] ? blockTime(b.items[0]) : undefined) : "at" in b ? b.at : undefined;
+
+/** Blocks a finished turn must not hide: they still wait for the user. */
+const needsUser = (b: Block): boolean =>
+  b.type === "permission" || (b.type === "tool" && (b.permission?.status === "pending" || (ASKING_TOOLS.has(b.name) && !b.result)));
+
+/** Folds each finished agent turn: everything between the user's message and
+ * the final reply (the trailing text) becomes one `work` block. The turn in
+ * progress stays as it is, and so does anything that waits for the user. */
+export function groupTurns(blocks: Block[], turnOpen: boolean): Block[] {
+  // Split into [user, agent blocks…] segments; the newest one is the turn in
+  // progress while turnOpen (a queued message after it does not finish it).
+  const segs: { user?: Block; body: Block[] }[] = [{ body: [] }];
+  for (const b of blocks) {
+    if (b.type === "user") segs.push({ user: b, body: [] });
+    else segs[segs.length - 1]!.body.push(b);
+  }
+  // Queued (optimistic) sends are skipped; a durable user row starts the live turn.
+  let live = segs.length - 1;
+  while (live > 0 && segs[live]!.body.length === 0 && segs[live]!.user?.type === "user" && segs[live]!.user!.key.startsWith("pending:")) live--;
+  if (!turnOpen) live = -1;
+  const out: Block[] = [];
+  segs.forEach((g, i) => {
+    if (g.user) out.push(g.user);
+    out.push(...(i === live ? g.body : foldTurn(g.body, g.user && "at" in g.user ? g.user.at : undefined)));
+  });
+  return out;
+}
+
+/** Lines that may trail a reply without being work (e.g. "Context compacted"). */
+const QUIET = new Set<Block["type"]>(["event", "unknown", "day"]);
+
+function foldTurn(seg: Block[], since: number | undefined): Block[] {
+  // The reply: the last run of text, when only quiet lines follow it.
+  let last = seg.length - 1;
+  while (last >= 0 && QUIET.has(seg[last]!.type)) last--;
+  let start = last + 1;
+  while (start > 0 && seg[start - 1]!.type === "text") start--;
+  if (start > last) start = seg.length; // ended on work: no reply to keep
+  const work: Block[] = [];
+  const keep: Block[] = [];
+  for (const b of seg.slice(0, start)) (needsUser(b) ? keep : work).push(b);
+  if (work.length < 2) return seg;
+  const reply = seg[start];
+  const lastWork = work[work.length - 1]!;
+  const to = (reply ? blockTime(reply) : undefined) ?? (lastWork.type === "tool" ? (lastWork.result?.at ?? lastWork.at) : blockTime(lastWork));
+  return [{ type: "work", key: `work:${work[0]!.key}`, items: work, from: since ?? blockTime(work[0]!), to }, ...keep, ...seg.slice(start)];
+}
 
 const dayKey = (t: number) => {
   const d = new Date(t);
@@ -383,7 +434,7 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
     else orphans.push({ type: "permission", key: `perm:${id}`, id, tool: r.tool, input: r.arguments });
   }
 
-  return { blocks: [...withDays(groupSteps(top)), ...orphans], turnOpen };
+  return { blocks: [...withDays(groupTurns(groupSteps(top), turnOpen)), ...orphans], turnOpen };
 }
 
 // ---- memo support ---------------------------------------------------------
@@ -424,6 +475,10 @@ export function sameBlock(a: Block, b: Block): boolean {
   if (a.type !== b.type || a.key !== b.key) return false;
   if (a.type === "tool") return sameTool(a, b as ToolBlock);
   if (a.type === "steps") return sameList(a.items, (b as typeof a).items);
+  if (a.type === "work") {
+    const w = b as typeof a;
+    return a.from === w.from && a.to === w.to && sameList(a.items, w.items);
+  }
   const ao = a as unknown as Record<string, unknown>;
   const bo = b as unknown as Record<string, unknown>;
   const ak = Object.keys(ao);

@@ -1,6 +1,6 @@
 // One-line descriptions of a run of steps ("Ran 3 commands, edited 2 files")
 // and of what a run or a sub-agent is doing right now.
-import type { Block, StepBlock, ToolBlock } from "@/lib/sync/chat";
+import { isAgent, type Block, type StepBlock, type ToolBlock } from "@/lib/sync/chat";
 import { agentStatus, field, firstLine } from "./format";
 import { titleOf, viewFor } from "./registry";
 
@@ -110,12 +110,30 @@ export function latestPlan(blocks: readonly Block[]): ToolBlock | undefined {
   for (let i = blocks.length - 1; i >= 0; i--) {
     const b = blocks[i]!;
     if (b.type === "tool" && TODO_TOOLS.has(b.name)) return b;
-    if (b.type === "steps") {
-      for (let j = b.items.length - 1; j >= 0; j--) {
-        const s = b.items[j]!;
-        if (s.type === "tool" && TODO_TOOLS.has(s.name)) return s;
-      }
+    if (b.type === "steps" || b.type === "work") {
+      const hit = latestPlan(b.items);
+      if (hit) return hit;
     }
   }
   return undefined;
+}
+
+/** What a folded turn did: its steps (agents counted apart), for the line. */
+export function workSummary(items: readonly Block[]): { summary: string; failed: number } {
+  const steps: StepBlock[] = [];
+  let agents = 0;
+  const walk = (bs: readonly Block[]) => {
+    for (const b of bs) {
+      if (b.type === "steps") steps.push(...b.items);
+      else if (b.type === "thinking") steps.push(b);
+      else if (b.type === "tool") {
+        if (isAgent(b)) agents++;
+        else steps.push(b);
+      }
+    }
+  };
+  walk(items);
+  const parts = [stepsSummary(steps), agents && `${agents} ${agents === 1 ? "agent" : "agents"}`].filter(Boolean) as string[];
+  const s = parts.join(", ");
+  return { summary: s.charAt(0).toLowerCase() + s.slice(1), failed: failedSteps(steps) };
 }

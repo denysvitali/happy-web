@@ -595,6 +595,28 @@
   padding: 4px 0 10px 22px;
 }
 /* An expanded run: its steps on a hairline rail. */
+/* A finished turn's working, folded above its reply. */
+.work { min-width: 0; }
+.workTitle { flex-shrink: 0; font-weight: 500; color: var(--happy-label-2); }
+.workSummary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--happy-label-3);
+}
+.workSummary::before { content: "· "; }
+.workList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 4px 0 8px 6px;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid var(--happy-separator-strong);
+}
+
 .stepsList {
   display: flex;
   flex-direction: column;

@@ -80,6 +80,11 @@ for (const vp of VIEWPORTS) {
         await page.waitForTimeout(200);
       }
       await shot(page, "04e-chat-top");
+      // A finished turn's folded working, opened.
+      await page.getByRole("button", { name: /^Worked for/ }).first().click();
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await shot(page, "04f-work-open");
 
       await page.goto("/#/");
       await page.emulateMedia({ colorScheme: "dark" });
@@ -224,6 +229,19 @@ for (const vp of VIEWPORTS) {
       await page.emulateMedia({ colorScheme: "dark" });
       await page.waitForTimeout(300);
       await shot(page, "16b-chat-prose-dark");
+      expect(violations).toEqual([]);
+    });
+
+    // A newer build deployed while the tab is open: the reload prompt.
+    test("update prompt", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await page.route("**/version.json", (route) => route.fulfill({ json: { build: "newer-build" } }));
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await expect(page.getByRole("button", { name: /New version available/ })).toBeVisible();
+      await page.waitForTimeout(400);
+      await shot(page, "03-update");
       expect(violations).toEqual([]);
     });
 

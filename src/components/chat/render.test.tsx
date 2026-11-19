@@ -15,7 +15,7 @@ const view = () => {
 };
 
 function tools(blocks: Block[]): ToolBlock[] {
-  return blocks.flatMap((b) => (b.type === "tool" ? [b, ...tools(b.children)] : b.type === "steps" ? tools(b.items) : []));
+  return blocks.flatMap((b) => (b.type === "tool" ? [b, ...tools(b.children)] : b.type === "steps" || b.type === "work" ? tools(b.items) : []));
 }
 
 describe("demo transcript", () => {

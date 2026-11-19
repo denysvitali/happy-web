@@ -47,6 +47,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   finishing while UI sources are newer than the last screenshots. Chat changes are judged on
   the mocked ops session (`opsRecords` in `src/components/chat/fixtures.ts`, shots `screenshots/*-ops*.png`).
 - Transcript: plain tool calls and thinking fold into one-line `steps` runs (`groupSteps`);
-  sub-agents, unanswered questions and pending permissions stay out as cards.
+  sub-agents, unanswered questions and pending permissions stay out as cards. Finished turns
+  fold their working into one `work` line above the final reply (`groupTurns`); the live
+  turn and anything waiting for the user never fold.
+- Deploys: the build writes `version.json`; open tabs poll it and offer a reload
+  (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Image attachments follow happy_flutter: user content becomes a block array with base64
   `image` blocks (≤1568px, ≤3.4 MB base64); Har/OpenCode are text-only.
