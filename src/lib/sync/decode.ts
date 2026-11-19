@@ -34,6 +34,11 @@ export const sessionMetadata = z.catch(
     podStatus: str,
     podPaused: z.catch(z.optional(z.boolean()), undefined),
     repoUrl: str,
+    repoRef: str,
+    repoCommit: str,
+    // Provider profile the app chose ("default" = account login), see profiles.ts.
+    clientProfileId: str,
+    codexFastMode: z.catch(z.optional(z.boolean()), undefined),
     gitRemoteUrl: str,
     gitBranch: str,
     summary: z.catch(z.optional(z.object({ text: z.string(), updatedAt: num })), undefined),

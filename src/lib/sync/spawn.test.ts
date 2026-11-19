@@ -6,7 +6,9 @@ import {
   agentsFor,
   availableModes,
   backendRequestValue,
+  buildProviderSwitchRequest,
   buildSpawnRequest,
+  canSwitchProvider,
   cleanAdditionalRepos,
   clusterChoices,
   defaultLocalMachine,
@@ -25,6 +27,7 @@ import {
   resolveHome,
   spawnBackends,
 } from "./spawn";
+import { findProfile, providerSpawn } from "./profiles";
 
 const machine = (id: string, meta: MachineMetadata, activeAt = 0): MachineItem => ({ id, active: true, activeAt, meta, metadataVersion: 1 });
 const session = (id: string, meta: SessionMetadata, updatedAt: number): SessionItem => ({
@@ -208,6 +211,7 @@ describe("buildSpawnRequest", () => {
       type: "spawn-in-directory",
       directory: "/home/me/a",
       sessionId: "c1",
+      isRestore: false,
       agent: "claude",
       approvedNewDirectoryCreation: true,
       profileId: "default",
@@ -217,12 +221,36 @@ describe("buildSpawnRequest", () => {
       spawnBackend: "local",
       repoUrl: "",
       repoRef: "",
+      repoCommit: "",
       additionalRepos: [],
       mcpServers: [],
       mcpServersSet: false,
     });
   });
 
+  it("sends the chosen profile's routing env and default model", () => {
+    const zai = findProfile([], "zai")!;
+    const r = buildSpawnRequest({ machineId: "m", agent: "claude", directory: "/x", profile: zai, initialPrompt: "go" }, "c1");
+    expect(r.profileId).toBe("zai");
+    expect(r.model).toBe("default");
+    expect(r.environmentVariables).toMatchObject({ ANTHROPIC_BASE_URL: "${Z_AI_BASE_URL:-https://api.z.ai/api/anthropic}", ANTHROPIC_AUTH_TOKEN: "${Z_AI_AUTH_TOKEN:-}", HAPPY_INITIAL_PROMPT: "go" });
+    const picked = buildSpawnRequest({ machineId: "m", agent: "claude", directory: "/x", profile: zai, model: "GLM-5.1" }, "c1");
+    expect(picked.model).toBe("GLM-5.1");
+    expect(picked.environmentVariables).toMatchObject({ ANTHROPIC_MODEL: "GLM-5.1", ANTHROPIC_DEFAULT_OPUS_MODEL: "GLM-5.1", ANTHROPIC_DEFAULT_HAIKU_MODEL: "${Z_AI_HAIKU_MODEL:-glm-4.5-air}" });
+  });
+
+  it("refuses Claude ids on a gateway and drops tier aliases", () => {
+    const zai = findProfile([], "zai")!;
+    expect(() => buildSpawnRequest({ machineId: "m", agent: "claude", directory: "/x", profile: zai, model: "claude-opus-4-5" }, "c1")).toThrow(/cannot run on Z.AI/);
+    expect(buildSpawnRequest({ machineId: "m", agent: "claude", directory: "/x", profile: zai, model: "opus" }, "c1").model).toBe("default");
+  });
+
+  it("stamps Codex speed and keeps no-profile agents on the plain model", () => {
+    expect(buildSpawnRequest({ machineId: "m", agent: "codex", directory: "/x", codexFastMode: true }, "c1").environmentVariables).toEqual({ HAPPY_CODEX_FAST_MODE: "1" });
+    expect(buildSpawnRequest({ machineId: "m", agent: "codex", directory: "/x" }, "c1").environmentVariables).toEqual({ HAPPY_CODEX_FAST_MODE: "0" });
+    const oc = buildSpawnRequest({ machineId: "m", agent: "opencode", directory: "/x", profile: findProfile([], "zai"), model: "x/y" }, "c1");
+    expect(oc).toMatchObject({ profileId: "default", model: "x/y", environmentVariables: {} });
+  });
   it("omits the backend for daemons that advertise none", () => {
     const r = buildSpawnRequest({ machineId: "m", agent: "codex", directory: "/x", permissionMode: "yolo", model: " gpt-5.5 " }, "c1");
     expect(r).toMatchObject({ spawnBackend: "", permissionMode: "yolo", model: "gpt-5.5", environmentVariables: {} });
@@ -252,5 +280,49 @@ describe("buildSpawnRequest", () => {
     });
     expect(buildSpawnRequest({ machineId: "m", agent: "claude", backend: "kubernetes", directory: "/w", repoUrl: "acme/web", mcpServers: [] }, "c1")).toMatchObject({ mcpServers: [], mcpServersSet: true });
     expect(buildSpawnRequest({ machineId: "m", agent: "claude", backend: "kubernetes", directory: "/w", repoUrl: "acme/web" }, "c1")).toMatchObject({ mcpServers: [], mcpServersSet: false });
+  });
+});
+
+describe("buildProviderSwitchRequest", () => {
+  const live = (meta: SessionMetadata) => ({ ...session("s1", meta, 0), active: true });
+
+  it("restores the same local session with the new routing", () => {
+    const s = live({ flavor: "claude", machineId: "m", path: "/home/me/a", model: "opus", permissionMode: "acceptEdits", clientProfileId: "default" });
+    const provider = providerSpawn({ profile: findProfile([], "zai"), agent: "claude", model: "GLM-5.1" });
+    expect(buildProviderSwitchRequest(s, { spawnBackends: ["local"] }, provider)).toMatchObject({
+      type: "spawn-in-directory",
+      sessionId: "s1",
+      isRestore: true,
+      directory: "/home/me/a",
+      agent: "claude",
+      approvedNewDirectoryCreation: false,
+      profileId: "zai",
+      model: "GLM-5.1",
+      permissionMode: "acceptEdits",
+      spawnBackend: "local",
+      repoUrl: "",
+      mcpServersSet: false,
+    });
+  });
+
+  it("back to the account login is an explicit empty routing", () => {
+    const s = live({ flavor: "claude", machineId: "m", path: "/a", model: "GLM-5.1", clientProfileId: "zai" });
+    const r = buildProviderSwitchRequest(s, {}, providerSpawn({ profile: undefined, agent: "claude", model: "default" }));
+    expect(r).toMatchObject({ profileId: "default", environmentVariables: {}, model: "default", spawnBackend: "" });
+  });
+
+  it("keeps a Kubernetes session's repository", () => {
+    const s = live({ flavor: "codex", machineId: "m", path: "/workspace/web", runtimeType: "kubernetes", repoUrl: "https://github.com/acme/web", repoRef: "dev", repoCommit: "abc" });
+    const r = buildProviderSwitchRequest(s, { spawnBackends: ["kubernetes"] }, providerSpawn({ profile: findProfile([], "qwen-token-plan-codex"), agent: "codex", model: "qwen3.7-max" }));
+    expect(r).toMatchObject({ spawnBackend: "kubernetes", repoUrl: "https://github.com/acme/web", repoRef: "dev", repoCommit: "abc", agent: "codex", profileId: "qwen-token-plan-codex" });
+    expect(r.environmentVariables.HAPPY_CODEX_FAST_MODE).toBeUndefined();
+    expect(r.environmentVariables.OPENAI_MODEL).toBe("qwen3.7-max");
+  });
+
+  it("only offers the switch for restorable Claude/Codex sessions", () => {
+    expect(canSwitchProvider(live({ flavor: "claude", machineId: "m", path: "/a" }))).toBe(true);
+    expect(canSwitchProvider(live({ flavor: "opencode", machineId: "m", path: "/a" }))).toBe(false);
+    expect(canSwitchProvider(live({ flavor: "codex", path: "/a" }))).toBe(false);
+    expect(canSwitchProvider({ ...live({ flavor: "claude", machineId: "m", path: "/a" }), archived: true })).toBe(false);
   });
 });

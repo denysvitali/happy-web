@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { machinesKey, sessionsKey, type MachineItem, type SessionItem } from "@/lib/sync/account";
+import { accountSettingsKey, machinesKey, sessionsKey, type Account, type MachineItem, type SessionItem } from "@/lib/sync/account";
+import type { AccountSettings } from "@/lib/sync/profiles";
 import type { Store } from "@/lib/sync/store";
 import { useAccount } from "./auth";
 
@@ -23,6 +24,21 @@ export function useMachines() {
     queryKey: machinesKey,
     queryFn: ({ signal }) => account.fetchMachines(signal),
     staleTime: 60_000,
+  });
+}
+
+/** Provider profiles and choices synced by the Happy app (read-only). */
+export function useAccountSettings() {
+  return useAccountSettingsOf(useAccount());
+}
+
+/** For trees outside the auth context (modals get the account as a prop). */
+export function useAccountSettingsOf(account: Account) {
+  return useQuery<AccountSettings>({
+    queryKey: accountSettingsKey,
+    queryFn: ({ signal }) => account.fetchAccountSettings(signal),
+    staleTime: 60_000,
+    retry: 1,
   });
 }
 

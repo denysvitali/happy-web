@@ -5,6 +5,7 @@
 import type { SpawnHappySessionRequest } from "@/gen/daemon_pb";
 import type { MachineItem, SessionItem } from "./account";
 import type { MachineMetadata } from "./decode";
+import { agentKey, agentUsesProfiles, NO_PROFILE, providerSpawn, type ProviderProfile, type ProviderSpawn } from "./profiles";
 
 export type SpawnBackend = "local" | "kubernetes";
 
@@ -298,6 +299,10 @@ export interface SpawnOptions {
   mcpServers?: readonly string[] | undefined;
   permissionMode?: string | undefined;
   model?: string | undefined;
+  /** Claude/Codex provider profile; undefined is the account login. */
+  profile?: ProviderProfile | undefined;
+  /** Codex Fast/Priority tier (account setting `codexFastMode`). */
+  codexFastMode?: boolean | undefined;
   initialPrompt?: string | undefined;
 }
 
@@ -306,6 +311,7 @@ export type SpawnRequestInit = Pick<
   | "type"
   | "directory"
   | "sessionId"
+  | "isRestore"
   | "agent"
   | "approvedNewDirectoryCreation"
   | "profileId"
@@ -315,6 +321,7 @@ export type SpawnRequestInit = Pick<
   | "spawnBackend"
   | "repoUrl"
   | "repoRef"
+  | "repoCommit"
   | "additionalRepos"
   | "mcpServers"
   | "mcpServersSet"
@@ -324,10 +331,24 @@ export function newSessionId(): string {
   return `c${Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** The provider part of a spawn: Claude and Codex send their profile and its
+ * env (an explicit NO_PROFILE means the account login, never the daemon's
+ * own profile); other agents keep the plain model. Throws on a pairing the
+ * daemon would refuse. */
+function providerFor(o: Pick<SpawnOptions, "agent" | "profile" | "model">): ProviderSpawn {
+  const model = o.model?.trim() || "default";
+  if (!agentUsesProfiles(o.agent)) return { profileId: NO_PROFILE, environmentVariables: {}, model };
+  return providerSpawn({ profile: o.profile, agent: o.agent, model });
+}
+
 /** The SpawnHappySessionRequest for `o`. Repository and MCP fields are only
  * sent for Kubernetes; `model` "default" means the account default. */
 export function buildSpawnRequest(o: SpawnOptions, sessionId: string): SpawnRequestInit {
-  const environmentVariables: Record<string, string> = {};
+  const provider = providerFor(o);
+  const environmentVariables: Record<string, string> = { ...provider.environmentVariables };
+  // Explicit on every Codex spawn, like Flutter: otherwise Codex inherits its
+  // own account-level Fast default.
+  if (agentKey(o.agent) === "codex") environmentVariables.HAPPY_CODEX_FAST_MODE = o.codexFastMode ? "1" : "0";
   const prompt = o.initialPrompt?.trim();
   if (prompt) environmentVariables.HAPPY_INITIAL_PROMPT = prompt;
   const k8s = o.backend === "kubernetes";
@@ -338,17 +359,58 @@ export function buildSpawnRequest(o: SpawnOptions, sessionId: string): SpawnRequ
     type: "spawn-in-directory",
     directory: o.directory,
     sessionId,
+    isRestore: false,
     agent: o.agent,
     approvedNewDirectoryCreation: true,
-    profileId: "default",
+    profileId: provider.profileId,
     environmentVariables,
     permissionMode: o.permissionMode || "default",
-    model: o.model?.trim() || "default",
+    model: provider.model,
     spawnBackend: o.backend ?? "",
     repoUrl: primary?.url ?? (k8s ? (o.repoUrl?.trim() ?? "") : ""),
     repoRef: k8s ? (o.repoRef?.trim() ?? "") : "",
+    repoCommit: "",
     additionalRepos: additional,
     mcpServers: mcp ? [...mcp] : [],
     mcpServersSet: mcp !== undefined,
+  };
+}
+
+// ---- provider switch --------------------------------------------------------
+
+/** Whether the session can switch provider from here: a Claude or Codex
+ * session the app can restore (machine and directory known). */
+export function canSwitchProvider(s: SessionItem): boolean {
+  return !s.archived && !s.undecryptable && agentUsesProfiles(s.meta.flavor || "claude") && !!s.meta.machineId && !!s.meta.path;
+}
+
+/** Restarts `s` on another provider: spawn-happy-session for the same
+ * session id with `isRestore`. The daemon owns the process boundary (in-Pod
+ * switch on Kubernetes Claude, else the stop barrier and a replacement) and
+ * the agent resumes its transcript. Directory, permission mode and repository
+ * come from the session's metadata so nothing but provider and model changes (the
+ * in-Pod switch refuses any other difference). Codex speed is left to the
+ * daemon, which restores it from `codexFastMode`. */
+export function buildProviderSwitchRequest(s: SessionItem, machine: MachineMetadata | undefined, provider: ProviderSpawn): SpawnRequestInit {
+  const k8s = isKubernetesSession(s);
+  const backend: SpawnBackend | "" = k8s ? "kubernetes" : machine?.spawnBackends?.length ? "local" : "";
+  return {
+    type: "spawn-in-directory",
+    directory: s.meta.path ?? "",
+    sessionId: s.id,
+    isRestore: true,
+    agent: s.meta.flavor || "claude",
+    approvedNewDirectoryCreation: false,
+    profileId: provider.profileId,
+    environmentVariables: { ...provider.environmentVariables },
+    permissionMode: s.meta.permissionMode ?? "",
+    model: provider.model,
+    spawnBackend: backend,
+    repoUrl: k8s ? (s.meta.repoUrl ?? "") : "",
+    repoRef: k8s ? (s.meta.repoRef ?? "") : "",
+    repoCommit: k8s ? (s.meta.repoCommit ?? "") : "",
+    additionalRepos: [],
+    mcpServers: [],
+    mcpServersSet: false,
   };
 }

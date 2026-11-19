@@ -17,7 +17,8 @@ import {
   type MachineMetadata,
   type SessionMetadata,
 } from "./decode";
-import { buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
+import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
+import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { Store } from "./store";
 
 export interface SessionItem {
@@ -55,6 +56,7 @@ const loadProtos = () => (protos ??= import("./rpcProtos"));
 
 export const sessionsKey = ["sessions"] as const;
 export const machinesKey = ["machines"] as const;
+export const accountSettingsKey = ["account-settings"] as const;
 
 export class Account {
   readonly api: ApiClient;
@@ -165,6 +167,16 @@ export class Account {
 
   private patchSession(id: string, fn: (s: SessionItem) => SessionItem): void {
     this.qc.setQueryData<SessionItem[]>(sessionsKey, (list) => list?.map((s) => (s.id === id ? fn(s) : s)));
+  }
+
+  /** Provider profiles and per-agent choices from the account settings
+   * (Flutter's synced Settings blob, legacy secretbox under the master
+   * secret). Read-only here: this client never writes the blob. */
+  async fetchAccountSettings(signal?: AbortSignal): Promise<AccountSettings> {
+    const res = await this.api.getAccountSettings(signal);
+    if (!res.settings) return EMPTY_SETTINGS;
+    const cipher = await createCipher(this.keys, null);
+    return decodeAccountSettings(await cipher.decrypt(res.settings));
   }
 
   // ---- socket ---------------------------------------------------------------
@@ -382,6 +394,29 @@ export class Account {
     if (res.type !== "success") throw new RpcError(`unexpected spawn result: ${res.type}`);
     void this.qc.invalidateQueries({ queryKey: sessionsKey });
     return res.sessionId || sessionId;
+  }
+
+  /** Restarts a session on another provider profile. One spawn-happy-session
+   * with `isRestore` for the same session id: the daemon stops the incumbent
+   * (or switches in place in its Pod) and the agent resumes its transcript.
+   * No separate stop-session, which would race the replacement. */
+  async switchProvider(session: SessionItem, provider: ProviderSpawn): Promise<void> {
+    const machineId = session.meta.machineId;
+    if (!machineId) throw new RpcError("this session has no machine to restart it on");
+    // Also loads the machine cipher the RPC is encrypted with.
+    const machines = await this.qc.ensureQueryData({ queryKey: machinesKey, queryFn: ({ signal }) => this.fetchMachines(signal) });
+    const machine = machines.find((m) => m.id === machineId);
+    const res = await this.rpc(
+      machineId,
+      "spawn-happy-session",
+      (p) => [p.SpawnHappySessionRequestSchema, p.SpawnHappySessionResponseSchema],
+      buildProviderSwitchRequest(session, machine?.meta, provider),
+      180_000,
+    );
+    if (res.type === "error") throw new RpcError(res.errorMessage || "switch failed");
+    if (res.type !== "success") throw new RpcError(`unexpected spawn result: ${res.type}`);
+    if (res.sessionId && res.sessionId !== session.id) throw new RpcError("the daemon restarted a different session");
+    void this.qc.invalidateQueries({ queryKey: sessionsKey });
   }
 
   stopSession(machineId: string, sessionId: string) {

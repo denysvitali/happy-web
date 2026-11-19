@@ -91,6 +91,10 @@ export const sendMessagesV3Response = z.object({
 
 export const successResponse = z.object({ success: z.boolean() });
 
+/** GET /v1/account/settings (compat_handlers_account.go): `settings` is the
+ * legacy-secretbox ciphertext, null when none was ever saved. */
+export const accountSettingsResponse = z.object({ settings: z.nullish(z.string()), settingsVersion: z.catch(int, 0) });
+
 // ---- socket.io ------------------------------------------------------------
 
 const versioned = z.object({ value: z.nullish(z.string()), version: int });

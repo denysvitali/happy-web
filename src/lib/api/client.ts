@@ -1,6 +1,7 @@
 import { z } from "zod/mini";
 import { requestJson, type RequestOptions } from "./http";
 import {
+  accountSettingsResponse,
   machinesResponse,
   messagesV3Response,
   sendMessagesV3Response,
@@ -40,6 +41,11 @@ export class ApiClient {
 
   listMachines(signal?: AbortSignal) {
     return this.get(machinesResponse, "/v1/machines", { signal });
+  }
+
+  /** The encrypted account settings blob (provider profiles live here). */
+  getAccountSettings(signal?: AbortSignal) {
+    return this.get(accountSettingsResponse, "/v1/account/settings", { signal });
   }
 
   /** GET /v3 messages strictly after `afterSeq` (server caps limit at 500). */
