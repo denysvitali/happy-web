@@ -124,6 +124,15 @@ export interface ToolResult {
   status?: string | undefined;
   /** createdAt of the row that settled the call. */
   at?: number | undefined;
+  /** A background launch receipt: the agent is still running. */
+  async?: true;
+}
+
+/** Latest lifecycle report of a background agent. */
+export interface TaskState {
+  status: string;
+  summary?: string | undefined;
+  at: number;
 }
 
 export interface ToolBlock {
@@ -141,7 +150,14 @@ export interface ToolBlock {
   at?: number | undefined;
   /** Anchor synthesised for child rows whose spawn row has not arrived. */
   synthetic?: boolean;
+  /** Background-agent lifecycle (Claude task_* events). */
+  task?: TaskState | undefined;
+  /** The agent's own first user row, when the call input has no prompt. */
+  prompt?: string | undefined;
 }
+
+/** Task statuses that end a background agent. */
+export const TASK_TERMINAL: ReadonlySet<string> = new Set(["completed", "failed", "stopped", "cancelled", "canceled"]);
 
 export type Block =
   | { type: "user"; key: string; text: string; images?: string[] | undefined; pending?: "sending" | "failed"; at?: number | undefined }
@@ -197,6 +213,15 @@ export function groupSteps(blocks: Block[]): Block[] {
   return out;
 }
 
+/** The call with this id anywhere in a view (agents nest, runs fold). */
+export function findTool(blocks: readonly Block[], id: string): ToolBlock | undefined {
+  for (const b of blocks) {
+    const hit = b.type === "tool" ? (b.id === id ? b : findTool(b.children, id)) : b.type === "steps" ? findTool(b.items, id) : undefined;
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 export const blockTime = (b: Block): number | undefined =>
   b.type === "steps" ? b.items[0]?.at : "at" in b ? b.at : undefined;
 
@@ -223,9 +248,22 @@ export function withDays(blocks: Block[]): Block[] {
   return out;
 }
 
+/** Whether an agent's child user row is its prompt: it repeats the call's
+ * prompt, or it opens an agent whose call carries none (then it is kept on
+ * the anchor). */
+function isPrompt(a: ToolBlock, text: string): boolean {
+  const p = isObj(a.input) && typeof a.input.prompt === "string" ? a.input.prompt.trim() : "";
+  if (p) return text.includes(p);
+  if (a.children.length > 0 || a.prompt) return false;
+  a.prompt = text;
+  return true;
+}
+
 export function buildView(state: ChatState, agentState: AgentState): ChatView {
   const top: Block[] = [];
   const tools = new Map<string, ToolBlock>();
+  /** Background agents by the task id of their launch receipt. */
+  const tasks = new Map<string, ToolBlock>();
   let turnOpen = false;
 
   const anchor = (id: string, at: number): ToolBlock => {
@@ -246,6 +284,8 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
     const to = parentAnchor ? parentAnchor.children : top;
     switch (item.kind) {
       case "text":
+        // An agent's first user row is its prompt, already on the card.
+        if (item.role === "user" && parentAnchor && isPrompt(parentAnchor, item.text)) return;
         to.push(
           item.role === "user"
             ? { type: "user", key, text: item.text, ...(item.images ? { images: item.images } : {}), at }
@@ -291,7 +331,8 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
         const t = tools.get(item.id);
         if (t) {
           // Child activity never settles the parent: results only attach by id.
-          t.result = { output: item.output, isError: item.isError, status: item.status, at };
+          t.result = { output: item.output, isError: item.isError, status: item.status, at, ...(item.async ? { async: true as const } : {}) };
+          if (item.async?.taskId) tasks.set(item.async.taskId, t);
           if (meta && AGENT_TOOLS.has(t.name)) {
             t.agentMetadata = meta;
             return;
@@ -300,6 +341,12 @@ export function buildView(state: ChatState, agentState: AgentState): ChatView {
           to.push({ type: "event", key, text: `Result for unknown tool call ${item.id.slice(0, 12)}`, at });
         }
         break;
+      }
+      case "task": {
+        const t = (item.id && tools.get(item.id)) || (item.taskId && tasks.get(item.taskId)) || undefined;
+        // A late progress tick never reopens an agent that already ended.
+        if (t && !(t.task && TASK_TERMINAL.has(t.task.status))) t.task = { status: item.status, summary: item.summary ?? t.task?.summary, at };
+        return;
       }
     }
     // A child row's metadata describes the thread it belongs to.
@@ -359,7 +406,10 @@ function sameTool(a: ToolBlock, b: ToolBlock): boolean {
     a.agentMetadata === b.agentMetadata &&
     a.at === b.at &&
     a.synthetic === b.synthetic &&
-    (ar === br || (!!ar && !!br && ar.output === br.output && ar.isError === br.isError && ar.status === br.status && ar.at === br.at)) &&
+    a.prompt === b.prompt &&
+    (a.task === b.task || (!!a.task && !!b.task && a.task.status === b.task.status && a.task.summary === b.task.summary && a.task.at === b.task.at)) &&
+    (ar === br ||
+      (!!ar && !!br && ar.output === br.output && ar.isError === br.isError && ar.status === br.status && ar.at === br.at && ar.async === br.async)) &&
     (ap === bp || (!!ap && !!bp && ap.status === bp.status && ap.decision === bp.decision && ap.reason === bp.reason)) &&
     sameList(a.children, b.children)
   );

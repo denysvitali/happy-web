@@ -20,7 +20,14 @@ export type Item =
       isError: boolean;
       /** Reported terminal status (`completed`, `failed`, `unknown`, …). */
       status?: string;
+      /** A background launch receipt (Claude `isAsync`), not the agent's end.
+       * `taskId` is the id later lifecycle rows may use instead. */
+      async?: { taskId?: string };
     }
+  /** Background-agent lifecycle (Claude `system` task_* rows, legacy
+   * `<task-notification>` user rows). `id` is the Task's tool-use id; legacy
+   * rows may only carry the task id. */
+  | { kind: "task"; id?: string; taskId?: string; status: string; summary?: string }
   | { kind: "event"; text: string }
   | { kind: "ready" }
   | { kind: "unknown"; type: string };
@@ -101,6 +108,40 @@ function imagesOf(content: unknown): string[] {
 
 // ---- Claude `output` (stream-json SDK messages) ---------------------------
 
+/** `tool_use_result` of a Task launched in the background. */
+function asyncReceipt(r: unknown): { taskId?: string } | undefined {
+  if (!isObj(r) || (r.isAsync !== true && r.status !== "async_launched")) return undefined;
+  const taskId = first(r, "taskId", "task_id", "agentId", "agent_id");
+  return taskId ? { taskId } : {};
+}
+
+const TASK_EVENTS = new Set(["task_started", "task_progress", "task_updated", "task_notification"]);
+
+/** Background-agent lifecycle; shell jobs (`local_bash`) are not agents. */
+function taskEvent(data: Obj): Item | undefined {
+  if (!TASK_EVENTS.has(String(data.subtype)) || data.task_type === "local_bash") return undefined;
+  const id = first(data, "tool_use_id");
+  if (!id) return undefined;
+  return withTask({ kind: "task", id, status: s(data.status) ?? "running" }, s(data.task_id), s(data.summary));
+}
+
+function withTask(item: Extract<Item, { kind: "task" }>, taskId: string | undefined, summary: string | undefined): Item {
+  if (taskId) item.taskId = taskId;
+  if (summary) item.summary = summary;
+  return item;
+}
+
+/** Older Claude releases report a background task's end as a user row of
+ * `<task-notification>` XML. */
+function legacyTaskNotification(text: string): Item | undefined {
+  if (!text.trimStart().startsWith("<task-notification>")) return undefined;
+  const tag = (t: string) => s(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`).exec(text)?.[1]?.trim());
+  const item: Extract<Item, { kind: "task" }> = { kind: "task", status: tag("status") ?? "completed" };
+  const id = tag("tool-use-id");
+  if (id) item.id = id;
+  return withTask(item, tag("task-id"), tag("summary"));
+}
+
 function claudeOutput(data: Obj): Placed[] {
   const parent = parentOf(data);
   const msg = isObj(data.message) ? data.message : undefined;
@@ -124,14 +165,23 @@ function claudeOutput(data: Obj): Placed[] {
         break;
       }
       if (!Array.isArray(content)) break;
+      const receipt = asyncReceipt(data.tool_use_result);
       for (const b of content) {
         if (!isObj(b)) continue;
         if (b.type === "text" && s(b.text)) items.push({ kind: "text", role: "user", text: b.text as string });
         else if (b.type === "tool_result") {
           const id = first(b, "tool_use_id");
-          if (id) items.push({ kind: "tool-result", id, output: b.content, isError: b.is_error === true });
+          if (!id) continue;
+          const item: Item = { kind: "tool-result", id, output: b.content, isError: b.is_error === true };
+          if (receipt) item.async = receipt;
+          items.push(item);
         }
       }
+      break;
+    }
+    case "system": {
+      const task = taskEvent(data);
+      if (task) items.push(task);
       break;
     }
     case "message": {
@@ -155,7 +205,6 @@ function claudeOutput(data: Obj): Placed[] {
     }
     // Progress ticks and SDK bookkeeping: the tool row already shows a live
     // timer (happy_flutter hides these too).
-    case "system":
     case "tool_progress":
     case "tool_use_summary":
     case "streamlined_tool_use_summary":
@@ -289,6 +338,8 @@ export function normalizeRecord(record: unknown): Normalized {
     const c = record.content;
     const meta = isObj(record.meta) ? record.meta : {};
     const text = s(meta.displayText) ?? (isObj(c) && c.type === "text" ? (s(c.text) ?? "") : blocksText(c));
+    const task = legacyTaskNotification(text);
+    if (task) return { role: "user", items: [task] };
     const images = imagesOf(c);
     if (!text && images.length === 0) return { role: "user", items: [] };
     return { role: "user", items: [images.length ? { kind: "text", role: "user", text, images } : { kind: "text", role: "user", text }] };

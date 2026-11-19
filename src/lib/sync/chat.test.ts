@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { addMessages, addPending, addPreview, buildView as build, emptyChat, MAX_PREVIEWS, sameBlock, type Block, type ChatMessage, type ChatState, type ToolBlock } from "./chat";
+import { agentEndedAt, agentInfo, agentStatus } from "@/components/chat/tools/format";
+import { addMessages, addPending, addPreview, buildView as build, emptyChat, findTool, MAX_PREVIEWS, sameBlock, type Block, type ChatMessage, type ChatState, type ToolBlock } from "./chat";
 import type { AgentState } from "./decode";
 import { normalizeRecord } from "./normalize";
 
@@ -290,5 +291,73 @@ describe("normalize tools", () => {
   it("ignores bare sidechain parentUuid (it is not an anchor id)", () => {
     const n = normalizeRecord(claude({ type: "assistant", isSidechain: true, parentUuid: "u1", message: { content: [{ type: "text", text: "x" }] } }));
     expect(n.items[0]).not.toHaveProperty("parent");
+  });
+});
+
+describe("background agents", () => {
+  const launched = (id: string, taskId: string) =>
+    claude({
+      type: "user",
+      tool_use_result: { isAsync: true, status: "async_launched", agentId: taskId, output_file: "/tmp/out" },
+      message: { content: [{ type: "tool_result", tool_use_id: id, content: [{ type: "text", text: "Async agent launched successfully. output_file: /tmp/out" }] }] },
+    });
+  const lifecycle = (subtype: string, extra: object) => claude({ type: "system", subtype, ...extra });
+
+  it("normalizes launch receipts, lifecycle rows and legacy notifications", () => {
+    expect(normalizeRecord(launched("t", "task-1")).items[0]).toMatchObject({ kind: "tool-result", id: "t", async: { taskId: "task-1" } });
+    expect(normalizeRecord(lifecycle("task_notification", { task_id: "task-1", tool_use_id: "t", status: "completed", summary: "Research complete" })).items).toEqual([
+      { kind: "task", id: "t", taskId: "task-1", status: "completed", summary: "Research complete" },
+    ]);
+    expect(normalizeRecord(lifecycle("task_started", { task_id: "b1", tool_use_id: "t", task_type: "local_bash" })).items).toEqual([]);
+    expect(normalizeRecord(lifecycle("task_progress", { task_id: "x" })).items).toEqual([]);
+    expect(normalizeRecord(lifecycle("init", {})).items).toEqual([]);
+    const legacy = normalizeRecord(user("<task-notification>\n<task-id>task-1</task-id>\n<status>failed</status>\n<summary>Gave up</summary>\n</task-notification>"));
+    expect(legacy.items).toEqual([{ kind: "task", taskId: "task-1", status: "failed", summary: "Gave up" }]);
+  });
+
+  it("keeps an async launch running until a terminal lifecycle row, which sets the end time", () => {
+    let s = addMessages(emptyChat, [msg(use("t", "Task", { description: "Research" }), { createdAt: 1000 }), msg(launched("t", "task-1"), { createdAt: 1138 })]);
+    const agent = () => buildView(s, {}).blocks[0] as ToolBlock;
+    expect(agentStatus(agent())).toBe("running");
+    expect(agentEndedAt(agent())).toBeUndefined();
+    expect(agentInfo(agent()).resultText).toBeUndefined();
+    s = addMessages(s, [msg(lifecycle("task_progress", { task_id: "task-1", tool_use_id: "t", status: "running" }), { createdAt: 3000 })]);
+    expect(agentStatus(agent())).toBe("running");
+    s = addMessages(s, [msg(lifecycle("task_notification", { task_id: "task-1", tool_use_id: "t", status: "completed", summary: "Research complete" }), { createdAt: 61_000 })]);
+    expect(agentStatus(agent())).toBe("completed");
+    expect(agentEndedAt(agent())).toBe(61_000);
+    expect(agentInfo(agent()).resultText).toBe("Research complete");
+    // A late progress tick does not reopen it.
+    s = addMessages(s, [msg(lifecycle("task_progress", { task_id: "task-1", tool_use_id: "t", status: "running" }), { createdAt: 62_000 })]);
+    expect(agentStatus(agent())).toBe("completed");
+  });
+
+  it("maps a legacy notification to its agent through the receipt's task id", () => {
+    const s = addMessages(emptyChat, [
+      msg(use("t", "Task")),
+      msg(launched("t", "task-9")),
+      msg(user("<task-notification><task-id>task-9</task-id><status>stopped</status></task-notification>")),
+    ]);
+    const blocks = buildView(s, {}).blocks;
+    expect(types(blocks)).toEqual(["tool"]);
+    expect(agentStatus(blocks[0] as ToolBlock)).toBe("stopped");
+  });
+
+  it("does not show the agent's prompt row as a user message", () => {
+    const side = (text: string) => claude({ type: "user", parent_tool_use_id: "t", isSidechain: true, message: { content: [{ type: "text", text }] } });
+    let s = addMessages(emptyChat, [msg(use("t", "Task", { prompt: "Find the bug." })), msg(side("Find the bug.")), msg(side("Also check CI."))]);
+    let [a] = buildView(s, {}).blocks as [ToolBlock];
+    expect(a.children).toMatchObject([{ type: "user", text: "Also check CI." }]);
+    // No prompt on the call: the first row becomes it.
+    s = addMessages(emptyChat, [msg(use("u", "Task")), msg(claude({ type: "user", parent_tool_use_id: "u", message: { content: "Long **prompt**" } }))]);
+    [a] = buildView(s, {}).blocks as [ToolBlock];
+    expect(a.children).toEqual([]);
+    expect(agentInfo(a).prompt).toBe("Long **prompt**");
+  });
+
+  it("finds nested calls by id", () => {
+    const s = addMessages(emptyChat, [msg(use("a", "Task")), msg(use("b", "Task", {}, "a")), msg(use("c", "Read", {}, "b"))]);
+    expect(findTool(buildView(s, {}).blocks, "c")).toMatchObject({ id: "c", name: "Read" });
+    expect(findTool(buildView(s, {}).blocks, "zz")).toBeUndefined();
   });
 });

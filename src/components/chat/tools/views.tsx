@@ -5,7 +5,7 @@ import { CheckCircle2, Circle, CircleDot, MessageCircleQuestion } from "lucide-r
 import type { ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
 import { Clip, CopyIcon, KeyValues, ResultView, Section } from "../primitives";
-import { asText, commandOf, editRows, field, isObj, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj } from "./format";
+import { asText, commandOf, editRows, field, isObj, numberedLines, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj } from "./format";
 import classes from "../chat.module.css";
 
 export interface ToolViewProps {
@@ -46,22 +46,23 @@ export function BashBody({ b }: ToolViewProps) {
   const cwd = field(i, "cwd", "workdir");
   const out = b.result ? shellOutput(b.result.output) : undefined;
   const failed = !!b.result?.isError;
+  const exit = out?.exitCode ? ` · exit ${out.exitCode}` : failed ? " · failed" : "";
   return (
     <div className={classes.terminal}>
-      <div className={classes.terminalHead}>
-        <span>{cwd ?? "shell"}</span>
+      {cwd && <div className={classes.terminalCwd}>{cwd}</div>}
+      <div className={classes.commandRow}>
+        <pre className={classes.command}>
+          <span className={classes.prompt}>$ </span>
+          {cmd}
+        </pre>
         <CopyIcon text={cmd} label="Copy command" reveal />
       </div>
-      <pre className={classes.command}>
-        <span className={classes.prompt}>$ </span>
-        {cmd}
-      </pre>
       {out && (
         <div className={classes.terminalOut}>
           {out.stdout || out.stderr ? (
             <>
               <div className={classes.terminalHead} data-tone={failed ? "error" : undefined}>
-                <span>{failed ? "Output (failed)" : "Output"}</span>
+                <span>Output{exit}</span>
                 <CopyIcon text={[out.stdout, out.stderr].filter(Boolean).join("\n")} reveal />
               </div>
               {out.stdout && <Clip text={out.stdout} tone={failed && !out.stderr ? "error" : undefined} />}
@@ -81,10 +82,18 @@ export function BashBody({ b }: ToolViewProps) {
 export function ReadBody({ b }: ToolViewProps) {
   const i = inputOf(b);
   const path = field(i, "file_path", "path", "notebook_path") ?? "";
+  const r = b.result;
+  const text = r && !r.isError && typeof r.output === "string" ? numberedLines(r.output) : undefined;
   return (
     <>
       <code className={classes.path}>{path}</code>
-      <Result b={b} label="Content" />
+      {text !== undefined ? (
+        <Section label="Content" right={<CopyIcon text={text} reveal />}>
+          <Clip text={text} />
+        </Section>
+      ) : (
+        <Result b={b} label="Content" />
+      )}
     </>
   );
 }

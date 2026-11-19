@@ -39,7 +39,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   so our CSS modules always win. Every component appears in `/components-demo`
   (`src/routes/demo.tsx`).
 - Phones (<48em) use push navigation, not a drawer: `/` is the session list, a chat opens
-  full-screen with a back button.
+  full-screen with a back button. A sub-agent card opens its own read-only page
+  (`/s/$sessionId/agent/$toolId`, built from the parent chat's store).
 - Pinned deps (`save-exact`), Renovate keeps them fresh.
 - Visual inspection is required after any UI change: `pnpm screenshots` (phone + desktop,
   light + dark) and look at the PNGs; a Stop hook (`.claude/hooks/visual-check.sh`) blocks

@@ -26,6 +26,11 @@ const chat = createRoute({
   path: "/s/$sessionId",
   component: lazyRouteComponent(() => import("@/routes/chat"), "ChatScreen"),
 });
+const agent = createRoute({
+  getParentRoute: () => authed,
+  path: "/s/$sessionId/agent/$toolId",
+  component: lazyRouteComponent(() => import("@/routes/agent"), "AgentScreen"),
+});
 const demo = createRoute({
   getParentRoute: () => rootRoute,
   path: "/components-demo",
@@ -33,7 +38,7 @@ const demo = createRoute({
 });
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([authed.addChildren([home, chat]), demo]),
+  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent]), demo]),
   history: createHashHistory(),
   defaultPreload: false,
 });

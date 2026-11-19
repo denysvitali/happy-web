@@ -109,32 +109,34 @@ export function StepView({ b, onPermission }: { b: StepBlock; onPermission?: Per
   return b.type === "thinking" ? <ThinkingStep text={b.text} /> : <ToolCard b={b} onPermission={onPermission} />;
 }
 
-/** A run of steps as one line: what was done, or what is running now. */
+/** A run of steps as one line: what was done or, while a call runs, that
+ * call (with the size of the run). */
 export const StepsGroup = memo(
   function StepsGroup({ items, onPermission }: { items: StepBlock[]; onPermission?: PermissionHandler | undefined }) {
     const [open, setOpen] = useState(false);
-    const running = runningSteps(items);
-    const current = running.at(-1);
+    const current = runningSteps(items).at(-1);
     const failed = failedSteps(items);
-    const live = current ? stepLabel(current) : undefined;
+    const live = current && !open ? stepLabel(current) : undefined;
     return (
-      <div className={classes.step} data-open={open || undefined}>
+      <div className={classes.step} data-state={live ? "running" : undefined} data-open={open || undefined}>
         <UnstyledButton className={classes.stepHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           <StepIcon icon={ListTree} state={current ? "running" : "done"} />
-          <span className={classes.stepTitle}>{stepsSummary(items)}</span>
-          {live && !open ? (
-            <span className={classes.stepSummary}>
-              {live.title} {live.summary}
-            </span>
+          {live ? (
+            <>
+              <span className={classes.stepTitle}>{live.title}</span>
+              <span className={classes.stepSummary}>{live.summary}</span>
+              <span className={classes.count} title={`${items.length} steps`}>
+                {items.length}
+              </span>
+            </>
           ) : (
-            <span className={classes.grow} />
+            <span className={classes.runSummary}>{stepsSummary(items)}</span>
           )}
           {failed > 0 && (
             <span className={classes.badge} data-tone="error">
               {failed} failed
             </span>
           )}
-          <span className={classes.count}>{items.length}</span>
           <ChevronRight size={13} className={classes.chevron} data-open={open || undefined} />
         </UnstyledButton>
         {open && (

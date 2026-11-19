@@ -1,0 +1,87 @@
+/* Sub-agent page (routes/agent.tsx). The header and transcript reuse
+   chat.module.css; this adds the back link, the header lines and the
+   prompt / answer sections. */
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 36px;
+  margin-left: -8px;
+  padding: 0 4px 0 0;
+  border-radius: var(--happy-radius-md);
+  color: var(--happy-accent);
+  font-size: var(--happy-text-body);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.back:active { opacity: 0.5; }
+.back:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--happy-text-subhead);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--happy-label);
+}
+.sub {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--happy-text-footnote);
+  line-height: 1.35;
+  color: var(--happy-label-3);
+}
+.sub > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+
+.body { display: flex; flex-direction: column; gap: 18px; }
+.section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label {
+  margin: 0;
+  font-size: var(--happy-text-caption);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--happy-label-3);
+}
+.prompt, .answer {
+  padding: 10px 12px;
+  border-radius: var(--happy-radius-md);
+  background: var(--happy-fill-3);
+}
+.prompt :global(p), .answer :global(p) { margin-block: 0.4em; }
+.prompt[data-clamped] {
+  max-height: 9.5em;
+  overflow: hidden;
+  mask-image: linear-gradient(#000 60%, transparent);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
+}
+.answer[data-status="failed"] { background: var(--happy-red-tint); }
+.settings { display: flex; flex-wrap: wrap; gap: 4px; margin-top: -10px; }
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-3);
+}
+
+.session {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  border-radius: var(--happy-radius-xs);
+  font-size: var(--happy-text-subhead);
+  font-weight: 500;
+  color: var(--happy-accent);
+  text-decoration: none;
+}
+.session:hover { text-decoration: underline; text-underline-offset: 2px; }
+.session:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { splitStable } from "../markdown-split";
-import { commandOf, diffStats, duration, humanize, lineDiff, parseMcpName, resultParts, shellOutput } from "./format";
+import type { ToolBlock } from "@/lib/sync/chat";
+import { commandOf, diffStats, duration, humanize, lineDiff, numberedLines, parseMcpName, resultParts, shellOutput } from "./format";
+import { stepLabel, stepsSummary } from "./steps";
 
 describe("parseMcpName", () => {
   it("splits server and tool", () => {
@@ -80,5 +82,34 @@ describe("splitStable", () => {
     expect(splitStable("```\nx\n\ny\n```\n\nafter")).toEqual({ stable: ["```\nx\n\ny\n```"], tail: "after" });
     expect(splitStable("- a\n\n- b\n\ntext")).toEqual({ stable: ["- a\n\n- b"], tail: "text" });
     expect(splitStable("one line")).toEqual({ stable: [], tail: "one line" });
+  });
+});
+
+describe("numberedLines", () => {
+  it("narrows the cat -n gutter and leaves other text alone", () => {
+    expect(numberedLines("     9\ta\n    10\tb")).toBe(" 9  a\n10  b");
+    expect(numberedLines("plain\ntext")).toBe("plain\ntext");
+  });
+});
+
+describe("step lines", () => {
+  const call = (id: string, name: string, input: object = {}): ToolBlock => ({ type: "tool", key: id, id, name, input, children: [], result: { output: "", isError: false } });
+  it("summarises a run, biggest first, MCP servers folded", () => {
+    const run = [
+      call("1", "Bash"),
+      call("2", "Bash"),
+      call("3", "Edit", { file_path: "/a" }),
+      call("4", "mcp__loki__loki_query"),
+      call("5", "mcp__github__list_runs"),
+      call("6", "TodoWrite"),
+    ];
+    expect(stepsSummary(run)).toBe("Ran 2 commands, 2 MCP calls, edited 1 file");
+    expect(stepsSummary([call("1", "mcp__loki__query"), call("2", "mcp__loki__labels")])).toBe("2 loki calls");
+    expect(stepsSummary([call("1", "TodoWrite"), call("2", "TodoWrite")])).toBe("Updated the plan");
+  });
+  it("drops the MCP server from the tool title", () => {
+    expect(stepLabel(call("1", "mcp__loki__loki_query")).title).toBe("Query");
+    expect(stepLabel(call("1", "mcp__github-actions__github_actions_list")).title).toBe("List");
+    expect(stepLabel(call("1", "mcp__playwright__browser_take_screenshot")).title).toBe("Browser take screenshot");
   });
 });
