@@ -15,7 +15,6 @@ import {
   defaultLocalMachine,
   effectiveBranch,
   initialBackend,
-  isBranchLookupCandidate,
   kubernetesCheckoutPath,
   mcpSelection,
   newSessionId,
@@ -151,13 +150,6 @@ describe("repositories", () => {
     for (const bad of ["", "acme", "acme/", "github.com/acme", "https://github.com/acme/web/tree/main", "a b/c", "https://github.com/acme/web?x=1", "ftp://host/a/b", "acme/../x"]) {
       expect(parseRepo(bad), bad).toBeNull();
     }
-  });
-
-  it("only looks up branches for complete GitHub repositories", () => {
-    expect(isBranchLookupCandidate("acme/web")).toBe(true);
-    expect(isBranchLookupCandidate("https://github.com/acme/web")).toBe(true);
-    expect(isBranchLookupCandidate("acme/")).toBe(false);
-    expect(isBranchLookupCandidate("https://gitlab.com/a/b")).toBe(false);
   });
 
   it("cleans additional repos: dedupe, drop the primary, cap at 16", () => {

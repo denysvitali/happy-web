@@ -190,7 +190,8 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   const isK8s = mode === "kubernetes";
   const localDir = resolveHome(directory, machine.meta.homeDir);
   const branchMissing = branchTyped !== null && lookup.refExists === false;
-  const valid = isK8s ? !!repo && !!branch.branch.trim() && !branchMissing : !!localDir;
+  // An empty branch is fine: the daemon then clones the default branch.
+  const valid = isK8s ? !!repo && !branchMissing : !!localDir;
   const missingBranch = parseMissingBranchError(error);
 
   const changeMode = (m: SpawnBackend) => {

@@ -18,7 +18,9 @@ export interface BranchLookup {
  * listing is fetched once per repo; a ref outside it (a tag, a commit, a
  * branch past the first page) gets its own `{repoUrl, ref}` check. */
 export function useRepoBranches(account: Account, machineId: string | undefined, repo: RepoRef | null, ref: string): BranchLookup {
-  const url = repo?.github ? repo.url : "";
+  // Any host: the daemon knows which ones it can look up (GitHub, its
+  // Forgejo) and answers the rest with a failure the form shows as a hint.
+  const url = repo?.url ?? "";
   const [debouncedUrl] = useDebouncedValue(url, DEBOUNCE_MS);
   const settledUrl = debouncedUrl === url ? url : "";
   const lookup = (r?: string): Promise<RepoBranches> =>

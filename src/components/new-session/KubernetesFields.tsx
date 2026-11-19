@@ -65,7 +65,7 @@ export function KubernetesFields(p: {
   let branchError: ReactNode = undefined;
   if (reply && !reply.ok) {
     if (reply.notFound) branchError = reply.error;
-    else branchHint = "Branch lookup is unavailable on this cluster; the branch is checked when the Pod starts.";
+    else branchHint = "Branch lookup is unavailable for this repository; leave empty for its default branch.";
   } else if (reply?.ok) {
     const def = reply.defaultBranch;
     if (p.branch.typed && p.lookup.refExists === false) {
@@ -89,7 +89,7 @@ export function KubernetesFields(p: {
     }
   }
 
-  if (!reply && p.repo?.github && p.lookup.loading) branchHint = "Looking up branches…";
+  if (!reply && p.repo && p.lookup.loading) branchHint = "Looking up branches…";
 
   const ids = { cluster: `${uid}-cluster`, repo: `${uid}-repo`, branch: `${uid}-branch` };
   const toggleMcp = (server: string, on: boolean) => p.onMcp(MCP_SERVERS.filter((s) => (s === server ? on : p.mcp.includes(s))));
@@ -132,7 +132,7 @@ export function KubernetesFields(p: {
         <FormRow label="Branch" labelFor={ids.branch}>
           <Autocomplete
             id={ids.branch}
-            placeholder={reply?.ok ? reply.defaultBranch || "main" : "main"}
+            placeholder={reply?.ok && reply.defaultBranch ? reply.defaultBranch : "Default branch"}
             leftSection={<GitBranch size={16} />}
             rightSection={p.lookup.loading ? <Loader size={14} /> : undefined}
             data={branches}
@@ -143,7 +143,6 @@ export function KubernetesFields(p: {
             onChange={p.onBranch}
             description={branchError ? undefined : branchHint}
             error={branchError}
-            required
             autoComplete="off"
             spellCheck={false}
             comboboxProps={within}

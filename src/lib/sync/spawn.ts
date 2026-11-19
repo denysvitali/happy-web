@@ -186,12 +186,6 @@ export function repoLabel(r: RepoRef): string {
   return r.github ? r.path : `${r.host}/${r.path}`;
 }
 
-/** The daemon's branch lookup only knows GitHub (and configured Forgejo
- * hosts); only ask for a complete GitHub repository. */
-export function isBranchLookupCandidate(input: string): boolean {
-  return parseRepo(input)?.github === true;
-}
-
 export const MAX_ADDITIONAL_REPOS = 16;
 
 /** Valid, deduplicated additional repos (display labels), without the primary,
