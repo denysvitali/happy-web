@@ -25,12 +25,14 @@ test("inbox: badge, read on open, suggested reply, done", async ({ page }) => {
   await expect(page.getByRole("group", { name: "Suggested replies" })).toHaveCount(0);
 
   // Done moves it out of the Inbox folder, and it survives a reload.
-  await page.getByRole("region", { name: "Message", exact: true }).getByRole("button", { name: "Mark as done" }).click();
+  await page.getByRole("region", { name: "Message", exact: true }).getByRole("button", { name: "Done", exact: true }).click();
   await expect(list.getByRole("link")).toHaveCount(2);
-  await page.getByText("Done", { exact: true }).click();
+  // Filing moves on to the next message instead of leaving an empty pane.
+  await expect(page.getByRole("heading", { name: /GitHub token/ })).toBeVisible();
+  await list.getByText("Done", { exact: true }).click();
   await expect(list.getByRole("link", { name: /Should the daemon reconnect/ })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("link", { name: "Inbox, 2 unread" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Inbox, 1 unread" })).toBeVisible();
   expect(violations).toEqual([]);
 });
 
@@ -45,4 +47,24 @@ test("inbox: G I opens it and Markdown bodies render", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Message", exact: true }).locator("code", { hasText: "docs/drift-2026-11.md" })).toBeVisible();
   await page.getByRole("link", { name: "Open session" }).click();
   await expect(page).toHaveURL(/#\/s\/s3$/);
+});
+
+test("inbox: E files the open message, mark all as done, undo", async ({ page }) => {
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  await page.goto("/#/inbox");
+  const list = page.getByRole("region", { name: "Inbox messages" });
+  await expect(list.getByRole("link")).toHaveCount(3);
+
+  await list.getByRole("link", { name: /Drift report is ready/ }).click();
+  await expect(page.getByRole("heading", { name: /Drift report is ready/ })).toBeVisible();
+  await page.locator("body").press("e");
+  await expect(list.getByRole("link")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Mark all as done" }).click();
+  await expect(page.getByText("You're all caught up")).toBeVisible();
+  await expect(page.getByText("2 messages marked as done")).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(list.getByRole("link")).toHaveCount(2);
 });

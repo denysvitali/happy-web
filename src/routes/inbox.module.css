@@ -112,8 +112,13 @@
 .row:focus-within .rowActions { opacity: 1; }
 .row:hover .rowAgo,
 .row:focus-within .rowAgo { visibility: hidden; }
+/* Touch has no hover: the action sits in its own column beside the row. */
 @media (hover: none) {
-  .rowActions { display: none; }
+  .row { display: flex; align-items: center; }
+  .rowLink { flex: 1; min-width: 0; }
+  .rowActions { position: static; opacity: 1; }
+  .row:hover .rowAgo,
+  .row:focus-within .rowAgo { visibility: visible; }
 }
 
 /* ---- Thread ---- */
@@ -236,3 +241,8 @@
 }
 .openSession:hover { background: var(--happy-accent-tint); }
 .openSession:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+/* ---- Undo toast ---- */
+.toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.undo { font-weight: 600; color: var(--happy-accent); }
+.undo:hover { text-decoration: underline; }

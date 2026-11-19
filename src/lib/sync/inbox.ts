@@ -147,6 +147,9 @@ export function parseTriage(v: unknown): Record<string, InboxEntryState> {
   return out;
 }
 
+/** Entries as they were before a change, for undo. */
+export type TriageSnapshot = readonly (readonly [string, InboxEntryState | undefined])[];
+
 /** Read/done/replied per message; shared across tabs via the storage event. */
 export class InboxTriage {
   readonly states: Store<ReadonlyMap<string, InboxEntryState>>;
@@ -160,32 +163,44 @@ export class InboxTriage {
     this.states.set(new Map(Object.entries(this.storage.load())));
   }
 
-  private put(key: string, fn: (s: InboxEntryState) => InboxEntryState): void {
+  private put(keys: readonly string[], fn: (s: InboxEntryState, key: string) => InboxEntryState | undefined): void {
     const next = new Map(this.states.get());
-    const v = fn(next.get(key) ?? {});
-    next.delete(key); // re-insert: Map order is the eviction order
-    next.set(key, v);
+    for (const key of keys) {
+      const v = fn(next.get(key) ?? {}, key);
+      next.delete(key); // re-insert: Map order is the eviction order
+      if (v) next.set(key, v);
+    }
     while (next.size > MAX_ENTRIES) next.delete(next.keys().next().value!);
     this.states.set(next);
     this.storage.save(Object.fromEntries(next));
   }
 
   markRead(key: string): void {
-    if (!this.states.get().get(key)?.read) this.put(key, (s) => ({ ...s, read: true }));
+    if (!this.states.get().get(key)?.read) this.put([key], (s) => ({ ...s, read: true }));
   }
 
   markUnread(key: string): void {
-    this.put(key, ({ read: _read, ...rest }) => rest);
+    this.put([key], ({ read: _read, ...rest }) => rest);
   }
 
-  setDone(key: string, done: boolean): void {
-    this.put(key, (s) => {
+  /** Files messages as done (or back to the Inbox); returns what to hand `restore` for undo. */
+  setDone(keys: string | readonly string[], done: boolean): TriageSnapshot {
+    const list = typeof keys === "string" ? [keys] : keys;
+    const states = this.states.get();
+    const before: TriageSnapshot = list.map((k) => [k, states.get(k)]);
+    this.put(list, (s) => {
       const { done: _done, ...rest } = s;
       return done ? { ...rest, read: true, done: true } : { ...rest, read: true };
     });
+    return before;
+  }
+
+  restore(snapshot: TriageSnapshot): void {
+    const prev = new Map(snapshot);
+    this.put([...prev.keys()], (_s, key) => prev.get(key));
   }
 
   recordReply(key: string, reply: string, at = Date.now()): void {
-    this.put(key, (s) => ({ ...s, read: true, reply, repliedAt: at }));
+    this.put([key], (s) => ({ ...s, read: true, reply, repliedAt: at }));
   }
 }

@@ -42,6 +42,10 @@ export const SHORTCUT_GROUPS: {
       { keys: ["G", "I"], label: "Go to Inbox" },
     ],
   },
+  {
+    title: "Inbox",
+    items: [{ keys: ["E"], label: "Mark the open message as done" }],
+  },
 ];
 
 const TEXT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);

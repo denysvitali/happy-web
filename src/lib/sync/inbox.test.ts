@@ -58,6 +58,16 @@ describe("inbox triage", () => {
     expect(new InboxTriage(store).states.get().get("s/c")?.reply).toBe("yes");
   });
 
+  it("files many as done at once and undoes it exactly", () => {
+    const store = memory();
+    const t = new InboxTriage(store);
+    t.recordReply("s/a", "ok", 1);
+    const undo = t.setDone(["s/a", "s/b"], true);
+    expect(store.get()).toEqual({ "s/a": { read: true, reply: "ok", repliedAt: 1, done: true }, "s/b": { read: true, done: true } });
+    t.restore(undo);
+    expect(store.get()).toEqual({ "s/a": { read: true, reply: "ok", repliedAt: 1 } });
+  });
+
   it("drops malformed stored state", () => {
     expect(parseTriage({ "s/a": { read: true, done: "x", reply: 3 }, "s/b": null })).toEqual({ "s/a": { read: true } });
     expect(parseTriage("nope")).toEqual({});

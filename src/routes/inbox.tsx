@@ -2,17 +2,18 @@
 // laid out like a mail client (message list, open thread beside it). Phones
 // push: /inbox is the list, a message fills the screen. Replies go to the
 // session as a user message quoting the subject (as happy_flutter sends them).
-import { SegmentedControl, Textarea, Tooltip, UnstyledButton } from "@mantine/core";
+import { Button, SegmentedControl, Textarea, Tooltip, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { CheckCheck, CircleHelp, Flag, Hand, Inbox, Mail, MailCheck, MailOpen, Undo2, ExternalLink, SendHorizontal, Reply } from "lucide-react";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { Check, CheckCheck, CircleHelp, Flag, Hand, Inbox, Mail, MailCheck, MailOpen, Undo2, ExternalLink, SendHorizontal, Reply } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useStore } from "@/app/hooks";
 import { Markdown } from "@/components/chat/markdown";
 import { useInbox } from "@/components/inbox/useInbox";
 import { useCompact } from "@/components/shell/nav";
-import { INBOX_KIND_LABEL, needsReply, replyText, type InboxEntryState, type InboxItem, type InboxKind } from "@/lib/sync/inbox";
+import { isEditableTarget } from "@/components/palette/shortcuts";
+import { INBOX_KIND_LABEL, needsReply, replyText, type InboxEntryState, type InboxItem, type InboxKind, type InboxTriage } from "@/lib/sync/inbox";
 import { formatAgo } from "@/lib/sync/sessionList";
 import { Store } from "@/lib/sync/store";
 import { EmptyState } from "@/ui/EmptyState";
@@ -36,6 +37,31 @@ function KindPill({ kind }: { kind: InboxKind }) {
   );
 }
 
+/** Files messages as done (or back) and offers to undo it, like a mail client. */
+function fileDone(triage: InboxTriage, keys: readonly string[], done: boolean, message: string): void {
+  if (keys.length === 0) return;
+  const snapshot = triage.setDone(keys, done);
+  const id = `inbox-done-${Date.now()}`;
+  notifications.show({
+    id,
+    autoClose: 5000,
+    message: (
+      <span className={classes.toast}>
+        {message}
+        <UnstyledButton
+          className={classes.undo}
+          onClick={() => {
+            triage.restore(snapshot);
+            notifications.hide(id);
+          }}
+        >
+          Undo
+        </UnstyledButton>
+      </span>
+    ),
+  });
+}
+
 function fullDate(ts: number): string {
   return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
@@ -49,11 +75,14 @@ export function InboxScreen() {
   const visible = useMemo(() => items.filter((i) => !!states.get(i.key)?.done === (folder === "done")), [items, states, folder]);
   const openCount = useMemo(() => items.filter((i) => !states.get(i.key)?.done).length, [items, states]);
   const selected = selectedKey ? items.find((i) => i.key === selectedKey) : undefined;
+  // Where filing the open message lands: the next one in the list (desktop), else the list.
+  const at = visible.findIndex((i) => i.key === selectedKey);
+  const after = compact || at < 0 ? undefined : (visible[at + 1] ?? visible[at - 1]);
 
   const list = <MessageList folder={folder} openCount={openCount} items={visible} states={states} selectedKey={selectedKey} loading={loading} />;
   if (compact) {
     if (!selectedKey) return <div className={classes.single}>{list}</div>;
-    return <div className={classes.single}>{selected ? <Thread item={selected} state={states.get(selected.key)} /> : <Missing loading={loading} />}</div>;
+    return <div className={classes.single}>{selected ? <Thread item={selected} state={states.get(selected.key)} after={undefined} /> : <Missing loading={loading} />}</div>;
   }
   return (
     <div className={classes.split}>
@@ -62,7 +91,7 @@ export function InboxScreen() {
       </section>
       <section className={classes.threadPane} aria-label="Message">
         {selected ? (
-          <Thread key={selected.key} item={selected} state={states.get(selected.key)} />
+          <Thread key={selected.key} item={selected} state={states.get(selected.key)} after={after} />
         ) : selectedKey ? (
           <Missing loading={loading} />
         ) : (
@@ -84,9 +113,25 @@ function Missing({ loading }: { loading: boolean }) {
 
 function MessageList(p: { folder: Folder; openCount: number; items: InboxItem[]; states: ReadonlyMap<string, InboxEntryState>; selectedKey: string | undefined; loading: boolean }) {
   const now = useNow();
+  const triage = useAccount().inbox;
+  const markAll = () => {
+    const keys = p.items.map((i) => i.key);
+    fileDone(triage, keys, true, keys.length === 1 ? "Marked as done" : `${keys.length} messages marked as done`);
+  };
   return (
     <>
-      <NavBar title="Inbox" leading={<BackButton />} />
+      <NavBar
+        title="Inbox"
+        leading={<BackButton />}
+        trailing={
+          p.folder === "inbox" &&
+          p.items.length > 0 && (
+            <Tooltip label="Mark all as done" openDelay={400}>
+              <IconButton label="Mark all as done" icon={<CheckCheck size={17} />} onClick={markAll} />
+            </Tooltip>
+          )
+        }
+      />
       <div className={classes.listHead}>
         <p className={classes.subtitle}>Only goals reached, decisions and blockers from your agents.</p>
         <SegmentedControl
@@ -154,14 +199,14 @@ function MessageRow({ item, state, selected, now }: { item: InboxItem; state: In
       </Link>
       <div className={classes.rowActions}>
         <Tooltip label={state?.done ? "Move to Inbox" : "Mark as done"} openDelay={400}>
-          <IconButton size="sm" label={state?.done ? "Move to Inbox" : "Mark as done"} icon={state?.done ? <Undo2 size={15} /> : <CheckCheck size={15} />} onClick={() => triage.setDone(item.key, !state?.done)} />
+          <IconButton size="sm" label={state?.done ? "Move to Inbox" : "Mark as done"} icon={state?.done ? <Undo2 size={15} /> : <CheckCheck size={15} />} onClick={() => fileDone(triage, [item.key], !state?.done, state?.done ? "Moved to Inbox" : "Marked as done")} />
         </Tooltip>
       </div>
     </li>
   );
 }
 
-function Thread({ item, state }: { item: InboxItem; state: InboxEntryState | undefined }) {
+function Thread({ item, state, after }: { item: InboxItem; state: InboxEntryState | undefined; after: InboxItem | undefined }) {
   const account = useAccount();
   const triage = account.inbox;
   const navigate = useNavigate();
@@ -195,11 +240,25 @@ function Thread({ item, state }: { item: InboxItem; state: InboxEntryState | und
   };
   const done = !!state?.done;
   const toggleDone = () => {
-    triage.setDone(item.key, !done);
+    fileDone(triage, [item.key], !done, done ? "Moved to Inbox" : "Marked as done");
     if (done) return;
-    notifications.show({ message: "Marked as done", autoClose: 2500 });
-    void navigate({ to: "/inbox" });
+    if (after) void navigate({ to: "/inbox/$inboxSession/$inboxMessage", params: { inboxSession: after.sessionId, inboxMessage: after.message.id } });
+    else void navigate({ to: "/inbox" });
   };
+  // E files the open message, as in mail clients.
+  const toggleRef = useRef(toggleDone);
+  useEffect(() => {
+    toggleRef.current = toggleDone;
+  });
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "e" || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || e.isComposing || isEditableTarget(e.target)) return;
+      e.preventDefault();
+      toggleRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const markUnread = () => {
     triage.markUnread(item.key);
     void navigate({ to: "/inbox" });
@@ -212,11 +271,13 @@ function Thread({ item, state }: { item: InboxItem; state: InboxEntryState | und
         leading={<BackButton label="Inbox" to="/inbox" />}
         trailing={
           <>
-            <Tooltip label={done ? "Move to Inbox" : "Mark as done"} openDelay={400}>
-              <IconButton label={done ? "Move to Inbox" : "Mark as done"} icon={done ? <Inbox size={17} /> : <CheckCheck size={17} />} onClick={toggleDone} />
-            </Tooltip>
             <Tooltip label="Mark as unread" openDelay={400}>
               <IconButton label="Mark as unread" icon={<Mail size={17} />} onClick={markUnread} />
+            </Tooltip>
+            <Tooltip label={done ? "Move back to the Inbox (E)" : "File it under Done (E)"} openDelay={400}>
+              <Button size="xs" radius="xl" variant="light" color={done ? "gray" : undefined} leftSection={done ? <Inbox size={14} /> : <Check size={14} strokeWidth={2.6} />} onClick={toggleDone}>
+                {done ? "Move to Inbox" : "Done"}
+              </Button>
             </Tooltip>
           </>
         }
