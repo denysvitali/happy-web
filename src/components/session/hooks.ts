@@ -16,14 +16,17 @@ import {
   type Catalog,
   type SendOptions,
 } from "@/lib/sync/models";
-import { findProfile, gatewayModels, sessionProfileId } from "@/lib/sync/profiles";
+import { findProfile, gatewayModels, sessionProfileId, usesAccountLogin } from "@/lib/sync/profiles";
 import { parseClaudeUsage, parseCodexUsage, usageProvider, type UsageSummary } from "@/lib/sync/usage";
 
-/** Account usage limits for the session's provider, polled every 60s while
- * the tab is visible. `null`/error: render nothing. */
+/** The machine's plan limits for the session's agent, polled every 60s while
+ * the tab is visible. Only for sessions on the agent's own login: a gateway or
+ * API-key profile is not billed against the plan. `null`/error: render nothing. */
 export function useUsageLimits(session: SessionItem) {
   const account = useAccount();
-  const provider = usageProvider(session.meta.flavor);
+  const profiles = useAccountSettings().data?.profiles ?? [];
+  const onPlan = usesAccountLogin(sessionProfileId(session.meta), profiles);
+  const provider = onPlan ? usageProvider(session.meta.flavor) : null;
   const machineId = session.meta.machineId;
   return useQuery<UsageSummary | null>({
     queryKey: ["usage-limits", provider, machineId],

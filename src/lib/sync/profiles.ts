@@ -468,6 +468,20 @@ export function isCustomCodexProfile(p: ProviderProfile | undefined): boolean {
   return !!base && !isOfficialUrl(expandDefault(base), "api.openai.com");
 }
 
+const API_CREDENTIALS = ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AZURE_OPENAI_API_KEY"];
+
+/** Whether a session on profile `id` runs on the agent's own subscription
+ * login (so the machine's plan limits apply): no profile, or one that
+ * neither moves the endpoint nor brings an API key. Unknown ids: no. */
+export function usesAccountLogin(id: string | undefined, custom: readonly ProviderProfile[]): boolean {
+  if (!id || id === NO_PROFILE) return true;
+  const p = findProfile(custom, id);
+  if (!p || profileEndpoint(p) || p.codexProviders.length || nonDefault(p.codexModelProvider)) return false;
+  if (p.anthropic?.authToken || p.openai?.apiKey || p.azure || p.together) return false;
+  // A `${VAR:-}` reference counts: the daemon fills it from its own env.
+  return !API_CREDENTIALS.some((n) => envValue(p, n)?.trim());
+}
+
 /** Where the profile sends traffic, for display: a host, or undefined for the
  * agent's own account login. */
 export function profileEndpoint(p: ProviderProfile | undefined): string | undefined {

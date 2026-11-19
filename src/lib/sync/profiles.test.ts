@@ -15,6 +15,7 @@ import {
   providerSpawn,
   selectedProfileIdForAgent,
   sessionProfileId,
+  usesAccountLogin,
 } from "./profiles";
 
 // The shape happy_flutter's Settings.toJson writes (toJsonWithoutApiKeys).
@@ -196,5 +197,26 @@ describe("gatewayModels", () => {
     expect(gatewayModels(findProfile(settings.profiles, "p-glm"))).toEqual(["glm-5", "glm-4.7"]);
     expect(gatewayModels(findProfile([], "anthropic"))).toBeUndefined();
     expect(gatewayModels(findProfile([], "openrouter"))).toBeUndefined();
+  });
+});
+
+describe("usesAccountLogin", () => {
+  const tmuxOnly = decodeAccountSettings({ profiles: [{ id: "p-tmux", name: "tmux", tmuxConfig: { sessionName: "x" } }] }).profiles;
+  const keyRef = decodeAccountSettings({
+    profiles: [{ id: "p-key", name: "key", environmentVariables: [{ name: "ANTHROPIC_API_KEY", value: "${MY_KEY:-}" }] }],
+  }).profiles;
+  it("is the plan login for no profile, the default built-ins, and cosmetic profiles", () => {
+    expect(usesAccountLogin(undefined, [])).toBe(true);
+    expect(usesAccountLogin("default", [])).toBe(true);
+    expect(usesAccountLogin("anthropic", [])).toBe(true);
+    expect(usesAccountLogin("p-tmux", tmuxOnly)).toBe(true);
+  });
+  it("is not for gateways, API keys, codex providers or unknown ids", () => {
+    expect(usesAccountLogin("p-glm", settings.profiles)).toBe(false);
+    expect(usesAccountLogin("zai", settings.profiles)).toBe(false);
+    expect(usesAccountLogin("p-proxy", settings.profiles)).toBe(false);
+    expect(usesAccountLogin("openai", [])).toBe(false);
+    expect(usesAccountLogin("p-key", keyRef)).toBe(false);
+    expect(usesAccountLogin("gone", settings.profiles)).toBe(false);
   });
 });
