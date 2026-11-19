@@ -134,16 +134,17 @@ test.describe("phone push navigation", () => {
     await scroller.evaluate((el) => {
       for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) {
         if (n.scrollHeight > n.clientHeight + 20) {
-          n.scrollTop = 120;
+          n.scrollTop = 30;
           n.dataset.pushProbe = "1";
           return;
         }
       }
     });
     const probe = () => page.evaluate(() => document.querySelector<HTMLElement>("[data-push-probe]")?.scrollTop ?? -1);
-    const before = await probe();
-
     await page.getByText("Fix flaky login test").first().click();
+    // Scrolled a little (the row stays clickable, so the click doesn't scroll it).
+    const before = await probe();
+    expect(before).toBeGreaterThan(0);
     await scrub(page, 130);
     await shot("mid-push");
     await settle(page);

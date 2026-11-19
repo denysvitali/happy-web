@@ -3,7 +3,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Check, CircleAlert, Command, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCompact } from "@/components/shell/nav";
-import { agentLabel, facets, flattenGroups, GROUP_LABEL, groupViews, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
+import { ProjectSwatch } from "@/components/status";
+import { agentLabel, facets, flattenSections, groupViews, projectSections, statusSections, type Grouping, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
 import { IconButton } from "@/ui/IconButton";
@@ -15,6 +16,16 @@ import classes from "./sessions.module.css";
 
 const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
+const GROUPING_LABEL: Record<Grouping, string> = { project: "Project", status: "Status" };
+const GROUPING_KEY = "happy.sessionGrouping";
+
+function loadGrouping(): Grouping {
+  try {
+    return localStorage.getItem(GROUPING_KEY) === "status" ? "status" : "project";
+  } catch {
+    return "project";
+  }
+}
 
 function isTyping(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
@@ -22,7 +33,7 @@ function isTyping(t: EventTarget | null): boolean {
 }
 
 function rowKey(r: ListRow): string {
-  return r.type === "header" ? `h:${r.group}` : r.view.id;
+  return r.type === "header" ? `h:${r.key}` : r.view.id;
 }
 
 interface Props {
@@ -40,6 +51,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const [query, setQuery] = useState("");
   const [agent, setAgent] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
+  const [grouping, setGroupingState] = useState<Grouping>(loadGrouping);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -47,9 +59,22 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
 
   const searching = query.trim() !== "";
   const options = useMemo(() => facets(views), [views]);
+  // Only badge avatars whose agent differs from the usual one.
+  const usualAgent = options.agents.length > 1 ? options.agents[0] : undefined;
   const grouped = useMemo(() => groupViews(views, { query, agent, runtime }), [views, query, agent, runtime]);
   // Searching reaches into the archive; otherwise archived rows only render once expanded.
-  const rows = useMemo(() => flattenGroups(grouped, { archivedOpen: archivedOpen || searching }), [grouped, archivedOpen, searching]);
+  const rows = useMemo(
+    () => flattenSections(grouping === "project" ? projectSections(grouped) : statusSections(grouped), { archivedOpen: archivedOpen || searching }),
+    [grouped, grouping, archivedOpen, searching],
+  );
+  const setGrouping = (g: Grouping) => {
+    setGroupingState(g);
+    try {
+      localStorage.setItem(GROUPING_KEY, g);
+    } catch {
+      // Private mode: the choice just doesn't persist.
+    }
+  };
   const sessionIndex = useMemo(() => {
     const ids: string[] = [];
     const at = new Map<string, number>();
@@ -168,6 +193,12 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             />
           </Menu.Target>
           <Menu.Dropdown>
+            <Menu.Label>Group by</Menu.Label>
+            {(["project", "status"] as const).map((g) => (
+              <Menu.Item key={g} rightSection={grouping === g ? <Check size={14} /> : null} onClick={() => setGrouping(g)}>
+                {GROUPING_LABEL[g]}
+              </Menu.Item>
+            ))}
             <Menu.Label>Agent</Menu.Label>
             {options.agents.map((a) => (
               <Menu.Item key={a} rightSection={agent === a ? <Check size={14} /> : null} onClick={() => setAgent((cur) => (cur === a ? null : a))}>
@@ -254,6 +285,8 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                   <SessionRow
                     view={r.view}
                     depth={r.depth}
+                    inProject={r.inProject}
+                    badgeAgent={usualAgent !== undefined && r.view.agent !== usualAgent}
                     active={r.view.id === activeId}
                     cursor={r.view.id === cursorVisible}
                     first={rows[vi.index - 1]?.type !== "session"}
@@ -272,12 +305,13 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
 function GroupHeader({ row, searching, onToggle }: { row: Extract<ListRow, { type: "header" }>; searching: boolean; onToggle: () => void }) {
   const attention = row.group === "attention";
   const toggle = row.collapsible && !searching;
+  const icon = attention ? <CircleAlert size={12} strokeWidth={2.5} /> : row.project !== undefined ? <ProjectSwatch project={row.project} /> : undefined;
   return (
-    <div className={classes.groupHeader}>
+    <div className={classes.groupHeader} title={row.project || undefined}>
       <SectionHeader
-        label={GROUP_LABEL[row.group]}
+        label={row.label}
         count={row.count}
-        icon={attention ? <CircleAlert size={12} strokeWidth={2.5} /> : undefined}
+        icon={icon}
         tone={attention ? "warning" : undefined}
         level={toggle ? undefined : 3}
         open={toggle ? row.open : undefined}

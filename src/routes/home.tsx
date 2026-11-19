@@ -5,8 +5,8 @@ import { memo, useMemo } from "react";
 import { useAccount } from "@/app/auth";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { openSpawnModal } from "@/components/shell/spawn";
-import { AgentAvatar, AttentionBadge, PodBadge } from "@/components/status";
-import { groupViews, metaLine as meta, statusText, type SessionView } from "@/lib/sync/sessionList";
+import { AttentionBadge, PodBadge, SessionAvatar } from "@/components/status";
+import { dominantAgent, groupViews, metaLine as meta, statusText, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
 import { CardSkeleton, StatSkeleton } from "@/ui/Skeleton";
@@ -33,13 +33,13 @@ function firstRequestTool(v: SessionView): string | undefined {
 
 const href = (id: string) => `#/s/${encodeURIComponent(id)}`;
 
-const SessionCard = memo(function SessionCard({ v }: { v: SessionView }) {
+const SessionCard = memo(function SessionCard({ v, badgeAgent }: { v: SessionView; badgeAgent: boolean }) {
   const tool = v.pending ? firstRequestTool(v) : undefined;
   const sub = meta(v);
   return (
     <a className={classes.card} href={href(v.id)} data-attention={v.pending > 0 || undefined}>
       <div className={classes.cardHead}>
-        <AgentAvatar agent={v.agent} status={v.status} attention={v.pending > 0} size={32} />
+        <SessionAvatar view={v} agent={badgeAgent ? v.agent : undefined} size={32} />
         <div className={classes.cardText}>
           <div className={classes.cardTitle}>{v.title}</div>
           {sub && <div className={classes.cardSub}>{sub}</div>}
@@ -66,11 +66,11 @@ const SessionCard = memo(function SessionCard({ v }: { v: SessionView }) {
   );
 });
 
-const ActivityRow = memo(function ActivityRow({ v }: { v: SessionView }) {
+const ActivityRow = memo(function ActivityRow({ v, badgeAgent }: { v: SessionView; badgeAgent: boolean }) {
   const sub = meta(v);
   return (
     <a className={classes.activityRow} href={href(v.id)} data-archived={v.status === "archived" || undefined}>
-      <AgentAvatar agent={v.agent} status={v.status} size={28} />
+      <SessionAvatar view={{ ...v, pending: 0 }} agent={badgeAgent ? v.agent : undefined} size={28} />
       <div className={classes.activityMain}>
         <div className={classes.activityTitle}>{v.title}</div>
         {sub && <div className={classes.activitySub}>{sub}</div>}
@@ -99,6 +99,8 @@ export function HomeScreen() {
   const navigate = useNavigate();
   const { views, sessions, machines, onlineMachines, now } = useSessionViews();
   const g = useMemo(() => groupViews(views), [views]);
+  const usual = useMemo(() => dominantAgent(views), [views]);
+  const badge = (v: SessionView) => usual !== undefined && v.agent !== usual;
   // Matches the Active section below (sessions blocked on an approval count there instead).
   const thinking = g.active.filter((e) => e.view.status === "thinking").length;
   // Thinking sessions first, then by last activity (groupViews' order).
@@ -231,7 +233,7 @@ export function HomeScreen() {
             </SectionTitle>
             <div className={classes.cards}>
               {g.attention.map((e) => (
-                <SessionCard key={e.view.id} v={e.view} />
+                <SessionCard key={e.view.id} v={e.view} badgeAgent={badge(e.view)} />
               ))}
             </div>
           </section>
@@ -245,7 +247,7 @@ export function HomeScreen() {
           {active.length > 0 ? (
             <div className={classes.cards}>
               {active.map((e) => (
-                <SessionCard key={e.view.id} v={e.view} />
+                <SessionCard key={e.view.id} v={e.view} badgeAgent={badge(e.view)} />
               ))}
             </div>
           ) : (
@@ -272,7 +274,7 @@ export function HomeScreen() {
             <SectionTitle icon={<History size={15} strokeWidth={2.25} />}>Recent</SectionTitle>
             <div className={classes.activity}>
               {recent.map((v) => (
-                <ActivityRow key={v.id} v={v} />
+                <ActivityRow key={v.id} v={v} badgeAgent={badge(v)} />
               ))}
             </div>
           </section>

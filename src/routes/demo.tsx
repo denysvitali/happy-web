@@ -12,7 +12,7 @@ import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
 import { ConnectionStrip } from "@/components/shell/ConnectionBanner";
 import { openSpawnModal } from "@/components/shell/spawn";
-import { AgentAvatar, AttentionBadge, PodBadge, StatusDot, UnreadBadge } from "@/components/status";
+import { AttentionBadge, PodBadge, ProjectSwatch, SessionAvatar, StatusDot, UnreadBadge } from "@/components/status";
 import type { Account, MachineItem } from "@/lib/sync/account";
 import { buildView } from "@/lib/sync/chat";
 import type { SessionStatus } from "@/lib/sync/decode";
@@ -241,8 +241,11 @@ export function DemoScreen() {
             <AttentionBadge count={2} />
             <UnreadBadge label="3" />
             <UnreadBadge label="99+" />
-            <AgentAvatar agent="claude" status="thinking" />
-            <AgentAvatar agent="codex" status="active" />
+            <SessionAvatar view={{ id: "s-1", project: "acme/web", title: "Fix login", status: "thinking", pending: 0 }} />
+            <SessionAvatar view={{ id: "s-2", project: "acme/web", title: "Add tests", status: "active", pending: 1 }} />
+            <SessionAvatar view={{ id: "s-3", project: "acme/api", title: "Migrate DB", status: "idle", pending: 0 }} agent="codex" />
+            <SessionAvatar view={{ id: "s-4", project: "acme/api", title: "Old", status: "archived", pending: 0 }} />
+            <ProjectSwatch project="acme/web" />
           </Group>
         </Section>
 

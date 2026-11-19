@@ -30,7 +30,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSessionActions } from "@/components/sessions/actions";
-import { AgentAvatar } from "@/components/status";
+import { SessionAvatar } from "@/components/status";
 import type { MachineItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
 import {
@@ -104,12 +104,7 @@ function sessionItem(v: SessionView, run: () => void): Item {
     title: v.title,
     subtitle: metaLine(v),
     leading: (
-      <AgentAvatar
-        agent={v.agent}
-        status={v.status}
-        attention={v.pending > 0}
-        size={28}
-      />
+      <SessionAvatar view={v} size={28} />
     ),
     trailing: <span className={classes.ago}>{v.ago}</span>,
     fields,

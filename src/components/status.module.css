@@ -60,7 +60,7 @@
   background: var(--happy-accent);
 }
 
-/* ---- Agent avatar ---- */
+/* ---- Session avatar ---- */
 .avatar {
   --tint: var(--happy-gray);
   position: relative;
@@ -75,15 +75,15 @@
   color: color-mix(in srgb, var(--tint) 82%, var(--happy-label));
   background: color-mix(in srgb, var(--tint) 15%, transparent);
 }
-.avatar[data-agent="claude"] { --tint: var(--happy-orange); }
-.avatar[data-agent="codex"] { --tint: var(--happy-green); }
-.avatar[data-agent="opencode"] { --tint: var(--happy-blue); }
-.avatar[data-agent="grok"] { --tint: var(--happy-gray); }
-.avatar[data-agent="antigravity"],
-.avatar[data-agent="gemini"] { --tint: var(--happy-purple); }
-.avatar[data-agent="deepseek"] { --tint: var(--happy-indigo); }
-.avatar[data-agent="har"] { --tint: var(--happy-yellow); color: color-mix(in srgb, var(--happy-yellow) 60%, var(--happy-label)); }
-.avatar[data-agent="prime-agent"] { --tint: var(--happy-red); }
+/* Session tones: project tints (see projectTone); count must match TONES. */
+:is(.avatar, .swatch)[data-tone="0"] { --tint: var(--happy-blue); }
+:is(.avatar, .swatch)[data-tone="1"] { --tint: var(--happy-green); }
+:is(.avatar, .swatch)[data-tone="2"] { --tint: var(--happy-orange); }
+:is(.avatar, .swatch)[data-tone="3"] { --tint: var(--happy-purple); }
+:is(.avatar, .swatch)[data-tone="4"] { --tint: var(--happy-yellow); }
+.avatar[data-tone="4"] { color: color-mix(in srgb, var(--happy-yellow) 55%, var(--happy-label)); background: color-mix(in srgb, var(--happy-yellow) 24%, transparent); }
+:is(.avatar, .swatch)[data-tone="5"] { --tint: var(--happy-teal); }
+:is(.avatar, .swatch)[data-tone="6"] { --tint: var(--happy-red); }
 .avatar[data-dim] { opacity: 0.55; filter: saturate(0.3); }
 
 .avatarDot {
@@ -92,4 +92,36 @@
   bottom: -2px;
   box-sizing: content-box;
   border: 2px solid var(--avatar-ring, var(--happy-bg));
+}
+
+/* Which agent runs a session, when it is not the usual one. */
+.agentBadge {
+  --tint: var(--happy-gray);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--tint) 82%, var(--happy-label));
+  background: color-mix(in srgb, var(--tint) 18%, var(--avatar-ring, var(--happy-bg)));
+  box-shadow: 0 0 0 1.5px var(--avatar-ring, var(--happy-bg));
+}
+.agentBadge[data-agent="claude"] { --tint: var(--happy-orange); }
+.agentBadge[data-agent="codex"] { --tint: var(--happy-green); }
+.agentBadge[data-agent="opencode"] { --tint: var(--happy-blue); }
+.agentBadge[data-agent="antigravity"],
+.agentBadge[data-agent="gemini"] { --tint: var(--happy-purple); }
+.agentBadge[data-agent="deepseek"] { --tint: var(--happy-indigo); }
+.agentBadge[data-agent="prime-agent"] { --tint: var(--happy-red); }
+
+.swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tint) 70%, transparent);
 }

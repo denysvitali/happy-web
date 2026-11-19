@@ -5,7 +5,10 @@ import {
   agentOf,
   deriveViews,
   facets,
-  flattenGroups,
+  flattenSections,
+  projectName,
+  projectSections,
+  statusSections,
   formatAgo,
   groupViews,
   metaLine,
@@ -144,10 +147,37 @@ describe("groupViews", () => {
 
   it("emits archived rows only when expanded", () => {
     const g = groupViews(views(items));
-    const closed = flattenGroups(g, { archivedOpen: false });
+    const closed = flattenSections(statusSections(g), { archivedOpen: false });
     expect(closed.filter((r) => r.type === "session")).toHaveLength(5);
     expect(closed.at(-1)).toMatchObject({ type: "header", group: "archived", count: 1, open: false });
-    expect(flattenGroups(g, { archivedOpen: true }).at(-1)).toMatchObject({ type: "session" });
+    expect(flattenSections(statusSections(g), { archivedOpen: true }).at(-1)).toMatchObject({ type: "session" });
+  });
+
+  it("groups live sessions by project, keeping approvals and the archive apart", () => {
+    const v = views([
+      mk("a1", { path: "/a" }, { updatedAt: NOW - 10 * MIN }),
+      mk("b1", { path: "/b" }, { updatedAt: NOW - 2 * MIN }),
+      mk("a2", { path: "/a" }, { updatedAt: NOW - MIN, active: false }),
+      mk("ask", { path: "/a" }, { updatedAt: NOW - 3 * MIN, agentState: { requests: { r: { tool: "Bash", arguments: {} } } } }),
+      mk("old", { path: "/a" }, { archived: true }),
+    ]);
+    const rows = flattenSections(projectSections(groupViews(v)), { archivedOpen: true });
+    expect(rows.map((r) => (r.type === "header" ? `#${r.label}` : r.view.id))).toEqual(["#Needs attention", "ask", "#a", "a2", "a1", "#b", "b1", "#Archived", "old"]);
+    expect(rows.find((r) => r.type === "session" && r.view.id === "a1")).toMatchObject({ inProject: true });
+    expect(rows.find((r) => r.type === "session" && r.view.id === "ask")).toMatchObject({ inProject: false });
+  });
+
+  it("names projects by their last segment", () => {
+    expect(projectName("acme/web")).toBe("web");
+    expect(projectName("~/src/app/")).toBe("app");
+    expect(projectName("~")).toBe("Home");
+    expect(projectName("")).toBe("No project");
+  });
+
+  it("puts the branch in the meta line under a project header", () => {
+    const v = { project: "acme/web", gitBranch: "main", runtime: "kubernetes" as const, machine: "" };
+    expect(metaLine(v, { inProject: true })).toBe("main · K8s");
+    expect(metaLine(v)).toBe("acme/web · K8s");
   });
 
   it("lists facets by frequency", () => {

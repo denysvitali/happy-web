@@ -2,7 +2,7 @@ import { Ellipsis } from "lucide-react";
 import { useMemo } from "react";
 import { useMachines, useNow } from "@/app/hooks";
 import { NavButton } from "@/components/shell/NavButton";
-import { AgentAvatar, PodBadge } from "@/components/status";
+import { PodBadge, SessionAvatar } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
 import type { SessionItem } from "@/lib/sync/account";
 import type { SessionStatus } from "@/lib/sync/decode";
@@ -22,7 +22,7 @@ export function SessionHeader({ session, status }: { session: SessionItem; statu
   return (
     <header className={classes.header}>
       <NavButton />
-      <AgentAvatar agent={v.agent} status={status} attention={approval} size={30} />
+      <SessionAvatar view={{ ...v, pending: approval ? v.pending : 0 }} agent={v.agent} size={30} />
       <div className={classes.headerMain}>
         <div className={classes.headerTitle} title={v.title}>
           {v.title}

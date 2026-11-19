@@ -52,6 +52,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   turn and anything waiting for the user never fold.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
+- Session list: grouped by project by default (approvals pinned on top, archive collapsed;
+  "Group by" in the filter menu). Avatars are identicons (`SessionAvatar`): tint from the
+  project, glyph from the session id; changing `hashString` or reordering `SESSION_GLYPHS`
+  re-skins every session.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each

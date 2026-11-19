@@ -22,6 +22,7 @@ export interface SessionView {
   title: string;
   /** owner/repo when known, else the ~-relative path. */
   project: string;
+  gitBranch: string;
   agent: string;
   runtime: Runtime;
   /** Machine display name (or host); secondary text only. */
@@ -132,7 +133,7 @@ export function formatAgo(ts: number, now: number): string {
 
 // ---- derivation ---------------------------------------------------------------
 
-type Static = Pick<SessionView, "title" | "project" | "agent" | "runtime" | "machine" | "pod" | "parentId" | "search" | "pending">;
+type Static = Pick<SessionView, "title" | "project" | "gitBranch" | "agent" | "runtime" | "machine" | "pod" | "parentId" | "search" | "pending">;
 
 const NO_UNREAD: ReadonlyMap<string, string> = new Map();
 const staticCache = new WeakMap<SessionItem, Static>();
@@ -149,6 +150,7 @@ function staticOf(s: SessionItem, machine: string): Static {
   const st: Static = {
     title,
     project,
+    gitBranch: m.gitBranch ?? "",
     agent,
     runtime,
     machine,
@@ -287,24 +289,93 @@ export function facets(views: readonly SessionView[]): { agents: string[]; runti
   };
 }
 
+// ---- sections (sidebar organisation) -------------------------------------------
+
+export type Grouping = "status" | "project";
+
+export interface Section {
+  key: string;
+  label: string;
+  /** Set for status sections (incl. the pinned attention/archived ones in project mode). */
+  group?: SessionGroup;
+  /** Set for project sections; rows under it drop the (redundant) project from their meta line. */
+  project?: string;
+  entries: Entry[];
+  collapsible: boolean;
+}
+
+/** Last path segment of a project ("acme/web" → "web", "~/src/app" → "app"). */
+export function projectName(project: string): string {
+  const seg = project.replace(/\/+$/, "").split("/").at(-1) ?? "";
+  return seg === "~" ? "Home" : seg || "No project";
+}
+
+const statusSection = (g: Grouped, group: SessionGroup): Section => ({ key: group, label: GROUP_LABEL[group], group, entries: g[group], collapsible: group === "archived" });
+
+export function statusSections(g: Grouped): Section[] {
+  return GROUP_ORDER.map((group) => statusSection(g, group));
+}
+
+/**
+ * Live sessions (active + idle) split per project, busiest project first.
+ * Approvals stay pinned on top and the archive stays one collapsed pile:
+ * neither should hide inside a project.
+ */
+export function projectSections(g: Grouped): Section[] {
+  const byProject = new Map<string, SessionView[]>();
+  for (const e of [...g.active, ...g.recent]) {
+    const list = byProject.get(e.view.project);
+    if (list) list.push(e.view);
+    else byProject.set(e.view.project, [e.view]);
+  }
+  const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byActivity) }));
+  projects.sort((a, b) => b.list[0]!.lastActivity - a.list[0]!.lastActivity || a.project.localeCompare(b.project));
+  return [
+    statusSection(g, "attention"),
+    ...projects.map(({ project, list }) => ({ key: `p:${project}`, label: projectName(project), project, entries: nest(list), collapsible: false })),
+    statusSection(g, "archived"),
+  ];
+}
+
 // ---- flat list (virtualized sidebar) -------------------------------------------
 
 export type ListRow =
-  | { type: "header"; group: SessionGroup; count: number; collapsible: boolean; open: boolean }
-  | { type: "session"; view: SessionView; depth: number };
+  | { type: "header"; key: string; label: string; group?: SessionGroup | undefined; project?: string | undefined; count: number; collapsible: boolean; open: boolean }
+  | { type: "session"; view: SessionView; depth: number; inProject: boolean };
 
-/** Headers + rows. Archived rows are only emitted when that section is open. */
-export function flattenGroups(g: Grouped, opts: { archivedOpen: boolean }): ListRow[] {
+/** Headers + rows; empty sections are skipped and collapsible ones only emit rows when open. */
+export function flattenSections(sections: readonly Section[], opts: { archivedOpen: boolean }): ListRow[] {
   const out: ListRow[] = [];
-  for (const group of GROUP_ORDER) {
-    const entries = g[group];
-    if (entries.length === 0) continue;
-    const collapsible = group === "archived";
-    const open = !collapsible || opts.archivedOpen;
-    out.push({ type: "header", group, count: entries.length, collapsible, open });
-    if (open) for (const e of entries) out.push({ type: "session", view: e.view, depth: e.depth });
+  for (const s of sections) {
+    if (s.entries.length === 0) continue;
+    const open = !s.collapsible || opts.archivedOpen;
+    out.push({ type: "header", key: s.key, label: s.label, group: s.group, project: s.project, count: s.entries.length, collapsible: s.collapsible, open });
+    if (open) for (const e of s.entries) out.push({ type: "session", view: e.view, depth: e.depth, inProject: s.project !== undefined });
   }
   return out;
+}
+
+/** The agent most sessions use; avatars only badge the others. */
+export function dominantAgent(views: readonly SessionView[]): string | undefined {
+  return facets(views).agents[0];
+}
+
+// ---- identity -------------------------------------------------------------------
+
+/** FNV-1a plus murmur3's finalizer (FNV alone clusters on small moduli):
+ * tiny, stable string hash for generated avatars. Changing it re-skins every avatar. */
+export function hashString(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
 }
 
 // ---- machines -------------------------------------------------------------------
@@ -322,9 +393,11 @@ export function statusText(v: Pick<SessionView, "status" | "pending">): string {
 }
 
 /** Secondary line for a session: project, then where it runs: the machine
- * for local runs, "K8s" for Kubernetes (whichever pod hosts it). */
-export function metaLine(v: Pick<SessionView, "project" | "runtime" | "machine">): string {
-  return [v.project, v.runtime === "kubernetes" ? "K8s" : v.machine].filter(Boolean).join(" · ");
+ * for local runs, "K8s" for Kubernetes (whichever pod hosts it). Under a
+ * project header the project is implied, so the branch takes its place. */
+export function metaLine(v: Pick<SessionView, "project" | "runtime" | "machine"> & { gitBranch?: string }, opts?: { inProject?: boolean }): string {
+  const lead = opts?.inProject ? v.gitBranch : v.project;
+  return [lead, v.runtime === "kubernetes" ? "K8s" : v.machine].filter(Boolean).join(" · ");
 }
 
 /** Whether the session still has a process its daemon can stop. */
