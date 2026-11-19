@@ -5,8 +5,8 @@
 // growing stream preview) only re-renders the block that actually changed.
 // The permission handler is made stable here, so callers may pass a fresh
 // closure on every render.
-import { ShieldQuestion } from "lucide-react";
-import { memo, useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
+import { ChevronDown, CircleAlert, ShieldQuestion } from "lucide-react";
+import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { isAgent, sameBlock, type Block } from "@/lib/sync/chat";
 import { ImageStrip } from "./images";
 import { Markdown } from "./markdown";
@@ -59,43 +59,62 @@ function childrenFor(h: PermissionHandler | undefined) {
   return r;
 }
 
+/** Time + copy for a message: revealed on hover, or on tap (the message is
+ * focusable) on touch screens, so it never costs a row. */
+function RowTools({ at, text }: { at?: number | undefined; text: string }) {
+  return (
+    <div className={classes.rowTools}>
+      <TimeLabel at={at} />
+      {text && <CopyIcon text={text} />}
+    </div>
+  );
+}
+
+/** Long prompts collapse to ~12 lines. Measuring would cost a layout pass
+ * per message; length is a good enough proxy. */
+const isLong = (t: string) => t.length > 900 || t.split("\n").length > 16;
+
+function UserMessage({ b }: { b: Extract<Block, { type: "user" }> }) {
+  const [open, setOpen] = useState(false);
+  const long = isLong(b.text);
+  return (
+    <div className={classes.userRow}>
+      <div className={`${classes.userInner} ${classes.hoverable}`} tabIndex={-1}>
+        {b.images && <ImageStrip images={b.images} align="end" />}
+        {b.text && (
+          <div className={classes.user} data-pending={b.pending}>
+            <div className={classes.userText} data-clamped={long && !open ? true : undefined}>
+              <Markdown text={b.text} />
+            </div>
+            {long && (
+              <button type="button" className={classes.userMore} aria-expanded={open} onClick={() => setOpen(!open)}>
+                {open ? "Show less" : "Show more"}
+                <ChevronDown size={13} strokeWidth={2.5} data-open={open || undefined} />
+              </button>
+            )}
+          </div>
+        )}
+        {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
+        {b.pending === "failed" && (
+          <div className={classes.userNote} data-tone="error">
+            <CircleAlert size={12} strokeWidth={2.25} /> Not sent
+          </div>
+        )}
+        {!b.pending && <RowTools at={b.at} text={b.text} />}
+      </div>
+    </div>
+  );
+}
+
 function BlockSwitch({ b, onPermission }: ViewProps) {
   switch (b.type) {
     case "user":
-      return (
-        <div className={classes.userRow}>
-          <div className={`${classes.userInner} ${classes.hoverable}`}>
-            {b.images && <ImageStrip images={b.images} align="end" />}
-            {b.text && (
-              <div className={classes.user} data-pending={b.pending}>
-                <div className={classes.userText}>{b.text}</div>
-              </div>
-            )}
-            {b.pending === "sending" && <div className={classes.userNote}>Sending…</div>}
-            {b.pending === "failed" && (
-              <div className={classes.userNote} data-tone="error">
-                Not sent
-              </div>
-            )}
-            <div className={classes.rowTools}>
-              <TimeLabel at={b.at} />
-              {b.text && <CopyIcon text={b.text} />}
-            </div>
-          </div>
-        </div>
-      );
+      return <UserMessage b={b} />;
     case "text":
       return (
-        <div className={`${classes.agentText} ${classes.hoverable}`} data-streaming={b.streaming || undefined}>
-          <div className={classes.agentTextBody}>
-            <Markdown text={b.text} streaming={b.streaming} />
-          </div>
-          {!b.streaming && (
-            <div className={classes.rowTools}>
-              <TimeLabel at={b.at} />
-              <CopyIcon text={b.text} />
-            </div>
-          )}
+        <div className={`${classes.agentText} ${classes.hoverable}`} tabIndex={-1} data-streaming={b.streaming || undefined}>
+          <Markdown text={b.text} streaming={b.streaming} />
+          {!b.streaming && <RowTools at={b.at} text={b.text} />}
         </div>
       );
     case "thinking":
@@ -113,7 +132,11 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
         </div>
       );
     case "unknown":
-      return <div className={classes.unknown}>Unsupported message ({b.label})</div>;
+      return (
+        <div className={classes.event} data-tone="unknown">
+          <span>Unsupported message · {b.label}</span>
+        </div>
+      );
     case "steps":
       return <StepsGroup items={b.items} onPermission={onPermission} />;
     case "tool":

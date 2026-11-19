@@ -158,6 +158,23 @@ for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.width, height: 1400 });
       await page.waitForTimeout(400);
       await shot(page, "11-ops-full");
+      // Prose: a markdown-heavy user prompt (collapsed, then open) and a rich reply.
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.goto("/#/s/s1");
+      await expect(page.getByText("Can you find why the login test is flaky")).toBeVisible();
+      await page.waitForTimeout(300);
+      await page.locator('[class*="scroller"]').first().evaluate((el) => (el.scrollTop = 0));
+      await page.waitForTimeout(300);
+      await page.getByRole("button", { name: "Show more" }).scrollIntoViewIfNeeded();
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await shot(page, "14-chat-prose");
+      await page.getByRole("button", { name: "Show more" }).click();
+      await page.getByText("Why it's flaky").scrollIntoViewIfNeeded();
+      await page.mouse.move(0, 0);
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(300);
+      await shot(page, "14b-chat-prose-dark");
       expect(violations).toEqual([]);
     });
   });
