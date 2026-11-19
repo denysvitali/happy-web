@@ -226,7 +226,12 @@ export function permissionModes(kind: AgentKind): PermissionModeOption[] {
 /** The session's mode from metadata, falling back to `default` when it is
  * missing or not one this agent understands. */
 export function currentPermissionMode(kind: AgentKind, mode: string | undefined): string {
-  return mode && permissionModes(kind).some((m) => m.value === mode) ? mode : "default";
+  return mode && permissionModes(kind).some((m) => m.value === mode) ? mode : defaultPermissionMode(kind);
+}
+
+/** Bypass (Codex: YOLO) is the house default; other agents keep `default`. */
+export function defaultPermissionMode(kind: string): string {
+  return kind === "codex" ? "yolo" : kind === "claude" ? "bypassPermissions" : "default";
 }
 
 // ---- send ---------------------------------------------------------------------

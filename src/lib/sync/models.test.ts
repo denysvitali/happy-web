@@ -119,7 +119,7 @@ describe("permission modes", () => {
     expect(permissionModes("codex").map((m) => m.value)).toEqual(["default", "read-only", "safe-yolo", "yolo"]);
     expect(permissionModes("claude").map((m) => m.value)).toEqual(["default", "acceptEdits", "plan", "bypassPermissions"]);
     expect(currentPermissionMode("codex", "yolo")).toBe("yolo");
-    expect(currentPermissionMode("codex", "bypassPermissions")).toBe("default");
-    expect(currentPermissionMode("claude", undefined)).toBe("default");
+    expect(currentPermissionMode("codex", "bypassPermissions")).toBe("yolo");
+    expect(currentPermissionMode("claude", undefined)).toBe("bypassPermissions");
   });
 });

@@ -28,6 +28,7 @@ import {
   resolveHome,
   type SpawnBackend,
 } from "@/lib/sync/spawn";
+import { defaultPermissionMode } from "@/lib/sync/models";
 import { KubernetesFields } from "./KubernetesFields";
 import { LocalFields } from "./LocalFields";
 import { ModePicker } from "./ModePicker";
@@ -105,7 +106,7 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
   const agent = agents.find((a) => a.value === agentByMode[mode])?.value ?? "claude";
   const [permByAgent, setPermByAgent] = useState<Record<string, string>>(() => ({ ...prefs.permissionMode }));
   const permModes = permissionModesFor(agent);
-  const permission = permModes.includes(permByAgent[agent] ?? "") ? permByAgent[agent]! : "default";
+  const permission = permModes.includes(permByAgent[agent] ?? "") ? permByAgent[agent]! : defaultPermissionMode(agent);
   const [model, setModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [advanced, setAdvanced] = useState(false);
@@ -272,14 +273,22 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
           <UnstyledButton className={classes.toggle} data-expanded={advanced || undefined} aria-expanded={advanced} onClick={() => setAdvanced((a) => !a)}>
             <ChevronRight size={14} className={classes.chevron} />
             Advanced
-            {!advanced && (permission !== "default" || model.trim()) && (
+            {!advanced && (permission !== defaultPermissionMode(agent) || model.trim()) && (
               <Text span size="xs" c="dimmed">
-                · {[permission !== "default" && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ")}
+                · {[permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ")}
               </Text>
             )}
           </UnstyledButton>
           <Collapse expanded={advanced}>
             <Stack gap="md" pt="md">
+              <Select
+                label="Permission mode"
+                data={permModes.map((m) => ({ value: m, label: MODE_LABELS[m] ?? m }))}
+                value={permission}
+                onChange={(v) => v && setPermByAgent((p) => ({ ...p, [agent]: v }))}
+                allowDeselect={false}
+                comboboxProps={within}
+              />
               <Autocomplete
                 label="Model"
                 placeholder="Account default"
@@ -288,14 +297,6 @@ function NewSessionForm({ account, opts, onSpawned }: { account: Account; opts: 
                 onChange={setModel}
                 autoComplete="off"
                 spellCheck={false}
-                comboboxProps={within}
-              />
-              <Select
-                label="Permission mode"
-                data={permModes.map((m) => ({ value: m, label: MODE_LABELS[m] ?? m }))}
-                value={permission}
-                onChange={(v) => v && setPermByAgent((p) => ({ ...p, [agent]: v }))}
-                allowDeselect={false}
                 comboboxProps={within}
               />
             </Stack>

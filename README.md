@@ -28,6 +28,12 @@ pnpm dev              # http://localhost:5173
 `happy-cli-go` commit (`proto/server/v1`, `proto/rpc/v1`). happy-cli-go is private, so CI
 needs a repository secret `HAPPY_CLI_GO_TOKEN` (fine-grained, contents: read).
 
+## Installing as an app
+
+A web manifest (`public/manifest.webmanifest`) plus icons make it installable: Android
+Chrome → menu → *Install app*; iOS Safari → Share → *Add to Home Screen*. There is no
+service worker on purpose (no offline cache to go stale; the app needs the server anyway).
+
 ## Pointing it at a server
 
 The first screen asks for the server URL. It's prefilled from the build-time
