@@ -5,6 +5,10 @@
   grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
   background: var(--happy-bg);
+  /* The off-screen pane of the phone push stack (translateX) must not count
+     as page width: mobile Chrome widens the layout viewport to fit it, which
+     doubles the width of everything fixed, sheets included. */
+  overflow: clip;
 }
 
 .sidebar {

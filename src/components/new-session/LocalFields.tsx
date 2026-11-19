@@ -6,6 +6,7 @@ import { machineName } from "@/lib/sync/decode";
 import { abbreviateHome, resolveHome } from "@/lib/sync/spawn";
 import { FormRow, FormSection } from "@/ui/FormSection";
 import classes from "./new-session.module.css";
+import { autofocus } from "@/ui/autofocus";
 
 const within = { withinPortal: false } as const;
 
@@ -48,7 +49,7 @@ export function LocalFields(p: {
           description={resolved !== p.directory.trim() && resolved ? <span className={classes.mono}>{resolved}</span> : undefined}
           classNames={{ input: classes.monoInput }}
           required
-          data-autofocus
+          data-autofocus={autofocus()}
           openOnFocus={false}
           autoComplete="off"
           spellCheck={false}

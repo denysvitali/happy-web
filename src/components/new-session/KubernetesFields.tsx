@@ -7,6 +7,7 @@ import { MAX_ADDITIONAL_REPOS, MCP_SERVERS, repoLabel, type RepoRef } from "@/li
 import { FormRow, FormSection } from "@/ui/FormSection";
 import classes from "./new-session.module.css";
 import type { BranchLookup } from "./useRepoBranches";
+import { autofocus } from "@/ui/autofocus";
 
 const within = { withinPortal: false } as const;
 
@@ -121,7 +122,7 @@ export function KubernetesFields(p: {
             description={repoInvalid ? undefined : repoHint}
             error={repoInvalid ? "Use owner/repo or a full Git URL" : undefined}
             required
-            data-autofocus
+            data-autofocus={autofocus()}
             openOnFocus={false}
             autoComplete="off"
             spellCheck={false}

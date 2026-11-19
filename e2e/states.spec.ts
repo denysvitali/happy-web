@@ -165,3 +165,34 @@ test.describe("phone push navigation", () => {
     expect(violations).toEqual([]);
   });
 });
+
+test.describe("touch devices", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("the new-session sheet does not pop the keyboard (no autofocused field)", async ({ page }) => {
+    const mock = createMock();
+    await mock.install(page);
+    await linkAndOpen(page, mock);
+    await page.getByRole("button", { name: "New session" }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.waitForTimeout(400);
+    const tag = await page.evaluate(() => document.activeElement?.tagName ?? "");
+    expect(["INPUT", "TEXTAREA"]).not.toContain(tag);
+  });
+
+  test("nothing widens the layout viewport (off-screen push pane, sheets)", async ({ page }) => {
+    const mock = createMock();
+    await mock.install(page);
+    await linkAndOpen(page, mock);
+    const widths = () => page.evaluate(() => ({ layout: innerWidth, visual: visualViewport?.width ?? innerWidth, scroll: document.documentElement.scrollWidth }));
+    // Mobile Chrome widens the layout viewport to fit horizontal overflow,
+    // which made every fixed sheet twice as wide as the screen.
+    const list = await widths();
+    expect(list.layout).toBe(Math.round(list.visual));
+    expect(list.scroll).toBeLessThanOrEqual(list.layout);
+    await page.getByRole("button", { name: "Account and settings" }).click();
+    const box = await page.getByRole("dialog").boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(list.layout);
+  });
+});
