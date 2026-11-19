@@ -52,9 +52,10 @@
     border-end-start-radius: 0;
     border-end-end-radius: 0;
   }
-  .body { padding: 16px; }
-  .footer { flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
-  .note { flex-basis: 100%; text-align: center; }
-  .actions { flex: 1; flex-direction: column-reverse; }
-  .actions > * { width: 100%; }
+  .body { gap: 20px; padding: 16px; }
+  /* One row of actions: secondary hugs its label, the primary takes the rest. */
+  .footer { flex-wrap: wrap; gap: 10px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .note { flex-basis: 100%; }
+  .actions { flex: 1; }
+  .actions > :last-child { flex: 1; }
 }

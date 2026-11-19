@@ -25,7 +25,7 @@ import tooltip from "@/ui/mantine/Tooltip.module.css";
 // src/ui/mantine/ via `classNames`; keep this file to props and wiring.
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"; // --happy-ease (JS needs the literal)
 // Every combobox-backed input shares one dropdown look.
-const comboboxProps = { shadow: "lg", offset: 6, transitionProps: { transition: "pop", duration: 140 } } as const;
+const comboboxProps = { shadow: "lg", offset: 6, transitionProps: { transition: "pop", duration: 110, exitDuration: 0 } } as const;
 
 export const theme = createTheme({
   primaryColor: "blue",

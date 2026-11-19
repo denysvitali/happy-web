@@ -13,6 +13,10 @@
   --switch-track-label-padding-sm: 2px;
   --switch-track-label-padding-md: 2px;
   --switch-color: var(--happy-accent);
+  /* Label line = track height, so the text centres on the track. */
+  --label-lh-xs: 18px;
+  --label-lh-sm: 24px;
+  --label-lh-md: 28px;
 }
 .track {
   --switch-bg: var(--happy-fill);

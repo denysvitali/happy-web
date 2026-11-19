@@ -1,13 +1,7 @@
-/* Select dropdowns: a raised popover menu, macOS-style highlight. */
-.dropdown {
-  padding: 5px;
-  border: 0;
-  border-radius: var(--happy-radius-lg);
-  background: var(--happy-material-raised);
-  -webkit-backdrop-filter: var(--happy-backdrop);
-  backdrop-filter: var(--happy-backdrop);
-  box-shadow: var(--happy-shadow-lg);
-}
+/* Select / Autocomplete dropdowns: the opaque Popover surface (see
+   Popover.module.css) with a tighter inset and macOS-style highlight. */
+/* [data-position]: outranks the Popover skin, which this dropdown also carries. */
+.dropdown[data-position] { padding: 5px; }
 .option {
   display: flex;
   align-items: center;
@@ -21,4 +15,9 @@
 .option:hover:not([data-combobox-selected], [data-combobox-disabled]) { background: var(--happy-hover); }
 .option[data-combobox-selected] { background: var(--happy-accent); color: var(--happy-on-accent); }
 .option[data-checked] { font-weight: 500; }
-.empty { font-size: var(--happy-text-subhead); color: var(--happy-label-2); }
+.option[data-combobox-disabled] { color: var(--happy-label-3); }
+.empty { padding: 6px 10px; font-size: var(--happy-text-subhead); color: var(--happy-label-2); }
+
+@media (pointer: coarse) {
+  .option { min-height: 40px; padding-inline: 12px; font-size: var(--happy-text-body); border-radius: var(--happy-radius-sm); }
+}

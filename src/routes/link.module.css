@@ -1,0 +1,104 @@
+/* First-run link screen: brand, one card (server form or QR), a footnote. */
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  overflow: auto;
+  background: var(--happy-bg-grouped);
+}
+.column { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 400px; }
+
+.hero { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.hero > :first-child { margin-bottom: 8px; }
+.title {
+  margin: 0;
+  font-family: var(--happy-font-display);
+  font-size: var(--happy-text-title2);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: var(--happy-tracking-tight);
+  color: var(--happy-label);
+}
+.subtitle { max-width: 320px; margin: 0; font-size: var(--happy-text-subhead); line-height: 1.45; color: var(--happy-label-2); }
+
+.card {
+  padding: 20px;
+  border-radius: var(--happy-radius-xl);
+  background: var(--happy-surface);
+  box-shadow: var(--happy-shadow-md);
+}
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+/* Current server: a quiet capsule above the QR code. */
+.server {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 16px;
+  padding: 0 4px 0 12px;
+  border-radius: var(--happy-radius-md);
+  font-size: var(--happy-text-subhead);
+  color: var(--happy-label-2);
+  background: var(--happy-fill-3);
+}
+.serverHost { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--happy-label); }
+.change {
+  padding: 4px 10px;
+  border-radius: var(--happy-radius-sm);
+  font-size: var(--happy-text-subhead);
+  font-weight: 500;
+  color: var(--happy-accent);
+}
+.change:hover { background: var(--happy-accent-tint); }
+.change:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+
+/* Scanners need real white around the code, in either scheme. */
+.qr {
+  align-self: center;
+  padding: 10px;
+  border-radius: var(--happy-radius-lg);
+  background: var(--happy-paper);
+  box-shadow: inset 0 0 0 1px var(--happy-separator);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-inline-start: 20px;
+  font-size: var(--happy-text-subhead);
+  line-height: 1.45;
+  color: var(--happy-label-2);
+}
+.steps strong { font-weight: 600; color: var(--happy-label); }
+.steps li::marker { font-weight: 600; color: var(--happy-label-3); }
+
+.waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}
+
+.linkRow { display: flex; align-items: flex-start; gap: 6px; padding: 6px 0 0 16px; }
+.link {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--happy-radius-sm);
+  font-family: var(--happy-font-mono);
+  font-size: var(--happy-text-footnote);
+  line-height: 1.4;
+  word-break: break-all;
+  user-select: all;
+  color: var(--happy-label);
+  background: var(--happy-fill-3);
+}
+
+.foot { margin: 0; text-align: center; font-size: var(--happy-text-footnote); color: var(--happy-label-3); }
