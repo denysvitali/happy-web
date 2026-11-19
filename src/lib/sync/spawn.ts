@@ -82,6 +82,25 @@ export function defaultLocalMachine(locals: readonly MachineItem[], sessions: re
   return byId(newest?.meta.machineId) ?? [...locals].sort((a, b) => b.activeAt - a.activeAt)[0];
 }
 
+/** Default cluster for a Kubernetes session. Several daemons may advertise
+ * the backend (a dev daemon, a stale registration) and only some can clone
+ * repositories, so the freshest heartbeat is the last resort: the remembered
+ * pick, else the daemon running the newest Kubernetes session (proven to
+ * work; matched by id, else host, as registrations churn), else one that
+ * declares Kubernetes its default, else the freshest. */
+export function defaultClusterMachine(clusters: readonly MachineItem[], sessions: readonly SessionItem[], rememberedId?: string): MachineItem | undefined {
+  const remembered = rememberedId ? clusters.find((m) => m.id === rememberedId) : undefined;
+  if (remembered) return remembered;
+  const byId = new Map(clusters.map((m) => [m.id, m]));
+  const byHost = new Map(clusters.filter((m) => m.meta.host).map((m) => [m.meta.host!, m]));
+  const kube = sessions.filter(isKubernetesSession).sort((a, b) => b.updatedAt - a.updatedAt);
+  for (const s of kube) {
+    const hit = (s.meta.machineId ? byId.get(s.meta.machineId) : undefined) ?? (s.meta.host ? byHost.get(s.meta.host) : undefined);
+    if (hit) return hit;
+  }
+  return clusters.find((m) => m.meta.defaultSpawnBackend === "kubernetes") ?? clusters[0];
+}
+
 // ---- local folders ----------------------------------------------------------------
 
 /** Distinct working directories of a machine's non-Kubernetes sessions,

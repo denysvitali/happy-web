@@ -30,6 +30,7 @@ import {
   effectiveBranch,
   kubernetesCheckoutPath,
   machinesFor,
+  defaultClusterMachine,
   MCP_SERVERS,
   mcpSelection,
   parseMissingBranchError,
@@ -98,7 +99,7 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
 
   const [mode, setMode] = useState<SpawnBackend>(() => initialMode(modes, hint, prefs.mode));
   const [localId, setLocalId] = useState(() => defaultLocalMachine(locals, sessions, hint?.id ?? prefs.localMachineId)?.id);
-  const [clusterId, setClusterId] = useState(() => (hint && clusters.includes(hint) ? hint.id : clusters[0]?.id));
+  const [clusterId, setClusterId] = useState(() => (hint && clusters.includes(hint) ? hint.id : defaultClusterMachine(clusters, sessions, prefs.clusterMachineId)?.id));
   const machine = mode === "local" ? (locals.find((m) => m.id === localId) ?? locals[0]) : (clusters.find((m) => m.id === clusterId) ?? clusters[0]);
 
   // Local
@@ -219,11 +220,19 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
         codexFastMode: settings.codexFastMode,
         initialPrompt: prompt,
       });
-      savePrefs({ mode, machineId: isK8s ? undefined : machine.id, agent, permissionMode: permission, profile: usesProfiles ? profileId : undefined, repoKey: isK8s ? repo!.key : undefined, branch: isK8s ? branch.branch.trim() : undefined });
+      savePrefs({ mode, machineId: isK8s ? undefined : machine.id, clusterMachineId: isK8s ? machine.id : undefined, agent, permissionMode: permission, profile: usesProfiles ? profileId : undefined, repoKey: isK8s ? repo!.key : undefined, branch: isK8s ? branch.branch.trim() : undefined });
       notifications.show({ color: "green", message: "Session started" });
       onSpawned(id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Spawn failed");
+      const msg = err instanceof Error ? err.message : "Spawn failed";
+      // A daemon with the Kubernetes backend but no Git credentials (e.g. a
+      // dev daemon): say so, and point at the cluster picker when there is one.
+      const noGit = isK8s && /GHProxyURL|GitHubTokenSecretName|ForgejoURL|required for repository sessions/.test(msg);
+      setError(
+        noGit
+          ? `${machineName(machine.meta, machine.id)} can't clone repositories: its daemon has no Git credentials configured.${clusters.length > 1 ? " Pick another cluster above." : ""} (${msg})`
+          : msg,
+      );
     } finally {
       setBusy(false);
     }

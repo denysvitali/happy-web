@@ -11,6 +11,7 @@ import {
   canSwitchProvider,
   cleanAdditionalRepos,
   clusterChoices,
+  defaultClusterMachine,
   defaultLocalMachine,
   effectiveBranch,
   initialBackend,
@@ -89,6 +90,27 @@ describe("daemon choice", () => {
     expect(defaultLocalMachine(locals, [sessions[0]!])?.id).toBe("m-k8s"); // freshest activeAt
     expect(defaultLocalMachine([laptop], [session("x", { machineId: "offline" }, 1)])?.id).toBe("m-laptop");
     expect(defaultLocalMachine([], [])).toBeUndefined();
+  });
+});
+
+describe("default cluster", () => {
+  // A dev daemon that advertises Kubernetes but cannot clone, with the freshest heartbeat.
+  const dev = machine("m-dev", { host: "devbox", spawnBackends: ["local", "kubernetes"] }, 100);
+  const prod = machine("m-prod", { host: "happy-daemon", spawnBackends: ["kubernetes"], defaultSpawnBackend: "kubernetes" }, 10);
+  const clusters = [dev, prod];
+
+  it("prefers the remembered pick, then the daemon running the newest Kubernetes session", () => {
+    const sessions = [session("k", { machineId: "m-prod", runtimeType: "kubernetes" }, 5), session("l", { machineId: "m-dev" }, 9)];
+    expect(defaultClusterMachine(clusters, sessions, "m-dev")?.id).toBe("m-dev");
+    expect(defaultClusterMachine(clusters, sessions)?.id).toBe("m-prod");
+    // A churned registration of the same daemon: matched by host.
+    expect(defaultClusterMachine(clusters, [session("k", { machineId: "old-id", host: "happy-daemon", runtimeType: "kubernetes" }, 5)])?.id).toBe("m-prod");
+  });
+
+  it("then a daemon whose default is Kubernetes, never just the freshest heartbeat", () => {
+    expect(defaultClusterMachine(clusters, [])?.id).toBe("m-prod");
+    expect(defaultClusterMachine([dev], [])?.id).toBe("m-dev");
+    expect(defaultClusterMachine([], [])).toBeUndefined();
   });
 });
 

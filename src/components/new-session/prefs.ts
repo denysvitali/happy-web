@@ -9,6 +9,8 @@ const MAX_BRANCHES = 50;
 export interface NewSessionPrefs {
   mode?: SpawnBackend;
   localMachineId?: string;
+  /** Last Kubernetes daemon used (several machines may advertise the backend). */
+  clusterMachineId?: string;
   agent?: Partial<Record<SpawnBackend, string>>;
   /** Permission mode per agent (the sets differ). */
   permissionMode?: Record<string, string>;
@@ -30,6 +32,7 @@ export function loadPrefs(): NewSessionPrefs {
 export function savePrefs(update: {
   mode: SpawnBackend;
   machineId?: string | undefined;
+  clusterMachineId?: string | undefined;
   agent: string;
   permissionMode: string;
   profile?: string | undefined;
@@ -45,6 +48,7 @@ export function savePrefs(update: {
   const next: NewSessionPrefs = {
     mode: update.mode,
     localMachineId: update.machineId ?? p.localMachineId,
+    clusterMachineId: update.clusterMachineId ?? p.clusterMachineId,
     agent: { ...p.agent, [update.mode]: update.agent },
     permissionMode: { ...p.permissionMode, [update.agent]: update.permissionMode },
     profile: update.profile ? { ...p.profile, [agentKey(update.agent)]: update.profile } : p.profile,
