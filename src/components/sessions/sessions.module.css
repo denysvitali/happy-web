@@ -140,6 +140,7 @@
   color: var(--happy-label-3);
   font-variant-numeric: tabular-nums;
 }
+.row[data-unread] .rowAgo { color: var(--happy-accent); }
 .rowAgo[data-live] { color: var(--happy-accent); font-weight: 600; }
 
 /* The actions button overlays the time on hover/focus so rows keep one layout. */

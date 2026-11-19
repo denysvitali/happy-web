@@ -43,6 +43,22 @@
 .pill[data-kind="pod"] { --pill: var(--happy-teal); background: color-mix(in srgb, var(--happy-teal) 13%, transparent); }
 .pill[data-kind="failed"] { --pill: var(--happy-red); background: var(--happy-red-tint); }
 .pill[data-kind="attention"] { --pill: color-mix(in srgb, var(--happy-orange) 82%, var(--happy-label)); background: var(--happy-orange-tint); }
+.unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--happy-radius-pill);
+  font-size: var(--happy-text-caption);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--happy-on-accent);
+  background: var(--happy-accent);
+}
 
 /* ---- Agent avatar ---- */
 .avatar {

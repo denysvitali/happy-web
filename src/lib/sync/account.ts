@@ -17,9 +17,11 @@ import {
   type MachineMetadata,
   type SessionMetadata,
 } from "./decode";
+import { normalizeRecord } from "./normalize";
 import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { Store } from "./store";
+import { isReply, localSeenStorage, parseSeen, Unread } from "./unread";
 
 export interface SessionItem {
   id: string;
@@ -82,6 +84,8 @@ export class Account {
   /** Sessions this tab spawned that the server does not list yet (a
    * Kubernetes Pod registers its session only once it runs). */
   readonly spawning = new Store<ReadonlyMap<string, Spawning>>(new Map());
+  readonly unread: Unread;
+  private readonly seenKey: string;
   private ciphers = new Map<string, Promise<Cipher>>();
   private chats = new Map<string, { store: ChatStore; refs: number }>();
 
@@ -92,6 +96,9 @@ export class Account {
     private readonly qc: QueryClient,
   ) {
     this.api = new ApiClient(serverUrl, token);
+    const seen = localSeenStorage(serverUrl);
+    this.seenKey = seen.key;
+    this.unread = new Unread(seen);
     this.realtime = new Realtime(serverUrl, token, {
       onUpdate: (b) => void this.onUpdate(b),
       onEphemeral: (e) => this.onEphemeral(e),
@@ -102,10 +109,14 @@ export class Account {
 
   start(): void {
     this.realtime.start();
+    document.addEventListener("visibilitychange", this.onVisible);
+    window.addEventListener("storage", this.onStorage);
   }
 
   stop(): void {
     this.realtime.stop();
+    document.removeEventListener("visibilitychange", this.onVisible);
+    window.removeEventListener("storage", this.onStorage);
   }
 
   // ---- ciphers --------------------------------------------------------------
@@ -172,6 +183,7 @@ export class Account {
       if (m && m.seq === it.lastSeq) it.lastMessage = m;
     }
     void this.stampLastMessages(items);
+    void this.countUnread(items);
     this.settleSpawns(items.map((s) => s.id));
     return items.sort((a, b) => activityAt(b) - activityAt(a));
   }
@@ -194,6 +206,57 @@ export class Account {
       }
     };
     await Promise.all([worker(), worker(), worker(), worker()]);
+  }
+
+  // ---- unread ---------------------------------------------------------------
+
+  /** An open chat in a visible tab is being read. */
+  private viewing = (id: string): boolean => this.chats.has(id) && document.visibilityState === "visible";
+
+  private onVisible = (): void => {
+    if (document.visibilityState !== "visible") return;
+    const list = this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? [];
+    for (const s of list) if (this.chats.has(s.id)) this.unread.markSeen(s.id, s.lastSeq);
+  };
+
+  private onStorage = (e: StorageEvent): void => {
+    if (e.key !== this.seenKey || !e.newValue) return;
+    try {
+      const seen = parseSeen(JSON.parse(e.newValue));
+      if (seen) this.unread.merge(seen);
+    } catch {
+      /* ignore a malformed write */
+    }
+  };
+
+  private async isReplyRow(id: string, content: string): Promise<boolean> {
+    const cipher = this.knownCipher(id);
+    if (!cipher) return false;
+    try {
+      return isReply(normalizeRecord(await (await cipher).decrypt(content)));
+    } catch {
+      return false;
+    }
+  }
+
+  /** Reads the records after each session's seen mark (one page each, small
+   * concurrency) and counts the agent replies among them. */
+  private async countUnread(items: readonly SessionItem[]): Promise<void> {
+    const todo = this.unread.reconcile(items, this.viewing);
+    let next = 0;
+    const worker = async () => {
+      for (let t = todo[next++]; t; t = todo[next++]) {
+        try {
+          const { messages, hasMore } = await this.api.getMessages(t.id, t.after, 200);
+          const flags = await Promise.all(messages.map((m) => this.isReplyRow(t.id, m.content)));
+          const replies = messages.filter((_, i) => flags[i]).map((m) => m.seq);
+          this.unread.addFetched(t.id, replies, messages.at(-1)?.seq ?? t.after, hasMore);
+        } catch {
+          // Best effort: the badge catches up on the next list refresh.
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
   }
 
   async fetchMachines(signal?: AbortSignal): Promise<MachineItem[]> {
@@ -239,6 +302,8 @@ export class Account {
     switch (b.t) {
       case "new-message":
         await this.chats.get(b.sid)?.store.onSocketMessage(b.message);
+        if (this.viewing(b.sid)) this.unread.markSeen(b.sid, b.message.seq);
+        else if (await this.isReplyRow(b.sid, b.message.content)) this.unread.addLive(b.sid, b.message.seq);
         this.patchSession(b.sid, (s) => ({
           ...s,
           updatedAt: b.message.createdAt,
@@ -337,6 +402,7 @@ export class Account {
       void entry.store.open(session.lastSeq);
     }
     entry.refs++;
+    if (this.viewing(session.id)) this.unread.markSeen(session.id, session.lastSeq);
     const e = entry;
     return {
       store: e.store,

@@ -52,5 +52,7 @@ Server wins over Flutter; record every discrepancy in README.md.
   turn and anything waiting for the user never fold.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
+- Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each
+  session's seen seq in localStorage and counts main-thread agent replies only.
 - Image attachments follow happy_flutter: user content becomes a block array with base64
   `image` blocks (≤1568px, ≤3.4 MB base64); Har/OpenCode are text-only.

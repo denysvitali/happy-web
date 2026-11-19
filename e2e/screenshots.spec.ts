@@ -2,7 +2,7 @@
 // Output: screenshots/<viewport>-<name>.png, gallery built by
 // scripts/screenshot-gallery.mjs. Run: pnpm screenshots
 import { expect, test, type Page } from "@playwright/test";
-import { DEMO_IMAGE } from "../src/components/chat/fixtures";
+import { DEMO_IMAGE, demoRecords, opsRecords } from "../src/components/chat/fixtures";
 import { createMock, linkAndOpen, MOCK_SERVER, watchCsp } from "./mock";
 
 const VIEWPORTS = [
@@ -25,6 +25,11 @@ for (const vp of VIEWPORTS) {
       await shot(page, "01-link-server");
 
       await mock.install(page);
+      // Earlier visits read most of two chats, so the list shows unread badges.
+      await page.addInitScript(
+        ([key, seen]) => localStorage.getItem(key) ?? localStorage.setItem(key, seen),
+        [`happy.seen:${MOCK_SERVER}`, JSON.stringify({ s1: demoRecords.length - 20, s6: opsRecords.length - 30 })] as const,
+      );
       await linkAndOpen(page, mock);
       await page.waitForTimeout(400);
       await shot(page, "02-home");

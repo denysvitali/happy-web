@@ -31,6 +31,8 @@ export interface SessionView {
   status: SessionStatus;
   /** Pending permission requests. */
   pending: number;
+  /** Unread agent replies badge ("3", "99+"), "" when all read. */
+  unread: string;
   group: SessionGroup;
   /** Newest message time (see activityAt): stable ordering, unlike heartbeats. */
   lastActivity: number;
@@ -132,6 +134,7 @@ export function formatAgo(ts: number, now: number): string {
 
 type Static = Pick<SessionView, "title" | "project" | "agent" | "runtime" | "machine" | "pod" | "parentId" | "search" | "pending">;
 
+const NO_UNREAD: ReadonlyMap<string, string> = new Map();
 const staticCache = new WeakMap<SessionItem, Static>();
 const viewCache = new WeakMap<SessionItem, SessionView>();
 
@@ -176,6 +179,7 @@ export function deriveViews(
   statusOf: (s: SessionItem) => SessionStatus,
   machines: ReadonlyMap<string, MachineItem>,
   now: number,
+  unread: ReadonlyMap<string, string> = NO_UNREAD,
 ): SessionView[] {
   const out = new Array<SessionView>(items.length);
   for (let i = 0; i < items.length; i++) {
@@ -184,12 +188,13 @@ export function deriveViews(
     const st = staticOf(s, mi ? machineName(mi.meta, mi.id) : (s.meta.host ?? ""));
     const status = statusOf(s);
     const ago = status === "thinking" ? "now" : formatAgo(activityAt(s), now);
+    const badge = unread.get(s.id) ?? "";
     const prev = viewCache.get(s);
-    if (prev && prev.status === status && prev.ago === ago && prev.machine === st.machine) {
+    if (prev && prev.status === status && prev.ago === ago && prev.machine === st.machine && prev.unread === badge) {
       out[i] = prev;
       continue;
     }
-    const v: SessionView = { id: s.id, item: s, ...st, status, group: groupOf(status, st.pending), lastActivity: activityAt(s), ago };
+    const v: SessionView = { id: s.id, item: s, ...st, status, group: groupOf(status, st.pending), lastActivity: activityAt(s), ago, unread: badge };
     viewCache.set(s, v);
     out[i] = v;
   }

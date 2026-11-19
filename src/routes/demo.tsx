@@ -12,7 +12,7 @@ import { demoChat } from "@/components/chat/fixtures";
 import { QrCode } from "@/components/qr";
 import { ConnectionStrip } from "@/components/shell/ConnectionBanner";
 import { openSpawnModal } from "@/components/shell/spawn";
-import { AgentAvatar, AttentionBadge, PodBadge, StatusDot } from "@/components/status";
+import { AgentAvatar, AttentionBadge, PodBadge, StatusDot, UnreadBadge } from "@/components/status";
 import type { Account, MachineItem } from "@/lib/sync/account";
 import { buildView } from "@/lib/sync/chat";
 import type { SessionStatus } from "@/lib/sync/decode";
@@ -239,6 +239,8 @@ export function DemoScreen() {
             <PodBadge pod="scheduling" />
             <PodBadge pod="failed" />
             <AttentionBadge count={2} />
+            <UnreadBadge label="3" />
+            <UnreadBadge label="99+" />
             <AgentAvatar agent="claude" status="thinking" />
             <AgentAvatar agent="codex" status="active" />
           </Group>

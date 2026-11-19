@@ -32,6 +32,16 @@ export function AttentionBadge({ count }: { count: number }) {
   );
 }
 
+/** Unread agent replies, chat-app style. */
+export function UnreadBadge({ label }: { label: string }) {
+  if (!label) return null;
+  return (
+    <span className={classes.unread} aria-hidden>
+      {label}
+    </span>
+  );
+}
+
 // Generic glyphs (not vendor logos) so agents are told apart at a glance;
 // each also has its own tint in status.module.css.
 const AGENT_ICON: Record<string, LucideIcon> = {

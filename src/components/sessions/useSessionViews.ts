@@ -16,13 +16,17 @@ const NO_MACHINES: MachineItem[] = [];
 export function useSessionViews() {
   const account = useAccount();
   const presence = useStore(account.presence);
+  const unread = useStore(account.unread.labels);
   const now = useNow();
   const sessions = useSessions();
   const machines = useMachines();
   const machineList = machines.data ?? NO_MACHINES;
   const machineMap = useMemo(() => new Map(machineList.map((m) => [m.id, m])), [machineList]);
   const list = sessions.data ?? NO_SESSIONS;
-  const views = useMemo(() => deriveViews(list, (s) => statusOf(s, presence, now), machineMap, now), [list, presence, machineMap, now]);
+  const views = useMemo(
+    () => deriveViews(list, (s) => statusOf(s, presence, now), machineMap, now, unread),
+    [list, presence, machineMap, now, unread],
+  );
   const onlineMachines = useMemo(() => machineList.filter((m) => isMachineOnline(m, now)), [machineList, now]);
   return { views, sessions, machines: machineList, machinesLoaded: machines.isSuccess, onlineMachines, now };
 }

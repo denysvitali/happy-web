@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { AgentAvatar, AttentionBadge, PodBadge } from "@/components/status";
+import { AgentAvatar, AttentionBadge, PodBadge, UnreadBadge } from "@/components/status";
 import { STATUS_LABEL, metaLine, type SessionView } from "@/lib/sync/sessionList";
 import { SessionMenu } from "./SessionMenu";
 import classes from "./sessions.module.css";
@@ -36,6 +36,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, active, cur
       data-child={depth > 0 || undefined}
       data-first={first || undefined}
       data-last={last || undefined}
+      data-unread={v.unread ? true : undefined}
       style={depth > 0 ? ({ "--depth": depth } as React.CSSProperties) : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -46,7 +47,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, active, cur
         className={classes.rowLink}
         href={`#/s/${encodeURIComponent(v.id)}`}
         aria-current={active ? "page" : undefined}
-        aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : ""}`}
+        aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : ""}${v.unread ? `, ${v.unread} unread` : ""}`}
       >
         <AgentAvatar agent={v.agent} status={v.status} attention={v.pending > 0} />
         <span className={classes.rowBody}>
@@ -60,6 +61,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, active, cur
             <span className={classes.rowMeta}>{meta || " "}</span>
             <AttentionBadge count={v.pending} />
             <PodBadge pod={v.pod} />
+            <UnreadBadge label={v.unread} />
           </span>
         </span>
       </a>
