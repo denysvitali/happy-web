@@ -136,10 +136,9 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(200);
       await shot(page, "10b-ops-dark");
       await page.emulateMedia({ colorScheme: "light" });
-      // Expanded: the run of steps, one step inside it, the working agent.
+      // Expanded: the run of steps and one step inside it.
       await page.getByRole("button", { name: /^Ran \d+ commands/ }).click();
       await page.getByRole("button", { name: /Dry-run the staging script/ }).click();
-      await page.getByRole("button", { name: /Diff module trees/ }).click();
       await page.mouse.move(0, 0);
       await page.waitForTimeout(300);
       await page.setViewportSize({ width: vp.width, height: 1800 });
@@ -158,6 +157,23 @@ for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.width, height: 1400 });
       await page.waitForTimeout(400);
       await shot(page, "11-ops-full");
+      // A sub-agent's own page: tapping its card opens it; nested agents link deeper.
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.getByRole("link", { name: /Diff module trees/ }).click();
+      await expect(page.getByRole("heading", { name: "Prompt" })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "14-agent-page");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "14b-agent-page-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.getByRole("link", { name: /Check who owns/ }).click();
+      await expect(page.getByRole("link", { name: /Back to Diff module trees/ })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "14c-agent-nested");
+      await page.getByRole("link", { name: /Back to Diff module trees/ }).click();
+      await page.getByRole("link", { name: "Back to the chat" }).click();
+      await expect(page.getByText("Rebuild the initramfs on the tab")).toBeVisible();
       expect(violations).toEqual([]);
     });
   });

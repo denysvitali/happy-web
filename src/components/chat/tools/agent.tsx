@@ -1,17 +1,16 @@
 // Sub-agent card: Claude Task/Agent, Codex child threads, Har delegates,
-// Prime Agent children and nested Happy sessions. Collapsed it says who the
-// agent is, how it is doing and (while it runs) what it is doing right now;
-// expanded it shows the prompt, its own steps (rendered by the caller,
-// recursively) and its answer.
-import { UnstyledButton } from "@mantine/core";
+// Prime Agent children and nested Happy sessions. A compact summary of who
+// the agent is, how it is doing, what it is doing right now and (clamped)
+// what it answered. Tapping it opens the agent's own page (routes/agent.tsx);
+// only requests waiting for the user surface here.
 import { Link } from "@tanstack/react-router";
-import { Bot, Check, ChevronRight, ExternalLink, Layers, X } from "lucide-react";
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { Bot, Check, ChevronRight, Layers, Square, X } from "lucide-react";
+import { memo, useContext, useEffect, useState, type ReactNode } from "react";
 import { sameBlock, type Block, type ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
-import { Clip } from "../primitives";
 import { PermissionBar, PermissionOutcome, type PermissionHandler } from "../permission";
-import { agentInfo, agentStatus, countTools, duration, type AgentStatus } from "./format";
+import { AgentSession } from "./agent-session";
+import { agentEndedAt, agentInfo, agentMeta, agentStatus, duration, type AgentInfo, type AgentStatus } from "./format";
 import { viewFor } from "./registry";
 import { latestActivity, stepLabel } from "./steps";
 import { Glyph, StatusIcon } from "./tool-card";
@@ -26,34 +25,68 @@ function Elapsed({ since }: { since: number }) {
   return <>{duration(Math.max(0, now - since))}</>;
 }
 
+/** Running time, or how long it took. */
+export function AgentTime({ b, status }: { b: ToolBlock; status: AgentStatus }) {
+  if (!b.at) return null;
+  if (status === "running") return <Elapsed since={b.at} />;
+  const end = agentEndedAt(b);
+  return end && end >= b.at ? <>{duration(end - b.at)}</> : null;
+}
+
 const STATUS_LABEL: Record<AgentStatus, string> = {
   running: "Working",
   completed: "Done",
   failed: "Failed",
+  stopped: "Stopped",
   unknown: "Outcome unknown",
 };
 
-function StatusMark({ status }: { status: AgentStatus }) {
-  if (status === "running") return <StatusIcon state="running" />;
-  if (status === "failed") return <X size={12} strokeWidth={2.5} />;
-  if (status === "completed") return <Check size={12} strokeWidth={2.5} />;
-  return null;
+export function AgentStatusLabel({ status }: { status: AgentStatus }) {
+  return (
+    <span className={classes.agentStatus} data-status={status}>
+      {status === "running" ? (
+        <StatusIcon state="running" />
+      ) : status === "failed" ? (
+        <X size={12} strokeWidth={2.5} />
+      ) : status === "completed" ? (
+        <Check size={12} strokeWidth={2.5} />
+      ) : status === "stopped" ? (
+        <Square size={9} strokeWidth={3} />
+      ) : null}
+      {STATUS_LABEL[status]}
+    </span>
+  );
 }
 
-/** "▸ Grep s6e3fa7 in /etc/…": the agent's latest step, while it runs. */
+/** Agent glyph: a nested Happy session is a stack, anything else a bot. */
+export function AgentGlyph({ info, kind, size = 14 }: { info: AgentInfo; kind: "agent" | "attention" | "error"; size?: number }) {
+  return <Glyph icon={info.session ? Layers : Bot} kind={kind} size={size} />;
+}
+
+/** "Grep s6e3fa7 in /etc/…": the agent's latest step, while it runs. */
 function Activity({ children }: { children: readonly Block[] }) {
   const a = latestActivity(children);
-  if (!a) return <div className={classes.agentNow}>Starting…</div>;
-  if (a.kind === "text") return <div className={classes.agentNow}>{a.text}</div>;
+  if (!a) return <span className={classes.agentNow}>Starting…</span>;
+  if (a.kind === "text") return <span className={classes.agentNow}>{a.text}</span>;
   const { title, summary } = stepLabel(a.b);
   const Icon = viewFor(a.b.name).icon;
   return (
-    <div className={classes.agentNow}>
+    <span className={classes.agentNow}>
       <Icon size={12} strokeWidth={2} aria-hidden />
       <span className={classes.agentNowTitle}>{title}</span>
       <span className={classes.agentNowSummary}>{summary}</span>
-    </div>
+    </span>
   );
+}
+
+/** Calls deep inside an agent that wait for the user. */
+function pendingIn(blocks: readonly Block[], out: ToolBlock[] = []): ToolBlock[] {
+  for (const b of blocks) {
+    if (b.type !== "tool") continue;
+    if (b.permission?.status === "pending") out.push(b);
+    else pendingIn(b.children, out);
+  }
+  return out;
 }
 
 interface Props {
@@ -64,77 +97,49 @@ interface Props {
 
 export const AgentCard = memo(
   function AgentCard({ b, onPermission, renderChildren }: Props) {
+    const session = useContext(AgentSession);
     const info = agentInfo(b);
     const status = agentStatus(b);
-    const running = status === "running";
-    const pending = b.permission?.status === "pending";
-    const [userOpen, setUserOpen] = useState<boolean | null>(null);
-    // Collapsed by default: the live line says what it is doing; a pending
-    // permission opens it so the request is visible.
-    const open = userOpen ?? pending;
-    const tools = countTools(b.children);
-    const ended = b.result?.at;
-    const time = b.at && ended && ended >= b.at ? duration(ended - b.at) : undefined;
-    const meta = [info.type, info.model && `${info.model}${info.effort ? ` · ${info.effort}` : ""}`, tools > 0 && `${tools} ${tools === 1 ? "step" : "steps"}`].filter(Boolean);
+    const own = b.permission?.status === "pending";
+    const waiting = pendingIn(b.children);
+    const meta = agentMeta(info, b.children);
+    const title = <span className={classes.agentTitle}>{info.title}</span>;
     return (
-      <div className={classes.agent} data-status={status} data-open={open || undefined} data-attention={pending || undefined}>
-        <UnstyledButton className={classes.agentHead} onClick={() => setUserOpen(!open)} aria-expanded={open}>
-          <Glyph icon={info.session ? Layers : Bot} kind={pending ? "attention" : status === "failed" ? "error" : "agent"} size={14} />
+      <div className={classes.agent} data-status={status} data-attention={own || waiting.length > 0 || undefined}>
+        <div className={classes.agentHead}>
+          <AgentGlyph info={info} kind={own ? "attention" : status === "failed" ? "error" : "agent"} />
           <span className={classes.agentMain}>
             <span className={classes.agentTop}>
-              <span className={classes.agentTitle}>{info.title}</span>
-              <span className={classes.agentTime}>{running && b.at ? <Elapsed since={b.at} /> : time}</span>
+              {session ? (
+                <Link to="/s/$sessionId/agent/$toolId" params={{ sessionId: session, toolId: b.id }} className={classes.agentLink}>
+                  {title}
+                </Link>
+              ) : (
+                title
+              )}
+              <span className={classes.agentTime}>
+                <AgentTime b={b} status={status} />
+              </span>
             </span>
             <span className={classes.agentMeta}>
-              <span className={classes.agentStatus} data-status={status}>
-                <StatusMark status={status} />
-                {STATUS_LABEL[status]}
-              </span>
+              <AgentStatusLabel status={status} />
               {meta.map((m) => (
-                <span key={m as string} className={classes.agentMetaItem}>
+                <span key={m} className={classes.agentMetaItem}>
                   {m}
                 </span>
               ))}
             </span>
-            {running && !open && <Activity>{b.children}</Activity>}
+            {status === "running" && <Activity>{b.children}</Activity>}
           </span>
           <PermissionOutcome perm={b.permission} />
-          <ChevronRight size={13} className={classes.chevron} data-open={open || undefined} />
-        </UnstyledButton>
-        {open && (
-          <div className={classes.agentBody}>
-            {info.prompt && info.prompt !== info.title && (
-              <details className={classes.agentPrompt}>
-                <summary>Prompt</summary>
-                <Clip text={info.prompt} tone="dim" />
-              </details>
-            )}
-            {info.settings.length > 0 && (
-              <div className={classes.agentSettings}>
-                {info.settings.map(([k, v]) => (
-                  <span key={k} className={classes.chip}>
-                    {k}: {v}
-                  </span>
-                ))}
-              </div>
-            )}
-            {b.children.length > 0 ? (
-              <div className={classes.rail}>{renderChildren(b.children)}</div>
-            ) : (
-              !info.session && running && <span className={classes.dim}>Waiting for activity…</span>
-            )}
-            {info.session && (
-              <Link to="/s/$sessionId" params={{ sessionId: info.session }} className={classes.sessionLink}>
-                <ExternalLink size={12} /> Open child session
-              </Link>
-            )}
-          </div>
-        )}
+          {session && <ChevronRight size={15} className={classes.chevron} aria-hidden />}
+        </div>
         {info.resultText && (
-          <div className={classes.agentResult} data-status={status} data-clamped={!open || undefined}>
+          <div className={classes.agentResult} data-status={status}>
             <Markdown text={info.resultText} />
           </div>
         )}
+        {waiting.length > 0 && <div className={classes.agentWaiting}>{renderChildren(waiting)}</div>}
         <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
       </div>
     );

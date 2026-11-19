@@ -3,11 +3,13 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { CircleAlert, Ellipsis, History, LoaderCircle, RotateCcw } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
 import { statusOf } from "@/app/status";
 import { BlockView, type PermissionHandler } from "@/components/chat/blocks";
+import { AgentSession } from "@/components/chat/tools/agent-session";
+import { gapOf, useChat, useChatView } from "@/components/chat/transcript";
 import { Composer } from "@/components/chat/composer";
 import { useSessionSwitch } from "@/components/session/hooks";
 import { SessionToolbar } from "@/components/session/SessionToolbar";
@@ -16,61 +18,14 @@ import { SessionMenu } from "@/components/sessions/SessionMenu";
 import { NavButton } from "@/components/shell/NavButton";
 import { AgentAvatar, StatusBadge } from "@/components/status";
 import classes from "@/components/chat/chat.module.css";
-import { buildView, emptyChat, isAgent, type Block, type ChatView, type ToolBlock } from "@/lib/sync/chat";
+import type { ChatView, ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
-import { Store } from "@/lib/sync/store";
 import { PlanChip } from "@/components/chat/plan";
 import { latestPlan } from "@/components/chat/tools/steps";
 import { displayPath, sessionTitle } from "@/lib/sync/decode";
 import { agentOf } from "@/lib/sync/sessionList";
 import type { SessionItem } from "@/lib/sync/account";
 import { IconButton } from "@/ui/IconButton";
-
-function useChat(session: SessionItem | undefined): ChatStore | null {
-  const account = useAccount();
-  const [store, setStore] = useState<ChatStore | null>(null);
-  const id = session?.id;
-  useEffect(() => {
-    if (!session) return;
-    let release: (() => void) | undefined;
-    let cancelled = false;
-    void account.openChat(session).then((r) => {
-      if (cancelled) return r.release();
-      release = r.release;
-      setStore(r.store);
-    });
-    return () => {
-      cancelled = true;
-      release?.();
-      setStore(null);
-    };
-    // Only re-open when the session id changes, not on every row patch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account, id]);
-  return store;
-}
-
-const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission"]);
-
-const isCard = (b: Block) => b.type === "permission" || (b.type === "tool" && (isAgent(b) || b.permission?.status === "pending"));
-
-/** Space above a block, from what precedes it: a speaker change is a new
- * turn, runs of tool rows sit tight, everything else is one block apart. */
-function gapOf(prev: Block | undefined, b: Block): "tight" | "near" | "block" | "turn" | undefined {
-  if (!prev) return undefined;
-  if (prev.type === "day" || b.type === "day") return "block";
-  if ((b.type === "user") !== (prev.type === "user")) return "turn";
-  // Cards (sub-agents, attention) need air between them; one-line steps do not.
-  if (TOOLISH.has(b.type) && TOOLISH.has(prev.type)) return isCard(b) || isCard(prev) ? "near" : "tight";
-  return "block";
-}
-
-function useChatView(store: ChatStore | null, session: SessionItem | undefined): ChatView | null {
-  const state = useStore(store?.state ?? EMPTY);
-  const agentState = session?.agentState;
-  return useMemo(() => (store && session ? buildView(state, agentState ?? {}) : null), [store, session, state, agentState]);
-}
-const EMPTY = new Store(emptyChat);
 
 function Messages({ store, view, onPermission }: { store: ChatStore; view: ChatView; onPermission: PermissionHandler }) {
   const state = useStore(store.state);
@@ -244,7 +199,13 @@ export function ChatScreen() {
           <SessionMenu session={session} target={<IconButton label="Session actions" icon={<Ellipsis size={18} />} />} />
         </div>
       </header>
-      {store && view ? <Messages store={store} view={view} onPermission={onPermission} /> : <div className={classes.scroller} />}
+      {store && view ? (
+        <AgentSession.Provider value={session.id}>
+          <Messages store={store} view={view} onPermission={onPermission} />
+        </AgentSession.Provider>
+      ) : (
+        <div className={classes.scroller} />
+      )}
       <ComposerArea session={session} store={store} plan={plan} canAbort={status === "thinking"} run={run} />
     </>
   );

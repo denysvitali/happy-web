@@ -1,6 +1,6 @@
 // Pure helpers for tool views: argument/result shaping, MCP names, diffs.
 // No React here so the logic stays unit-testable.
-import type { Block, ToolBlock } from "@/lib/sync/chat";
+import { TASK_TERMINAL, type Block, type ToolBlock } from "@/lib/sync/chat";
 
 export type Obj = Record<string, unknown>;
 export const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -307,15 +307,28 @@ export function countTools(blocks: readonly Block[]): number {
   return n;
 }
 
-export type AgentStatus = "running" | "completed" | "failed" | "unknown";
+export type AgentStatus = "running" | "completed" | "failed" | "stopped" | "unknown";
 
 const FAILED_STATUS = new Set(["failed", "error", "interrupted", "cancelled", "canceled"]);
 
+/** A background agent's lifecycle report, once it has ended. */
+const endedTask = (b: ToolBlock) => (b.task && TASK_TERMINAL.has(b.task.status) ? b.task : undefined);
+
 export function agentStatus(b: ToolBlock): AgentStatus {
+  const task = endedTask(b);
+  if (task) return task.status === "completed" ? "completed" : task.status === "failed" ? "failed" : "stopped";
   const r = b.result;
-  if (!r) return "running";
+  // A background launch receipt is not the end, nor is a live task report.
+  if (!r || r.async || b.task) return "running";
   if (r.isError || (r.status && FAILED_STATUS.has(r.status))) return "failed";
   return r.status === "unknown" ? "unknown" : "completed";
+}
+
+/** When the agent ended (for its duration), if it has. */
+export function agentEndedAt(b: ToolBlock): number | undefined {
+  const task = endedTask(b);
+  if (task) return task.at;
+  return b.result && !b.result.async && !b.task ? b.result.at : undefined;
 }
 
 const NATIVE_AGENTS = new Set(["codex", "codex-agent", "prime-agent"]);
@@ -350,6 +363,26 @@ function agentResultText(output: unknown): string | undefined {
   return undefined;
 }
 
+/** "12 steps · Explore · haiku · high": what follows an agent's status. */
+export function agentMeta(info: AgentInfo, children: readonly Block[]): string[] {
+  const tools = countTools(children);
+  return [
+    tools > 0 ? `${tools} ${tools === 1 ? "step" : "steps"}` : "",
+    info.type ?? "",
+    info.model ? `${info.model}${info.effort ? ` · ${info.effort}` : ""}` : "",
+  ].filter(Boolean);
+}
+
+/** The agent's answer: its result or, for a background agent that ended,
+ * its last words or the lifecycle summary. */
+function resultTextOf(b: ToolBlock): string | undefined {
+  if (b.result && !b.result.async) return agentResultText(b.result.output);
+  const task = endedTask(b);
+  if (!task) return undefined;
+  const last = b.children.at(-1);
+  return (last?.type === "text" && !last.streaming ? last.text : undefined) ?? task.summary;
+}
+
 export function agentInfo(b: ToolBlock): AgentInfo {
   const i = isObj(b.input) ? b.input : {};
   const m = b.agentMetadata ?? {};
@@ -366,9 +399,9 @@ export function agentInfo(b: ToolBlock): AgentInfo {
     type: session ? "Happy session" : (str(m.role) ?? sub),
     model: str(m.model) ?? (native ? undefined : str(i.model)),
     effort: str(m.reasoningEffort),
-    prompt: str(i.prompt),
+    prompt: str(i.prompt) ?? b.prompt,
     session,
-    resultText: b.result ? agentResultText(b.result.output) : undefined,
+    resultText: resultTextOf(b),
     settings,
   };
 }

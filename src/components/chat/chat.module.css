@@ -709,58 +709,72 @@
 .plan .prose { font-size: 14px; }
 
 /* ---- sub-agents: a card that says who, how it is going, and what now --------------- */
+/* The whole card opens the agent's page: the title link stretches over it
+   (::after); answer links and permission controls sit above that layer. */
 
 .agent {
+  position: relative;
   min-width: 0;
   overflow: hidden;
   border: 0.5px solid var(--happy-separator-strong);
   border-radius: var(--happy-radius-md);
   background: var(--happy-surface);
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
 }
 .agent[data-attention] { border-color: color-mix(in srgb, var(--happy-orange) 50%, transparent); }
+.agent:has(.agentLink:hover) { background: var(--happy-hover); }
+.agent:has(.agentLink:active) { background: var(--happy-pressed); }
+.agentLink { display: flex; flex: 1; min-width: 0; color: inherit; text-decoration: none; outline: none; -webkit-tap-highlight-color: transparent; }
+.agentLink::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.agentLink:focus-visible::after { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--happy-accent) 55%, transparent); }
+.agentResult a, .agentWaiting, .agent > .perm { position: relative; z-index: 1; }
 .agentHead {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  width: 100%;
   min-width: 0;
   padding: 9px 10px;
-  text-align: left;
-  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
 }
-.agentHead:hover { background: var(--happy-hover); }
-.agentHead:focus-visible { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--happy-accent) 55%, transparent); }
 .agentHead > .glyph { width: 24px; height: 24px; border-radius: 7px; }
-.agentHead > .chevron { margin-top: 5px; color: var(--happy-label-4); }
+.agentHead > .chevron { align-self: center; color: var(--happy-label-4); }
+.agent:has(.agentLink:hover) .agentHead > .chevron { color: var(--happy-label-3); }
 .agentHead > .permDone { margin-top: 3px; }
-.agentMain { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
-.agentTop { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.agentMain { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+.agentTop { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .agentTitle {
+  display: -webkit-box;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
   font-size: var(--happy-text-subhead);
   font-weight: 600;
-  line-height: 24px;
+  line-height: 20px;
+  padding: 2px 0;
   color: var(--happy-label);
 }
-.agentTime { flex-shrink: 0; font-size: var(--happy-text-footnote); color: var(--happy-label-3); font-variant-numeric: tabular-nums; }
+.agentTime { flex-shrink: 0; padding-top: 3px; font-size: var(--happy-text-footnote); color: var(--happy-label-3); font-variant-numeric: tabular-nums; }
+/* Status first, then steps, type, model; the tail gives way on phones. */
 .agentMeta {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 2px 0;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   font-size: var(--happy-text-footnote);
+  line-height: 18px;
   color: var(--happy-label-3);
 }
-.agentMetaItem::before { content: "·"; padding: 0 6px; color: var(--happy-label-4); }
-.agentStatus { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
+.agentMeta > :last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.agentMetaItem::before { content: "·"; padding: 0 5px; color: var(--happy-label-4); }
+.agentStatus { display: inline-flex; flex-shrink: 0; align-items: center; gap: 3px; font-weight: 600; }
 .agentStatus[data-status="running"] { color: var(--happy-accent); }
+.agentStatus[data-status="running"] .spinner { color: inherit; }
 .agentStatus[data-status="completed"] { color: var(--happy-green); }
 .agentStatus[data-status="failed"] { color: var(--happy-red); }
+.agentStatus[data-status="stopped"] { color: var(--happy-label-2); }
 /* What a running agent is doing right now. */
 .agentNow {
   display: flex;
@@ -768,10 +782,11 @@
   gap: 6px;
   min-width: 0;
   margin-top: 5px;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: var(--happy-radius-sm);
   background: var(--happy-fill-3);
   font-size: var(--happy-text-footnote);
+  line-height: 18px;
   color: var(--happy-label-2);
   overflow: hidden;
   white-space: nowrap;
@@ -779,65 +794,23 @@
 }
 .agentNow > svg { flex-shrink: 0; color: var(--happy-label-3); }
 .agentNowTitle { flex-shrink: 0; font-weight: 500; }
-.agentNowSummary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--happy-font-mono); color: var(--happy-label-3); }
-.agentBody {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  padding: 2px 12px 10px 44px;
-}
-.agentSettings { display: flex; flex-wrap: wrap; gap: 4px; }
-.rail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rail .prose { font-size: 14px; }
-.rail > .agent { margin: 4px 0; }
-/* The agent's answer: always visible, clamped while the card is closed. */
+.agentNowSummary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--happy-font-mono); font-size: var(--happy-text-caption); color: var(--happy-label-3); }
+/* The agent's answer, clamped; the full text is on its page. */
 .agentResult {
-  margin: 0 12px 10px 44px;
-  padding: 8px 10px;
+  max-height: 5.4em;
+  margin: -2px 10px 10px 44px;
+  padding: 6px 10px;
+  overflow: hidden;
   border-radius: var(--happy-radius-sm);
   background: var(--happy-fill-3);
+  mask-image: linear-gradient(#000 60%, transparent);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
 }
 .agentResult .prose { font-size: 13.5px; line-height: 1.5; }
+.agentResult .prose > :first-child { margin-top: 0; }
 .agentResult[data-status="failed"] { background: var(--happy-red-tint); }
-.agentResult[data-clamped] {
-  max-height: 5.2em;
-  overflow: hidden;
-  mask-image: linear-gradient(#000 55%, transparent);
-  -webkit-mask-image: linear-gradient(#000 55%, transparent);
-}
-.agentPrompt summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  width: fit-content;
-  cursor: pointer;
-  padding: 2px 8px 2px 6px;
-  border-radius: var(--happy-radius-pill);
-  background: var(--happy-fill-3);
-  font-size: var(--happy-text-footnote);
-  font-weight: 500;
-  color: var(--happy-label-2);
-  list-style: none;
-}
-.agentPrompt summary::-webkit-details-marker { display: none; }
-.agentPrompt summary::before { content: "›"; font-size: 13px; line-height: 1; color: var(--happy-label-3); transition: transform var(--happy-dur-fast) var(--happy-ease-out); }
-.agentPrompt[open] summary::before { transform: rotate(90deg); }
-.agentPrompt summary:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
-.agentPrompt[open] summary { margin-bottom: 6px; }
-.sessionLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  border-radius: var(--happy-radius-xs);
-  font-size: var(--happy-text-footnote);
-  font-weight: 500;
-  color: var(--happy-accent);
-  text-decoration: none;
-}
-.sessionLink:hover { text-decoration: underline; text-underline-offset: 2px; }
-.sessionLink:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+/* Requests from inside the agent that wait for the user. */
+.agentWaiting { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
 
 /* ---- permission band ------------------------------------------------------------- */
 
@@ -949,8 +922,7 @@
   .userRow { padding-left: 10%; }
   .tool > .stepBody { padding: 0 10px 10px; }
   .stepBody { padding-left: 4px; }
-  .agentBody { padding: 2px 10px 10px; }
-  .agentResult { margin: 0 10px 10px; }
+  .agentResult { margin-left: 10px; }
   .perm[data-embedded] { padding-left: 12px; }
   .perm[data-embedded] .permTitle { margin-left: 0; }
   .permActions { flex: 1 1 100%; }

@@ -212,7 +212,36 @@ export const opsRecords: unknown[] = [
   say([call("a2t3", "mcp__ssh__ssh_execute", { host: "galaxy", command: "apk info -W /lib/modules/7.1.5" })], { parent_tool_use_id: "a2" }),
   say([text("Rerunning the staging script (the 7.1.5 modules dir from the last attempt isn't package-owned, so it's replaced), then checking that `/boot` and KERNEL are still untouched:"),
     call("o8", "Bash", { command: "./stage-initramfs.sh 2>&1 | tail -20", description: "Rebuild the initramfs into the stage dir" })]),
+  // The module-diff agent hands package ownership to a helper of its own.
+  say([call("a2a", "Task", { description: "Check who owns the 7.1.5 modules dir", subagent_type: "Explore", model: "haiku", prompt: "Which apk package, if any, owns /lib/modules/7.1.5 on galaxy?" })], { parent_tool_use_id: "a2" }),
+  results([text("Which apk package, if any, owns /lib/modules/7.1.5 on galaxy?")], { parent_tool_use_id: "a2a" }),
+  say([ssh("a2a1", "apk info -W /lib/modules/7.1.5/modules.dep"), ssh("a2a2", "apk info -L linux-postmarketos-exynos4 | grep -c 7.1.5")], { parent_tool_use_id: "a2a" }),
+  results([out("a2a1", "/lib/modules/7.1.5/modules.dep is not owned by any package"), out("a2a2", "0")], { parent_tool_use_id: "a2a" }),
+  results([out("a2a", [text("Nothing owns `/lib/modules/7.1.5`: it is left over from the failed attempt and safe to replace.")])], { parent_tool_use_id: "a2" }),
+  // Background agents: one finished (task_notification), one still running.
+  say([
+    call("bg1", "Task", { description: "Search upstream for the s6e3fa7 panel fix", subagent_type: "general-purpose", run_in_background: true, prompt: "Search the postmarketOS and mainline trees for changes to panel-samsung-s6e3fa7 between 7.1.4 and 7.1.5. Report commits that touch probe or power sequencing, with links." }),
+    call("bg2", "Task", { description: "Tail the rebuild log", subagent_type: "general-purpose", run_in_background: true, prompt: "Follow /var/tmp/stage/build.log on galaxy and report the first error, if any." }),
+  ]),
+  backgroundLaunched("bg1", "task-bg1"),
+  backgroundLaunched("bg2", "task-bg2"),
+  // The agent's own first row repeats its prompt (never a user bubble).
+  results([text("Search the postmarketOS and mainline trees for changes to panel-samsung-s6e3fa7 between 7.1.4 and 7.1.5. Report commits that touch probe or power sequencing, with links.")], { parent_tool_use_id: "bg1" }),
+  say([call("bg1t1", "WebSearch", { query: "panel-samsung-s6e3fa7 7.1.5 probe regression" }), call("bg1t2", "WebFetch", { url: "https://gitlab.com/postmarketOS/pmaports/-/commits/master", prompt: "Changes to s6e3fa7 since 7.1.4?" })], { parent_tool_use_id: "bg1" }),
+  results([out("bg1t1", "1. drm/panel: s6e3fa7: fix reset timing (lore.kernel.org)"), out("bg1t2", "No pmaports changes to the panel since 7.1.4.")], { parent_tool_use_id: "bg1" }),
+  say([text("One upstream change: **drm/panel: s6e3fa7: fix reset timing** moved the reset delay from 10 ms to 5 ms in 7.1.5. Nothing in pmaports.")], { parent_tool_use_id: "bg1" }),
+  claude({ type: "system", subtype: "task_notification", task_id: "task-bg1", tool_use_id: "bg1", status: "completed", summary: "One upstream panel change (reset timing)." }),
+  claude({ type: "system", subtype: "task_started", task_id: "task-bg2", tool_use_id: "bg2", status: "running" }),
+  say([ssh("bg2t1", "tail -n 50 -f /var/tmp/stage/build.log")], { parent_tool_use_id: "bg2" }),
 ];
+
+function backgroundLaunched(id: string, taskId: string) {
+  return claude({
+    type: "user",
+    tool_use_result: { isAsync: true, status: "async_launched", agentId: taskId, output_file: `/tmp/${taskId}.txt` },
+    message: { content: [out(id, [text(`Async agent launched successfully.\nagentId: ${taskId}\noutput_file: /tmp/${taskId}.txt`)])] },
+  });
+}
 
 /** Agent state of the ops session: nothing waiting. */
 export const opsAgentState: AgentState = {};
