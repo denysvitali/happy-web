@@ -3,7 +3,10 @@
   display: grid;
   grid-template-columns: var(--happy-sidebar-width) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  height: 100dvh;
+  /* 100% of body, not 100dvh: when the dynamic viewport outgrows the ICB
+     (Android Chrome with its URL bar hidden), a dvh frame overflows body and
+     the sticky composer pins to body's edge, covering the transcript's end. */
+  height: 100%;
   background: var(--happy-bg);
   /* The off-screen pane of the phone push stack (translateX) must not count
      as page width: mobile Chrome widens the layout viewport to fit it, which
@@ -130,7 +133,7 @@
 .splash {
   display: grid;
   place-items: center;
-  height: 100dvh;
+  height: 100%;
   background: var(--happy-bg);
 }
 .splash > span { animation: splash 1.4s var(--happy-ease-out) 300ms infinite both; }
