@@ -57,8 +57,8 @@ export function AgentScreen() {
   const agent = useMemo(() => (view ? findTool(view.blocks, toolId) : undefined), [view, toolId]);
   const parent = useMemo(() => (view ? ancestors(view.blocks, toolId)?.at(-1) : undefined), [view, toolId]);
 
-  const onPermission: PermissionHandler = async (id, approved, decision) => {
-    await account.answerPermission(sessionId, id, approved, decision);
+  const onPermission: PermissionHandler = async (id, approved, decision, updatedInput) => {
+    await account.answerPermission(sessionId, id, approved, decision, updatedInput);
   };
   const back = parent ? (
     <Link to="/s/$sessionId/agent/$toolId" params={{ sessionId, toolId: parent.id }} className={classes.back} aria-label={`Back to ${agentInfo(parent).title}`}>

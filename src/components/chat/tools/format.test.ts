@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { splitStable } from "../markdown-split";
 import type { ToolBlock } from "@/lib/sync/chat";
-import { asText, commandOf, diffStats, duration, humanize, lineDiff, numberedLines, parseMcpName, resultParts, shellOutput } from "./format";
+import { asText, commandOf, diffStats, duration, humanize, lineDiff, numberedLines, parseMcpName, questionAnswers, resultParts, shellOutput } from "./format";
 import { stepLabel, stepsSummary } from "./steps";
 
 describe("parseMcpName", () => {
@@ -141,5 +141,18 @@ describe("image tool results", () => {
   });
   it("never dumps base64 as copied text", () => {
     expect(asText([{ type: "image", source: { media_type: "image/png", data: png } }, { type: "text", text: "hi" }])).toBe("[image]\nhi");
+  });
+});
+
+describe("questionAnswers", () => {
+  const qs = [
+    { question: "One?", multiSelect: false, options: [{ label: "A" }, { label: "B" }] },
+    { question: "Many?", multiSelect: true, options: [{ label: "X" }, { label: "Y" }] },
+  ];
+  it("waits until every question has an answer", () => {
+    expect(questionAnswers(qs, [["A"], []], ["", "  "])).toBeNull();
+  });
+  it("comma-joins picks and free text per question", () => {
+    expect(questionAnswers(qs, [[], ["X", "Y"]], [" mine ", "also Z"])).toEqual({ "One?": "mine", "Many?": "X, Y, also Z" });
   });
 });

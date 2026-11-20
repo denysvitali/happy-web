@@ -70,7 +70,7 @@ export const ToolCard = memo(
     );
     const body = open && (
       <div className={classes.stepBody}>
-        <view.Body b={b} />
+        <view.Body b={b} onPermission={pending && view.answers ? onPermission : undefined} />
       </div>
     );
     if (!pending) {
@@ -85,7 +85,7 @@ export const ToolCard = memo(
       <div className={classes.tool} data-attention>
         {head}
         {body}
-        <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />
+        {!view.answers && <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />}
       </div>
     );
   },

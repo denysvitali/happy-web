@@ -139,6 +139,8 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
     case "permission": {
       const fake = { type: "tool" as const, key: b.key, id: b.id, name: b.tool, input: b.input, children: [] };
       const view = viewFor(b.tool);
+      // A request whose call isn't in the transcript yet still needs answering.
+      if (view.answers) return <ToolCard b={{ ...fake, permission: { status: "pending" } }} onPermission={onPermission} />;
       return (
         <div className={classes.tool} data-attention>
           <div className={classes.permHead}>

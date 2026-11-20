@@ -3,10 +3,11 @@
 import { MantineProvider } from "@mantine/core";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { buildView, type Block, type ToolBlock } from "@/lib/sync/chat";
+import { addMessages, buildView, emptyChat, type Block, type ToolBlock } from "@/lib/sync/chat";
+import { normalizeRecord } from "@/lib/sync/normalize";
 import { BlockList } from "./blocks";
 import { WorkingRow } from "./working";
-import { demoChat } from "./fixtures";
+import { demoChat, opsAgentState, opsRecords } from "./fixtures";
 import { agentInfo, agentStatus } from "./tools/format";
 import { viewFor } from "./tools/registry";
 
@@ -18,6 +19,34 @@ const view = () => {
 function tools(blocks: Block[]): ToolBlock[] {
   return blocks.flatMap((b) => (b.type === "tool" ? [b, ...tools(b.children)] : b.type === "steps" || b.type === "work" ? tools(b.items) : []));
 }
+
+describe("pending question", () => {
+  const ops = () => {
+    const msgs = opsRecords.map((r, i) => ({ id: `o${i}`, seq: i + 1, createdAt: i, norm: normalizeRecord(r) }));
+    return buildView(addMessages(emptyChat, msgs), opsAgentState);
+  };
+  it("is answerable in place, without an Allow/Deny bar", () => {
+    const out = renderToString(
+      <MantineProvider>
+        <BlockList blocks={ops().blocks} onPermission={async () => {}} />
+      </MantineProvider>,
+    );
+    expect(out).toContain('role="radio"');
+    expect(out).toContain('role="checkbox"');
+    expect(out).toContain("Send answers");
+    expect(out).not.toContain("Permission required");
+  });
+
+  it("answers as an orphan request too", () => {
+    const { blocks } = buildView(emptyChat, opsAgentState);
+    const out = renderToString(
+      <MantineProvider>
+        <BlockList blocks={blocks} onPermission={async () => {}} />
+      </MantineProvider>,
+    );
+    expect(out).toContain("Send answers");
+  });
+});
 
 describe("demo transcript", () => {
   it("renders without throwing", () => {

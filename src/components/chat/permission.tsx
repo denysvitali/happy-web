@@ -1,11 +1,12 @@
 import { Button } from "@mantine/core";
 import { ShieldQuestion, X } from "lucide-react";
 import { useState } from "react";
+import type { JsonObject } from "@bufbuild/protobuf";
 import type { PermissionView } from "@/lib/sync/chat";
 import classes from "./chat.module.css";
 
 export interface PermissionHandler {
-  (id: string, approved: boolean, decision?: "approved_for_session"): Promise<void>;
+  (id: string, approved: boolean, decision?: "approved_for_session", updatedInput?: JsonObject): Promise<void>;
 }
 
 /** Outcome of an answered request, for the tool header. Approval is the

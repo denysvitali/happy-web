@@ -963,6 +963,11 @@
   color: var(--happy-label);
 }
 .option strong { font-weight: 600; }
+.questionForm { display: flex; flex-direction: column; gap: 14px; }
+.questionForm .option { text-align: left; border: 1px solid transparent; transition: background 120ms var(--happy-ease-out), border-color 120ms var(--happy-ease-out); }
+.questionForm .option:hover:not(:disabled) { background: var(--happy-fill-2); }
+.questionForm .option:focus-visible { outline: 2px solid var(--happy-accent); outline-offset: 1px; }
+.questionForm .option[data-selected] { border-color: var(--happy-accent); background: var(--happy-accent-tint); }
 .quote { padding-left: 10px; border-left: 2px solid var(--happy-separator-strong); font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
 .plan { padding: 12px 16px; border-radius: var(--happy-radius-md); background: var(--happy-fill-3); }
 .plan .prose { font-size: 14px; }

@@ -1,16 +1,20 @@
 // Expanded bodies of the specialised tool views. Header metadata (icon,
 // title, one-line summary, badge) lives in ./registry.ts.
-import { Anchor } from "@mantine/core";
+import { Anchor, Button, TextInput, UnstyledButton } from "@mantine/core";
 import { CheckCircle2, Circle, CircleDot, MessageCircleQuestion } from "lucide-react";
+import { useState } from "react";
 import type { ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
+import type { PermissionHandler } from "../permission";
 import { lineCount, lines, numberRows } from "../text";
 import { Clip, CopyIcon, KeyValues, ResultView, Section } from "../primitives";
-import { asText, commandOf, editRows, field, isObj, numberedLines, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj } from "./format";
+import { asText, commandOf, editRows, field, isObj, numberedLines, questionAnswers, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj, type Question } from "./format";
 import classes from "../chat.module.css";
 
 export interface ToolViewProps {
   b: ToolBlock;
+  /** Set while the call awaits the user, for views that answer it themselves. */
+  onPermission?: PermissionHandler | undefined;
 }
 
 const inputOf = (b: ToolBlock): Obj => (isObj(b.input) ? b.input : {});
@@ -241,18 +245,15 @@ export function TodoBody({ b }: ToolViewProps) {
   );
 }
 
-export function QuestionBody({ b }: ToolViewProps) {
+export function QuestionBody({ b, onPermission }: ToolViewProps) {
   const qs = questionsOf(b.input);
   if (qs.length === 0) return <GenericBody b={b} />;
+  if (onPermission && b.permission?.status === "pending") return <QuestionForm b={b} qs={qs} onPermission={onPermission} />;
   return (
     <>
       {qs.map((q, k) => (
         <div key={k} className={classes.question}>
-          <div className={classes.questionHead}>
-            <MessageCircleQuestion size={14} />
-            {q.header && <span className={classes.chip}>{q.header}</span>}
-            <span>{q.question}</span>
-          </div>
+          <QuestionHead q={q} />
           <div className={classes.options}>
             {q.options.map((o, j) => (
               <div key={j} className={classes.option} title={o.description}>
@@ -266,6 +267,101 @@ export function QuestionBody({ b }: ToolViewProps) {
       ))}
       <Result b={b} label="Answer" />
     </>
+  );
+}
+
+function QuestionHead({ q }: { q: Question }) {
+  return (
+    <div className={classes.questionHead}>
+      <MessageCircleQuestion size={14} />
+      {q.header && <span className={classes.chip}>{q.header}</span>}
+      <span>{q.question}</span>
+    </div>
+  );
+}
+
+/** A pending AskUserQuestion: pick options (or type one), then send. The
+ * picks go back as the approved call's `updatedInput.answers`; Skip denies. */
+function QuestionForm({ b, qs, onPermission }: { b: ToolBlock; qs: Question[]; onPermission: PermissionHandler }) {
+  const [picks, setPicks] = useState<string[][]>(() => qs.map(() => []));
+  const [other, setOther] = useState<string[]>(() => qs.map(() => ""));
+  const [busy, setBusy] = useState<"send" | "skip" | null>(null);
+  const [error, setError] = useState("");
+  const answers = questionAnswers(qs, picks, other);
+  const at = <T,>(list: T[], i: number, v: T) => list.map((x, k) => (k === i ? v : x));
+  const pick = (i: number, label: string) => {
+    const q = qs[i]!;
+    const cur = picks[i] ?? [];
+    const on = cur.includes(label);
+    setPicks(at(picks, i, q.multiSelect ? (on ? cur.filter((l) => l !== label) : [...cur, label]) : on ? [] : [label]));
+    if (!q.multiSelect && !on) setOther(at(other, i, ""));
+  };
+  const type = (i: number, text: string) => {
+    setOther(at(other, i, text));
+    if (!qs[i]!.multiSelect && text.trim()) setPicks(at(picks, i, []));
+  };
+  const send = async (approved: boolean) => {
+    setBusy(approved ? "send" : "skip");
+    setError("");
+    try {
+      await onPermission(b.id, approved, undefined, approved && answers ? { ...inputOf(b), answers } : undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <form
+      className={classes.questionForm}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (answers && !busy) void send(true);
+      }}
+    >
+      {qs.map((q, i) => (
+        <div key={i} className={classes.question}>
+          <QuestionHead q={q} />
+          <div className={classes.options} role={q.multiSelect ? "group" : "radiogroup"} aria-label={q.question}>
+            {q.options.map((o, j) => {
+              const on = picks[i]?.includes(o.label) ?? false;
+              return (
+                <UnstyledButton
+                  key={j}
+                  className={classes.option}
+                  data-selected={on || undefined}
+                  role={q.multiSelect ? "checkbox" : "radio"}
+                  aria-checked={on}
+                  disabled={!!busy}
+                  onClick={() => pick(i, o.label)}
+                >
+                  <strong>{o.label}</strong>
+                  {o.description && <span className={classes.dim}>{o.description}</span>}
+                </UnstyledButton>
+              );
+            })}
+          </div>
+          <TextInput
+            size="xs"
+            placeholder={q.multiSelect ? "Something else (optional)" : "Something else…"}
+            aria-label={`Other answer to: ${q.question}`}
+            value={other[i] ?? ""}
+            disabled={!!busy}
+            onChange={(e) => type(i, e.currentTarget.value)}
+          />
+          {q.multiSelect && <span className={classes.dim}>Pick any</span>}
+        </div>
+      ))}
+      <div className={classes.permActions}>
+        {error && <span className={classes.permError}>{error}</span>}
+        <Button size="xs" variant="subtle" color="gray" loading={busy === "skip"} disabled={!!busy} onClick={() => void send(false)}>
+          Skip
+        </Button>
+        <Button size="xs" type="submit" loading={busy === "send"} disabled={!answers || !!busy}>
+          {qs.length > 1 ? "Send answers" : "Send answer"}
+        </Button>
+      </div>
+    </form>
   );
 }
 

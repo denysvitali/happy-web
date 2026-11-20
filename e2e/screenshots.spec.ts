@@ -158,7 +158,7 @@ for (const vp of VIEWPORTS) {
       await mock.install(page);
       await linkAndOpen(page, mock);
       await page.getByText("pmos-galaxy").first().click();
-      await expect(page.getByText("Rebuild the initramfs on the tab")).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Question / })).toBeVisible();
       await page.mouse.move(0, 0);
       await page.waitForTimeout(500);
       await shot(page, "10-ops");
@@ -166,6 +166,11 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(200);
       await shot(page, "10b-ops-dark");
       await page.emulateMedia({ colorScheme: "light" });
+      // A pending question with picks made (not sent).
+      await page.getByRole("radio", { name: /Flash now/ }).click();
+      await page.getByRole("checkbox", { name: /initramfs/ }).click();
+      await page.mouse.move(0, 0);
+      await shot(page, "10c-ops-question");
       // Expanded: the run of steps and one step inside it.
       await page.getByRole("button", { name: /^Ran \d+ commands/ }).click();
       await page.getByRole("button", { name: /Dry-run the staging script/ }).click();
@@ -209,7 +214,7 @@ for (const vp of VIEWPORTS) {
       await shot(page, "17c-agent-nested");
       await page.getByRole("link", { name: /Back to Diff module trees/ }).click();
       await page.getByRole("link", { name: "Back to the chat" }).click();
-      await expect(page.getByText("Rebuild the initramfs on the tab")).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Question / })).toBeVisible();
       await page.setViewportSize({ width: vp.width, height: vp.height });
       // Composer band states: dropdowns, a nearly full context, a pending
       // model switch with a long draft, an archived session.

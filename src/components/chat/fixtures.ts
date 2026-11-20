@@ -241,6 +241,14 @@ export const DEMO_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAAA3ElEQ
 const think = (t: string) => ({ type: "thinking", thinking: t });
 const ssh = (id: string, command: string) => call(id, "mcp__ssh__ssh_execute", { host: "galaxy", command });
 
+const opsQuestion = { questions: [
+  { header: "Flash", question: "The tab is in download mode. Flash the rebuilt image now?", multiSelect: false, options: [
+    { label: "Flash now", description: "heimdall flash of boot + system; the tab reboots into the new kernel" },
+    { label: "Wait for the build log", description: "Hold until the background build finishes cleanly" },
+  ] },
+  { header: "Keep", question: "Which artefacts should I keep after flashing?", multiSelect: true, options: [{ label: "initramfs" }, { label: "build log" }, { label: "old boot.img" }] },
+] };
+
 export const opsRecords: unknown[] = [
   {
     role: "user",
@@ -303,6 +311,7 @@ export const opsRecords: unknown[] = [
   claude({ type: "system", subtype: "task_notification", task_id: "task-bg1", tool_use_id: "bg1", status: "completed", summary: "One upstream panel change (reset timing)." }),
   claude({ type: "system", subtype: "task_started", task_id: "task-bg2", tool_use_id: "bg2", status: "running" }),
   say([ssh("bg2t1", "tail -n 50 -f /var/tmp/stage/build.log")], { parent_tool_use_id: "bg2" }),
+  say([call("ask1", "AskUserQuestion", opsQuestion)]),
 ];
 
 function backgroundLaunched(id: string, taskId: string) {
@@ -314,7 +323,7 @@ function backgroundLaunched(id: string, taskId: string) {
 }
 
 /** Agent state of the ops session: nothing waiting. */
-export const opsAgentState: AgentState = {};
+export const opsAgentState: AgentState = { requests: { ask1: { tool: "AskUserQuestion", arguments: opsQuestion, createdAt: 0 } } };
 
 /** Happy session ToDos (`metadata.todos`) for the ops session. */
 export const opsTodos = [

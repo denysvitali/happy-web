@@ -359,6 +359,18 @@ export function questionsOf(input: unknown): Question[] {
   }));
 }
 
+/** AskUserQuestion's `answers`: question text → picked labels plus any
+ * free text, comma-joined (Claude Code's own format). Null until every
+ * question has an answer. */
+export function questionAnswers(qs: readonly Question[], picks: readonly (readonly string[])[], other: readonly string[]): Record<string, string> | null {
+  const out: Record<string, string> = {};
+  for (const [i, q] of qs.entries()) {
+    const a = [...(picks[i] ?? []), (other[i] ?? "").trim()].filter(Boolean).join(", ");
+    if (!a) return null;
+    out[q.question] = a;
+  }
+  return out;
+}
 
 // ---- tools and agents ------------------------------------------------------------
 

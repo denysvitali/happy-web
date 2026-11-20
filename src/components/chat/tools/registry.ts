@@ -69,6 +69,9 @@ export interface ToolView {
   Body: ComponentType<ToolViewProps>;
   /** Expanded by default. */
   open?: (b: ToolBlock) => boolean;
+  /** The body answers a pending request itself (gets `onPermission`), so
+   * the card shows no Allow/Deny bar. */
+  answers?: boolean;
 }
 
 const inp = (b: ToolBlock) => (isObj(b.input) ? b.input : {});
@@ -215,6 +218,7 @@ const question: ToolView = {
   summary: (b) => questionsOf(b.input)[0]?.question ?? "",
   Body: QuestionBody,
   open: (b) => !b.result,
+  answers: true,
 };
 
 const plan: ToolView = { icon: ClipboardList, kind: "plan", title: "Plan", summary: () => "Ready to code?", Body: PlanBody, open: (b) => !b.result };

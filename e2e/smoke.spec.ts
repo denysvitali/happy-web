@@ -31,6 +31,34 @@ test("link, list, open chat and send", async ({ page }) => {
   expect(violations).toEqual([]);
 });
 
+test("a pending question is answered through the permission RPC", async ({ page }) => {
+  const violations = watchCsp(page);
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+
+  await page.getByText("pmos-galaxy").first().click();
+  const send = page.getByRole("button", { name: "Send answers" });
+  await expect(send).toBeDisabled();
+  await page.getByRole("radio", { name: /Flash now/ }).click();
+  await page.getByRole("checkbox", { name: /build log/ }).click();
+  await page.getByLabel("Other answer to: Which artefacts should I keep after flashing?").fill("dmesg");
+  await send.click();
+  await expect.poll(() => mock.rpcCalls.filter((c) => c.method === "s6:permission").length).toBe(1);
+  expect(mock.rpcCalls.find((c) => c.method === "s6:permission")!.params).toMatchObject({
+    id: "ask1",
+    approved: true,
+    updatedInput: {
+      questions: [{ header: "Flash" }, { header: "Keep" }],
+      answers: {
+        "The tab is in download mode. Flash the rebuilt image now?": "Flash now",
+        "Which artefacts should I keep after flashing?": "build log, dmesg",
+      },
+    },
+  });
+  expect(violations).toEqual([]);
+});
+
 test("switching provider restarts the session on the new profile", async ({ page }) => {
   const violations = watchCsp(page);
   const mock = createMock();

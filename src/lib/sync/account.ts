@@ -500,8 +500,15 @@ export class Account {
     return this.rpc(sessionId, "abort", (p) => [p.AbortRequestSchema, p.AbortResponseSchema], { reason: "" });
   }
 
-  answerPermission(sessionId: string, id: string, approved: boolean, decision?: "approved" | "approved_for_session" | "abort") {
-    return this.rpc(sessionId, "permission", (p) => [p.PermissionRequestSchema, p.PermissionResponseSchema], { id, approved, decision: decision ?? "" });
+  /** `updatedInput` replaces the tool input on approval; AskUserQuestion
+   * carries the user's picks there as `answers`. */
+  answerPermission(sessionId: string, id: string, approved: boolean, decision?: "approved" | "approved_for_session" | "abort", updatedInput?: JsonObject) {
+    return this.rpc(sessionId, "permission", (p) => [p.PermissionRequestSchema, p.PermissionResponseSchema], {
+      id,
+      approved,
+      decision: decision ?? "",
+      ...(updatedInput ? { updatedInput } : {}),
+    });
   }
 
   /** Default branch, branches and (with `ref`) whether `ref` resolves, via

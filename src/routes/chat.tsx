@@ -367,8 +367,8 @@ export function ChatScreen() {
       </>
     );
   }
-  const onPermission: PermissionHandler = async (id, approved, decision) => {
-    await account.answerPermission(session.id, id, approved, decision);
+  const onPermission: PermissionHandler = async (id, approved, decision, updatedInput) => {
+    await account.answerPermission(session.id, id, approved, decision, updatedInput);
   };
 
   return (
