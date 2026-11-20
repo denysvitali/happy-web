@@ -141,7 +141,7 @@ describe("uploadFile", () => {
     expect(f.files.get("/r/dist/app.apk")).toEqual(data);
     expect([...f.files.keys()]).toEqual(["/r/dist/app.apk"]);
     expect(progress.at(-1)).toBe(data.length);
-  }, 20_000); // megabytes through base64 in a fake shell: slow when the pre-commit hook runs lint in parallel
+  }, 20_000); // megabytes through base64 in a fake shell: slow on a busy machine
 
   it("cleans up the temp file when the name is taken or the upload is cancelled", async () => {
     const f = fs({ "/r/big.bin": bytes(1) });
