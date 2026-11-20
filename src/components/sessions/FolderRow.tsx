@@ -81,13 +81,13 @@ export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, f
         type="button"
         className={`${classes.rowLink} ${fc.folderButton}`}
         aria-expanded={r.open}
-        aria-label={`${r.name}, ${r.count} sessions${r.attention ? ", needs approval" : ""}${r.unread ? `, ${r.unread} unread` : ""}`} onClick={() => onToggle(r.id)}>
+        aria-label={`${r.name}, ${r.count} sessions${r.attention ? ", needs approval" : ""}${!r.open && r.unread ? `, ${r.unread} unread` : ""}`} onClick={() => onToggle(r.id)}>
         <ChevronRight size={14} strokeWidth={2.25} className={fc.chevron} data-open={r.open || undefined} />
         <Icon size={16} strokeWidth={1.9} className={fc.folderIcon} />
         <span className={`${classes.rowTitle} ${fc.folderName}`}>{r.name}</span>
         <AttentionBadge count={r.attention} />
-        <UnreadBadge label={r.unread} />
-        <span className={`${classes.rowAgo} ${fc.folderCount}`}>{r.count || ""}</span>
+        {/* An open folder shows its sessions' own badges; the roll-up only hints at what's hidden. */}
+        {!r.open && <UnreadBadge label={r.unread} />}
       </button>
       {!readOnly && (
         <div className={`${classes.rowActions} ${fc.folderActions}`} data-open={menu || undefined}>

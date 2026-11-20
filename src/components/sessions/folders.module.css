@@ -15,7 +15,6 @@
 .chevron[data-open] { transform: rotate(90deg); }
 .folderIcon { flex-shrink: 0; color: var(--happy-accent); }
 .folderName { font-weight: 600; }
-.folderCount { min-width: 16px; text-align: right; }
 /* Beats .rowActions' top, whichever module's CSS loads last. */
 .folderActions.folderActions { top: 50%; transform: translateY(-50%); }
 /* A folder that accepts the sessions being dragged over it. */
