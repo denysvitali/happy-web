@@ -3,7 +3,7 @@
 // scripts/screenshot-gallery.mjs. Run: pnpm screenshots
 import { expect, test, type Page } from "@playwright/test";
 import { DEMO_IMAGE, demoRecords, opsRecords } from "../src/components/chat/fixtures";
-import { createMock, linkAndOpen, MOCK_SERVER, watchCsp, type RpcHandler } from "./mock";
+import { createMock, linkAndOpen, MOCK_SERVER, swipeLeft, watchCsp, type RpcHandler } from "./mock";
 
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
@@ -378,3 +378,23 @@ for (const vp of VIEWPORTS) {
     });
   });
 }
+
+// Swipe-to-archive, held past the threshold on a phone (touch only).
+test.describe("mobile swipe", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test("swipe", async ({ page }) => {
+    const mock = createMock();
+    await mock.install(page);
+    await linkAndOpen(page, mock);
+    const row = page.getByRole("navigation", { name: "Sessions" }).locator("[data-status]").filter({ hasText: "Build the web client" });
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      const letGo = await swipeLeft(page, row, 160, true);
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: `screenshots/mobile-02d-swipe${scheme === "dark" ? "-dark" : ""}.png` });
+      await letGo();
+      await page.waitForTimeout(500);
+    }
+    expect(mock.archives).toEqual([]);
+  });
+});

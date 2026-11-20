@@ -29,6 +29,8 @@ import { SectionHeader } from "@/ui/SectionHeader";
 import { openSheet, SheetBody, SheetFooter } from "@/ui/Sheet";
 import { CardSkeleton, Skeleton, StatSkeleton } from "@/ui/Skeleton";
 import { StatCard } from "@/ui/StatCard";
+import { SwipeAction } from "@/ui/SwipeAction";
+import { showUndo } from "@/ui/undoToast";
 import { Tick } from "@/ui/Tick";
 import { PresenceDot, StatusPill } from "@/ui/Status";
 import classes from "./demo.module.css";
@@ -312,7 +314,7 @@ export function DemoScreen() {
           </Group>
         </Section>
 
-        <Section title="Lists" note="Source-list rows, an inset-grouped list, and the loading skeleton.">
+        <Section title="Lists" note="Source-list rows, inset-grouped lists, a swipeable row, and the loading skeleton.">
           <Group align="flex-start" gap="md" wrap="wrap">
             <Box style={{ flex: "1 1 300px", minWidth: 0, padding: 8, borderRadius: "var(--happy-radius-lg)", background: "var(--happy-sidebar)" }}>
               <SearchField value={query} onChange={setQuery} placeholder="Search sessions" />
@@ -340,6 +342,11 @@ export function DemoScreen() {
                   accessory={<IconButton label="New session on this machine" size="sm" icon={<Plus size={14} />} tone="accent" />}
                 />
                 <ListRow title="dc1" subtitle="offline since yesterday" leading={<PresenceDot online={false} />} dimmed />
+              </ListSection>
+              <ListSection variant="inset" footer="Touch: swipe left to archive; release early to cancel.">
+                <SwipeAction label="Archive" icon={<Archive size={18} />} onCommit={() => showUndo("Archived", () => note("Restored"))}>
+                  <ListRow title="Swipe me" subtitle="SwipeAction + undo toast" leading={<SessionAvatar view={{ id: "s-9", project: "acme/web", title: "Swipe me", status: "idle", pending: 0 }} />} onClick={() => note("Opened")} />
+                </SwipeAction>
               </ListSection>
             </Box>
           </Group>

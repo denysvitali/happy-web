@@ -1,7 +1,7 @@
 // Mocked Happy server for Playwright: HTTP via page.route, socket.io via
 // page.routeWebSocket (engine.io v4 framing). Everything is encrypted with
 // a per-test account secret (legacy secretbox) like a real server would hold.
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import nacl from "tweetnacl";
 import { demoAgentState, demoRecords, opsAgentState, opsRecords, opsTodos } from "../src/components/chat/fixtures";
 import { decodeBase64, encodeBase64 } from "../src/lib/crypto/base64";
@@ -154,6 +154,7 @@ export function createMock() {
 
   const sent: { sessionId: string; localId: string; record: unknown }[] = [];
   const rpcCalls: { method: string; params: unknown }[] = [];
+  const archives: { sessionId: string; archived: boolean }[] = [];
   let socketAuth: unknown = null;
 
   async function install(page: Page, opts: MockOptions = {}) {
@@ -198,7 +199,10 @@ export function createMock() {
         return json({ messages: body.messages.map((x, i) => ({ id: `n${sent.length}-${i}`, seq: 1000 + sent.length + i, localId: x.localId, createdAt: Date.now() })) });
       }
       const a = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/archive$/);
-      if (a) return json({ success: true });
+      if (a) {
+        archives.push({ sessionId: a[1]!, archived: (req.postDataJSON() as { archived: boolean }).archived });
+        return json({ success: true });
+      }
       const md = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/metadata$/);
       if (md) return json({ result: "success", version: 2 });
       const one = url.pathname.match(/^\/v1\/sessions\/([^/]+)$/);
@@ -326,7 +330,7 @@ export function createMock() {
     }),
   };
 
-  return { install, sent, rpcCalls, socketAuth: () => socketAuth, enc, dec, sessions, machines, secret, kv };
+  return { install, sent, rpcCalls, archives, socketAuth: () => socketAuth, enc, dec, sessions, machines, secret, kv };
 }
 
 export function watchCsp(page: Page): string[] {
@@ -344,4 +348,22 @@ export async function linkAndOpen(page: Page, mock: { socketAuth: () => unknown 
   await page.goto("/");
   await expect.poll(() => mock.socketAuth(), { timeout: 15_000 }).not.toBeNull();
   await expect(page.getByLabel("QR code")).toHaveCount(0);
+}
+
+/** A real touch drag right-to-left (CDP; needs `hasTouch`), so touch-action and
+ * pointer events behave as on a phone. `hold` keeps the finger down and returns
+ * a function that drags back and lifts it (nothing commits). */
+export async function swipeLeft(page: Page, target: Locator, distance: number, hold = false): Promise<() => Promise<void>> {
+  const box = (await target.boundingBox())!;
+  const cdp = await page.context().newCDPSession(page);
+  const y = box.y + box.height / 2;
+  const x0 = box.x + box.width - 24;
+  const touch = (type: "touchStart" | "touchMove" | "touchEnd", x?: number) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: x === undefined ? [] : [{ x, y }] });
+  await touch("touchStart", x0);
+  for (let i = 1; i <= 12; i++) await touch("touchMove", x0 - (distance * i) / 12);
+  if (!hold) await touch("touchEnd");
+  return async () => {
+    await touch("touchMove", x0);
+    await touch("touchEnd");
+  };
 }

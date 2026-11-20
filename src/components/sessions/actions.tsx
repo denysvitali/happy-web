@@ -11,6 +11,7 @@ import { useAccount } from "@/app/auth";
 import { sessionsKey, type Account, type SessionItem } from "@/lib/sync/account";
 import { sessionTitle } from "@/lib/sync/decode";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
+import { showUndo } from "@/ui/undoToast";
 import { RenameForm } from "./RenameForm";
 
 function patchRow(qc: QueryClient, id: string, fn: (s: SessionItem) => SessionItem): void {
@@ -37,6 +38,8 @@ export interface SessionActions {
   rename(s: SessionItem): void;
   stop(s: SessionItem): void;
   archive(s: SessionItem): void;
+  /** Swipe-to-archive: no confirm (the gesture is deliberate), Undo in the toast instead. */
+  swipeArchive(s: SessionItem): void;
   unarchive(s: SessionItem): void;
   remove(s: SessionItem): void;
   copyId(s: SessionItem): void;
@@ -52,7 +55,7 @@ function copy(text: string, what: string): void {
 
 function createActions(account: Account, qc: QueryClient, isViewing: (id: string) => boolean, goHome: () => void): SessionActions {
   const doArchive = (s: SessionItem) =>
-    void optimistic(
+    optimistic(
       qc,
       s.id,
       (x) => ({ ...x, archived: true, active: false }),
@@ -61,7 +64,7 @@ function createActions(account: Account, qc: QueryClient, isViewing: (id: string
       "Couldn't archive session",
     );
 
-  return {
+  const actions: SessionActions = {
     rename(s) {
       const id = `rename-${s.id}`;
       const initial = sessionTitle(s.meta, s.id);
@@ -106,14 +109,21 @@ function createActions(account: Account, qc: QueryClient, isViewing: (id: string
     },
 
     archive(s) {
-      if (!isLive(s)) return doArchive(s);
+      if (!isLive(s)) return void doArchive(s);
       modals.openConfirmModal({
         title: "Stop and archive?",
         children: <Text size="sm">The session's process is stopped first, then the session is archived.</Text>,
         labels: { confirm: "Stop and archive", cancel: "Cancel" },
         confirmProps: { color: "red" },
-        onConfirm: () => doArchive(s),
+        onConfirm: () => void doArchive(s),
       });
+    },
+
+    swipeArchive(s) {
+      // Undo waits for the archive to land, so the two calls can't race. The
+      // stopped process stays stopped until the next message.
+      const archived = doArchive(s);
+      showUndo(isLive(s) ? "Stopped and archived" : "Archived", () => void archived.then(() => actions.unarchive(s)));
     },
 
     unarchive(s) {
@@ -151,6 +161,7 @@ function createActions(account: Account, qc: QueryClient, isViewing: (id: string
     copyId: (s) => copy(s.id, "Session ID"),
     copyPath: (s) => copy(s.meta.path ?? "", "Path"),
   };
+  return actions;
 }
 
 export function useSessionActions(): SessionActions {

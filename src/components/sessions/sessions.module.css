@@ -64,6 +64,9 @@
   padding-bottom: 2px;
 }
 
+/* Swipe-to-archive wrapper (touch): same shape as the link it moves. */
+.swipe { --swipe-surface: var(--happy-sidebar); height: 100%; border-radius: var(--happy-radius-md); }
+
 .rowLink {
   display: flex;
   align-items: center;
@@ -99,7 +102,7 @@
   position: absolute;
   left: calc(var(--depth, 1) * 14px);
   top: 10px;
-  bottom: 12px;
+  bottom: 10px;
   width: 1px;
   background: var(--happy-separator-strong);
 }
@@ -157,6 +160,8 @@
 .row:hover .rowAgo,
 .row:focus-within .rowAgo,
 .row[data-menu] .rowAgo { visibility: hidden; }
+/* The "⋯" doesn't ride along with a swiped row. */
+.row:has([data-swiping], [data-animating]) .rowActions { visibility: hidden; }
 /* Selecting: rows toggle on click and have no menu. */
 .row[data-selecting] .rowActions { display: none; }
 .row[data-selecting] .rowAgo { visibility: visible; }
@@ -242,6 +247,9 @@
   }
   .rowLink:hover { --row-bg: var(--happy-surface); }
   .rowLink:active { --row-bg: color-mix(in srgb, var(--happy-label) 8%, var(--happy-surface)); }
+  .swipe { --swipe-surface: var(--happy-surface); border-radius: 0; }
+  .row[data-first] .swipe { border-top-left-radius: var(--happy-radius-lg); border-top-right-radius: var(--happy-radius-lg); }
+  .row[data-last] .swipe { border-bottom-left-radius: var(--happy-radius-lg); border-bottom-right-radius: var(--happy-radius-lg); }
   .row[data-first] .rowLink { border-top-left-radius: var(--happy-radius-lg); border-top-right-radius: var(--happy-radius-lg); }
   .row[data-last] .rowLink { border-bottom-left-radius: var(--happy-radius-lg); border-bottom-right-radius: var(--happy-radius-lg); }
   .row:not([data-first]) .rowLink::after {
@@ -259,7 +267,7 @@
   .rowTitle { font-size: var(--happy-text-body); line-height: 20px; font-weight: 500; }
   .rowMeta { font-size: var(--happy-text-subhead); line-height: 18px; }
   .rowAgo { font-size: var(--happy-text-subhead); }
-  .row[data-child] .rowLink::before { left: calc(var(--depth, 1) * 16px + 2px); }
+  .row[data-child] .rowLink::before { left: calc(var(--depth, 1) * 16px + 2px); bottom: 12px; }
   /* The menu's "⋯" (shown while it is open) sits centred, where the time is hidden. */
   .rowActions { top: 50%; transform: translateY(-50%); }
   .row[data-selected] .rowLink { --row-bg: color-mix(in srgb, var(--happy-accent) 14%, var(--happy-surface)); }

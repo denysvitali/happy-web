@@ -1,0 +1,43 @@
+.root {
+  --swipe-x: 0px;
+  position: relative;
+}
+/* Clip only while moving: at rest a focus ring must not be cut off. */
+.root[data-swiping],
+.root[data-animating] { overflow: hidden; }
+/* Vertical pans stay native; horizontal moves come to us as pointer events. */
+.root[data-enabled] { touch-action: pan-y; }
+
+.content {
+  position: relative;
+  height: 100%;
+  border-radius: inherit;
+  transform: translateX(var(--swipe-x));
+}
+.root[data-swiping] .content,
+.root[data-animating] .content { background: var(--swipe-surface, var(--happy-surface)); }
+.root[data-animating] .content { transition: transform var(--happy-dur-slow) var(--happy-ease); }
+
+/* Hidden at rest, so it never peeks around the row's rounded corners. The
+   icon and label trail the row's edge, so a short swipe shows the icon first. */
+.action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: calc(100% + var(--swipe-x) + 20px);
+  white-space: nowrap;
+  visibility: hidden;
+  color: var(--happy-on-color);
+  background: color-mix(in srgb, var(--happy-indigo) 70%, var(--happy-gray));
+  font-size: var(--happy-text-subhead);
+  font-weight: 600;
+  transition: background-color var(--happy-dur-fast) var(--happy-ease-out);
+}
+.action > * { flex-shrink: 0; }
+.action > svg { transition: transform var(--happy-dur-fast) var(--happy-ease-out); }
+.root[data-swiping] .action,
+.root[data-animating] .action { visibility: visible; }
+.root[data-armed] .action { background: var(--happy-indigo); }
+.root[data-armed] .action > svg { transform: scale(1.15); }

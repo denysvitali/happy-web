@@ -19,6 +19,7 @@ import { Store } from "@/lib/sync/store";
 import { EmptyState } from "@/ui/EmptyState";
 import { IconButton } from "@/ui/IconButton";
 import { BackButton, NavBar } from "@/ui/NavBar";
+import { showUndo } from "@/ui/undoToast";
 import classes from "./inbox.module.css";
 
 type Folder = "inbox" | "done";
@@ -41,25 +42,7 @@ function KindPill({ kind }: { kind: InboxKind }) {
 function fileDone(triage: InboxTriage, keys: readonly string[], done: boolean, message: string): void {
   if (keys.length === 0) return;
   const snapshot = triage.setDone(keys, done);
-  const id = `inbox-done-${Date.now()}`;
-  notifications.show({
-    id,
-    autoClose: 5000,
-    message: (
-      <span className={classes.toast}>
-        {message}
-        <UnstyledButton
-          className={classes.undo}
-          onClick={() => {
-            triage.restore(snapshot);
-            notifications.hide(id);
-          }}
-        >
-          Undo
-        </UnstyledButton>
-      </span>
-    ),
-  });
+  showUndo(message, () => triage.restore(snapshot));
 }
 
 function fullDate(ts: number): string {

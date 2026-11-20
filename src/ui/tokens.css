@@ -20,6 +20,7 @@ body {
   --happy-accent: var(--happy-blue);
   --happy-accent-hover: light-dark(#004ba3, #7ab8ff);
   --happy-on-accent: light-dark(#fff, #04121f); /* white on the dark-mode blue would be 3:1 */
+  --happy-on-color: #fff; /* labels on saturated fills (swipe actions) */
   /* Orange as text (on tints or white): the hue itself is too light in light mode. */
   --happy-orange-ink: light-dark(#8f4a00, #ff9f0a);
 

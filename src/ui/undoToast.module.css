@@ -1,0 +1,3 @@
+.toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.undo { font-weight: 600; color: var(--happy-accent); }
+.undo:hover { text-decoration: underline; }

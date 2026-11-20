@@ -31,7 +31,7 @@ Server wins over Flutter; record every discrepancy in README.md.
   `SimpleGrid`/`Grid` breakpoints. The e2e smoke test fails on any CSP violation.
 - Design system: `src/ui/` holds app-agnostic building blocks (NavBar, List, SearchField,
   SectionHeader, EmptyState, StatCard, FormSection, Sheet, Callout, Disclosure, StatusPill,
-  IconButton, CopyButton, …); `src/ui/mantine/*` are the global Mantine skins wired in
+  IconButton, CopyButton, SwipeAction, `showUndo`, …); `src/ui/mantine/*` are the global Mantine skins wired in
   `src/theme.ts`. Colours, radii, type, motion come only from `--happy-*` tokens in
   `src/ui/tokens.css` (Mantine's variables are re-pointed there); never hard-code them.
   Tokens sit on `body`, not `:root`: postcss-preset-mantine rewrites `light-dark()` into
@@ -61,7 +61,8 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
 - Session list: grouped by project by default (approvals pinned on top, archive collapsed;
-  "Group by" in the filter menu). Avatars are identicons (`SessionAvatar`): tint from the
+  "Group by" in the filter menu). Touch: swipe a row left to archive it (stops a live session
+  first; no confirm, Undo in the toast). Avatars are identicons (`SessionAvatar`): tint from the
   project, glyph from the session id; changing `hashString` or reordering `SESSION_GLYPHS`
   re-skins every session.
 - Session folders: one E2E-encrypted KV doc shared with Flutter and agents
