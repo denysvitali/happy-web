@@ -1,6 +1,7 @@
 // Unread agent replies per session, chat-app style. The server keeps no read
-// state, so this is per browser: the last seen message seq of every session
-// is persisted locally (non-secret: ids and numbers) and shared across tabs.
+// state: the last seen message seq of every session is persisted locally
+// (non-secret: ids and numbers), shared across tabs, and carried to the
+// user's other browsers by the read-state document (readSync.ts).
 // Only main-thread agent text counts as a reply; tool calls, thinking,
 // sub-agent chatter and the user's own messages do not.
 import type { Normalized } from "./normalize";
@@ -107,17 +108,26 @@ export class Unread {
     this.emit();
   }
 
-  /** Another tab moved its seen marks (localStorage `storage` event). */
-  merge(other: Record<string, number>): void {
+  /** Seen marks moved by another tab or browser; true if any moved here. */
+  merge(other: Readonly<Record<string, number>>, persist = false): boolean {
     let changed = false;
     for (const [id, seq] of Object.entries(other)) {
-      if (id in this.seen && seq > this.seen[id]!) {
+      // An unlisted id is kept for the next reconcile, which drops it if gone.
+      if (seq > (this.seen[id] ?? (this.firstRun ? -1 : 0))) {
         this.seen[id] = seq;
         this.trim(id);
         changed = true;
       }
     }
-    if (changed) this.emit();
+    if (!changed) return false;
+    if (persist) this.persist();
+    this.emit();
+    return true;
+  }
+
+  /** The current seen marks. */
+  snapshot(): Readonly<Record<string, number>> {
+    return this.seen;
   }
 
   private add(id: string, seq: number): void {

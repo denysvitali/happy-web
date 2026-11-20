@@ -47,25 +47,37 @@ describe("inbox triage", () => {
 
   it("tracks read, done and replies and persists them", () => {
     const store = memory();
-    const t = new InboxTriage(store);
+    const t = new InboxTriage(store, () => 7);
     t.markRead("s/a");
     t.setDone("s/b", true);
     t.recordReply("s/c", "yes", 5);
     t.markUnread("s/a");
-    expect(store.get()).toEqual({ "s/a": {}, "s/b": { read: true, done: true }, "s/c": { read: true, reply: "yes", repliedAt: 5 } });
+    expect(store.get()).toEqual({ "s/a": { at: 7 }, "s/b": { read: true, done: true, at: 7 }, "s/c": { read: true, reply: "yes", repliedAt: 5, at: 7 } });
     t.setDone("s/b", false);
-    expect(t.states.get().get("s/b")).toEqual({ read: true });
+    expect(t.states.get().get("s/b")).toEqual({ read: true, at: 7 });
     expect(new InboxTriage(store).states.get().get("s/c")?.reply).toBe("yes");
   });
 
   it("files many as done at once and undoes it exactly", () => {
     const store = memory();
-    const t = new InboxTriage(store);
+    let now = 1;
+    const t = new InboxTriage(store, () => now++);
     t.recordReply("s/a", "ok", 1);
     const undo = t.setDone(["s/a", "s/b"], true);
-    expect(store.get()).toEqual({ "s/a": { read: true, reply: "ok", repliedAt: 1, done: true }, "s/b": { read: true, done: true } });
+    expect(store.get()).toEqual({ "s/a": { read: true, reply: "ok", repliedAt: 1, done: true, at: 2 }, "s/b": { read: true, done: true, at: 2 } });
     t.restore(undo);
-    expect(store.get()).toEqual({ "s/a": { read: true, reply: "ok", repliedAt: 1 } });
+    // Undo is a change too: newer stamps, and a cleared entry stays as a bare stamp.
+    expect(store.get()).toEqual({ "s/a": { read: true, reply: "ok", repliedAt: 1, at: 3 }, "s/b": { at: 3 } });
+  });
+
+  it("adopts only newer entries from another browser", () => {
+    const t = new InboxTriage(memory(), () => 5);
+    t.markRead("s/a");
+    const newer = (l: InboxEntryState | undefined, r: InboxEntryState) => (r.at ?? 0) > (l?.at ?? 0);
+    expect(t.merge({ "s/a": { at: 4 }, "s/b": { done: true, read: true, at: 1 } }, newer)).toBe(true);
+    expect(t.states.get().get("s/a")).toEqual({ read: true, at: 5 });
+    expect(t.states.get().get("s/b")).toEqual({ done: true, read: true, at: 1 });
+    expect(t.merge({ "s/b": { at: 1 } }, newer)).toBe(false);
   });
 
   it("drops malformed stored state", () => {

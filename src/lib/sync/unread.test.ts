@@ -87,8 +87,19 @@ describe("Unread", () => {
     const u = new Unread(mem({ a: 0 }).storage);
     u.reconcile([s("a", 5)], never);
     u.addFetched("a", [2, 5], 5, false);
-    u.merge({ a: 4, other: 9 });
+    expect(u.merge({ a: 4, other: 9 })).toBe(true);
     expect(u.labels.get().get("a")).toBe("1");
+    expect(u.merge({ a: 3 })).toBe(false);
+  });
+
+  it("starts a fresh browser from shared marks", () => {
+    const { box, storage } = mem(null);
+    const u = new Unread(storage);
+    u.merge({ a: 4 }, true);
+    expect(box.saved).toEqual({ a: 4 });
+    // Shared marks win; sessions nobody has seen yet get the first-run baseline.
+    expect(u.reconcile([s("a", 10), s("b", 3)], never)).toEqual([{ id: "a", after: 4 }]);
+    expect(box.saved).toEqual({ a: 4, b: 3 });
   });
 });
 

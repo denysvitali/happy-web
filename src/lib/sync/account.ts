@@ -25,6 +25,7 @@ import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type Provi
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { InboxTriage, localTriageStorage } from "./inbox";
 import { Store } from "./store";
+import { newerEntry, READ_KV_KEY, ReadSync } from "./readSync";
 import { isReply, localSeenStorage, parseSeen, Unread } from "./unread";
 
 export interface SessionItem {
@@ -90,9 +91,11 @@ export class Account {
   readonly spawning = new Store<ReadonlyMap<string, Spawning>>(new Map());
   readonly unread: Unread;
   private readonly seenKey: string;
-  /** The user's Inbox triage (read/done/replied), per browser. */
+  /** The user's Inbox triage (read/done/replied). */
   readonly inbox: InboxTriage;
   private readonly inboxKey: string;
+  /** Carries `unread` marks and `inbox` triage to the user's other browsers. */
+  private readonly reads: ReadSync;
   private ciphers = new Map<string, Promise<Cipher>>();
   /** Data-key machines: the session folders' key is wrapped for each. */
   private machineCiphers = new Map<string, Cipher>();
@@ -106,12 +109,25 @@ export class Account {
     private readonly qc: QueryClient,
   ) {
     this.api = new ApiClient(serverUrl, token);
+    this.reads = new ReadSync(this.api, keys.secret, {
+      local: () => ({ seen: { ...this.unread.snapshot() }, inbox: Object.fromEntries(this.inbox.states.get()) }),
+      apply: (d) => {
+        this.unread.merge(d.seen, true);
+        this.inbox.merge(d.inbox, newerEntry);
+      },
+      keep: () => {
+        const list = this.qc.getQueryData<SessionItem[]>(sessionsKey);
+        if (!list) return null;
+        const ids = new Set(list.map((x) => x.id));
+        return (id) => ids.has(id);
+      },
+    });
     const seen = localSeenStorage(serverUrl);
     this.seenKey = seen.key;
-    this.unread = new Unread(seen);
+    this.unread = new Unread({ load: seen.load, save: (v) => (seen.save(v), this.reads.schedule()) });
     const triage = localTriageStorage(serverUrl);
     this.inboxKey = triage.key;
-    this.inbox = new InboxTriage(triage);
+    this.inbox = new InboxTriage({ load: triage.load, save: (v) => (triage.save(v), this.reads.schedule()) });
     this.folders = new FolderSync(this.api, keys, () => this.machineCiphers);
     this.realtime = new Realtime(serverUrl, token, {
       onUpdate: (b) => void this.onUpdate(b),
@@ -126,12 +142,14 @@ export class Account {
     document.addEventListener("visibilitychange", this.onVisible);
     window.addEventListener("storage", this.onStorage);
     void this.folders.load();
+    void this.reads.load();
   }
 
   stop(): void {
     this.realtime.stop();
     document.removeEventListener("visibilitychange", this.onVisible);
     window.removeEventListener("storage", this.onStorage);
+    this.reads.stop();
   }
 
   // ---- ciphers --------------------------------------------------------------
@@ -229,7 +247,7 @@ export class Account {
   private viewing = (id: string): boolean => this.chats.has(id) && document.visibilityState === "visible";
 
   private onVisible = (): void => {
-    if (document.visibilityState !== "visible") return;
+    if (document.visibilityState !== "visible") return void this.reads.flush();
     const list = this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? [];
     for (const s of list) if (this.chats.has(s.id)) this.unread.markSeen(s.id, s.lastSeq);
   };
@@ -258,6 +276,7 @@ export class Account {
   /** Reads the records after each session's seen mark (one page each, small
    * concurrency) and counts the agent replies among them. */
   private async countUnread(items: readonly SessionItem[]): Promise<void> {
+    await this.reads.ready;
     const todo = this.unread.reconcile(items, this.viewing);
     let next = 0;
     const worker = async () => {
@@ -314,6 +333,7 @@ export class Account {
   private onConnect(reconnect: boolean): void {
     if (!reconnect) return;
     void this.folders.load();
+    void this.reads.load();
     void this.qc.invalidateQueries({ queryKey: sessionsKey });
     void this.qc.invalidateQueries({ queryKey: machinesKey });
     for (const { store } of this.chats.values()) void store.catchUp();
@@ -370,7 +390,10 @@ export class Account {
         void this.qc.invalidateQueries({ queryKey: b.t === "new-session" ? sessionsKey : machinesKey });
         return;
       case "kv-batch-update":
-        for (const c of b.changes) if (c.key === FOLDERS_KV_KEY) await this.folders.onKvChange(c.value, c.version);
+        for (const c of b.changes) {
+          if (c.key === FOLDERS_KV_KEY) await this.folders.onKvChange(c.value, c.version);
+          else if (c.key === READ_KV_KEY) this.reads.onKvChange(c.value, c.version);
+        }
         return;
       case "update-machine": {
         const md = b.metadata;

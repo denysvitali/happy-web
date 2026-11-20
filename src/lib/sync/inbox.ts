@@ -2,7 +2,8 @@
 // `inbox_send` tool (happy-cli-go internal/cli/inbox.go). Messages live in
 // the session's encrypted `metadata.inbox` (newest last, at most 20 per
 // session); whether one was read, answered or filed as done is the user's
-// own triage and stays in this browser, like happy_flutter keeps it per device.
+// own triage, cached in this browser and shared with the user's other
+// browsers through the read-state document (readSync.ts).
 import type { SessionItem } from "./account";
 import { sessionTitle } from "./decode";
 import { Store } from "./store";
@@ -37,6 +38,8 @@ export interface InboxEntryState {
   /** What the user sent from the Inbox, shown as their side of the thread. */
   reply?: string;
   repliedAt?: number;
+  /** When this entry last changed (ms); the newest wins across browsers. */
+  at?: number;
 }
 
 export const inboxKey = (sessionId: string, messageId: string) => `${sessionId}/${messageId}`;
@@ -142,6 +145,7 @@ export function parseTriage(v: unknown): Record<string, InboxEntryState> {
     if (r.done === true) s.done = true;
     if (typeof r.reply === "string") s.reply = r.reply;
     if (typeof r.repliedAt === "number") s.repliedAt = r.repliedAt;
+    if (typeof r.at === "number") s.at = r.at;
     out[k] = s;
   }
   return out;
@@ -154,7 +158,10 @@ export type TriageSnapshot = readonly (readonly [string, InboxEntryState | undef
 export class InboxTriage {
   readonly states: Store<ReadonlyMap<string, InboxEntryState>>;
 
-  constructor(private readonly storage: TriageStorage) {
+  constructor(
+    private readonly storage: TriageStorage,
+    private readonly now: () => number = Date.now,
+  ) {
     this.states = new Store(new Map(Object.entries(storage.load())));
   }
 
@@ -163,13 +170,33 @@ export class InboxTriage {
     this.states.set(new Map(Object.entries(this.storage.load())));
   }
 
+  /** Entries another browser changed later (see readSync.ts); true if any applied. */
+  merge(remote: Readonly<Record<string, InboxEntryState>>, newer: (local: InboxEntryState | undefined, remote: InboxEntryState) => boolean): boolean {
+    const cur = this.states.get();
+    const changed = Object.entries(remote).filter(([k, s]) => newer(cur.get(k), s));
+    if (changed.length === 0) return false;
+    const next = new Map(cur);
+    for (const [k, s] of changed) {
+      next.delete(k);
+      next.set(k, s);
+    }
+    this.commit(next);
+    return true;
+  }
+
   private put(keys: readonly string[], fn: (s: InboxEntryState, key: string) => InboxEntryState | undefined): void {
     const next = new Map(this.states.get());
+    const at = this.now();
     for (const key of keys) {
-      const v = fn(next.get(key) ?? {}, key);
+      const { at: _at, ...cur } = next.get(key) ?? {};
       next.delete(key); // re-insert: Map order is the eviction order
-      if (v) next.set(key, v);
+      // Keep a bare `{ at }` for a cleared entry so the reset wins elsewhere too.
+      next.set(key, { ...fn(cur, key), at });
     }
+    this.commit(next);
+  }
+
+  private commit(next: Map<string, InboxEntryState>): void {
     while (next.size > MAX_ENTRIES) next.delete(next.keys().next().value!);
     this.states.set(next);
     this.storage.save(Object.fromEntries(next));

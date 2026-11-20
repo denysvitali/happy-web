@@ -69,7 +69,7 @@ Server wins over Flutter; record every discrepancy in README.md.
   drag onto a folder row (fine pointers only; touch long-press stays the menu). `pnpm vectors` also regenerates the Go folder envelopes.
 - Inbox (`/inbox`, lazy): agents' `inbox_send` messages from each session's encrypted
   `metadata.inbox` (`src/lib/sync/inbox.ts`; same rules as happy_flutter). Read/done/replied
-  is per-browser triage in localStorage (Done = acknowledge; filing offers Undo); a reply is a user message `Re: <subject>\n\n<text>`.
+  is the user's triage (Done = acknowledge; filing offers Undo); a reply is a user message `Re: <subject>\n\n<text>`.
 - Files (`/s/$sessionId/files?path=`, lazy; session menu "Browse files"): the session's
   own `listDirectory`/`readFile`/`bash` RPCs, confined to its cwd (in the Pod for k8s), any agent, running sessions only.
   Always send absolute paths. `readFile` caps at 1 MiB, so bigger downloads stream as 768 KiB
@@ -81,7 +81,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   `bash` with the path on stdin; `removePath` refuses `/` and relative paths.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
-- Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each
-  session's seen seq in localStorage and counts main-thread agent replies only.
+- Unread badges: `src/lib/sync/unread.ts` keeps each session's seen seq and counts
+  main-thread agent replies only. Seen marks and Inbox triage are cached in localStorage and
+  synced across browsers by `readSync.ts` (KV `read-state`, merge-only; format in README).
+  A fresh browser counts only after that doc loads, or its "all seen" baseline would clear
+  every other browser's badges.
 - Image attachments follow happy_flutter: user content becomes a block array with base64
   `image` blocks (≤1568px, ≤3.4 MB base64); Har/OpenCode are text-only.

@@ -87,6 +87,22 @@ src/routes         link, overview, chat, /components-demo
 e2e/               Playwright mocks (HTTP + socket.io), smoke test, screenshot capture
 ```
 
+**Read state** (unread badges, Inbox read/done/replied) is cached per browser in
+`localStorage` and shared between the user's browsers through the account KV key
+`read-state`. Only apps read it, so it is a legacy secretbox under the master secret
+(standard base64 of `nonce ‖ box`) of:
+
+```json
+{ "v": 1,
+  "seen":  { "<sessionId>": 42 },
+  "inbox": { "<sessionId>/<messageId>": { "read": true, "done": true, "reply": "…", "repliedAt": 0, "at": 0 } } }
+```
+
+It merges without coordination: `seen` takes the max per session, `inbox` keeps the entry
+with the newest `at` (ms; a cleared entry stays as `{ "at": … }`). Writers re-apply on a
+409, drop sessions they no longer list, keep at most 2000 Inbox entries, and never write a
+document they can't read or whose `v` is newer. happy_flutter does not use it yet.
+
 Realtime events are never trusted to be gapless. Every (re)connect and every seq gap
 triggers a catch-up from `GET /v3/sessions/:id/messages?after_seq=`. Sends are idempotent
 via `localId`. Codex `message-stream` previews are replaced by the final message that has
