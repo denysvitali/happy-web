@@ -1,0 +1,14 @@
+/* Session file browser (routes/files.tsx); header and scroller come from
+   chat.module.css and agent.module.css. */
+.page { background: var(--happy-bg-grouped); }
+.body { display: flex; flex-direction: column; gap: 12px; padding-block: 12px 24px; }
+.icon { color: var(--happy-label-3); }
+.folder { color: var(--happy-accent); }
+.progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--happy-text-footnote);
+  font-variant-numeric: tabular-nums;
+  color: var(--happy-accent);
+}

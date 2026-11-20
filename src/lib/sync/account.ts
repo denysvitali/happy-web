@@ -20,6 +20,7 @@ import {
 import { normalizeRecord } from "./normalize";
 import { FolderSync } from "./folderSync";
 import { FOLDERS_KV_KEY, forgetSession } from "./folders";
+import { fileType, type FileEntry } from "./files";
 import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { InboxTriage, localTriageStorage } from "./inbox";
@@ -509,6 +510,20 @@ export class Account {
       decision: decision ?? "",
       ...(updatedInput ? { updatedInput } : {}),
     });
+  }
+
+  // Session files (src/lib/sync/files.ts). Paths are absolute.
+  async listDirectory(sessionId: string, path: string): Promise<FileEntry[]> {
+    const res = await this.rpc(sessionId, "listDirectory", (p) => [p.ListDirectoryRequestSchema, p.ListDirectoryResponseSchema], { path });
+    return res.entries.map((e) => ({ name: e.name, type: fileType(e.type), size: Number(e.size), modified: Number(e.modified) }));
+  }
+
+  readFile(sessionId: string, path: string) {
+    return this.rpc(sessionId, "readFile", (p) => [p.ReadFileRequestSchema, p.ReadFileResponseSchema], { path }, 60_000);
+  }
+
+  bash(sessionId: string, command: string, stdin: string) {
+    return this.rpc(sessionId, "bash", (p) => [p.BashRequestSchema, p.BashResponseSchema], { command, stdin, timeout: 60_000 }, 90_000);
   }
 
   /** Default branch, branches and (with `ref`) whether `ref` resolves, via

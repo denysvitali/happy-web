@@ -258,6 +258,31 @@ export function createMock() {
       return { success: true, repo, defaultBranch: "main", branches, truncated: false, ...(ref ? { refExists: branches.includes(ref) } : {}) };
     },
     ping: () => ({}),
+    // s1's working directory (/home/denys/src/app).
+    listDirectory: (p) => {
+      const path = (p as { path: string }).path;
+      const t = now - 3 * 60 * min;
+      const tree: Record<string, { name: string; type: string; size: number; modified: number }[]> = {
+        "/home/denys/src/app": [
+          { name: ".github", type: "directory", size: 0, modified: t - 9 * 24 * 60 * min },
+          { name: "dist", type: "directory", size: 0, modified: now - 4 * min },
+          { name: "src", type: "directory", size: 0, modified: now - 12 * min },
+          { name: "README.md", type: "file", size: 4_812, modified: t },
+          { name: "package.json", type: "file", size: 1_204, modified: t },
+          { name: "app.sock", type: "other", size: 0, modified: now - min },
+        ],
+        "/home/denys/src/app/dist": [
+          { name: "assets", type: "directory", size: 0, modified: now - 4 * min },
+          { name: "app-release.apk", type: "file", size: 48_211_604, modified: now - 4 * min },
+          { name: "coverage.html", type: "file", size: 2_400_000, modified: now - 5 * min },
+          { name: "index.html", type: "file", size: 912, modified: now - 4 * min },
+          { name: "trace.zip", type: "file", size: 812_000_000, modified: now - 6 * min },
+        ],
+      };
+      const entries = tree[path];
+      return entries ? { success: true, entries } : { success: false, error: `open ${path}: no such file or directory` };
+    },
+    readFile: () => ({ success: true, content: btoa("<!doctype html><title>app</title>") }),
     "get-claude-usage-limits": () => ({
       success: true,
       data: JSON.stringify({

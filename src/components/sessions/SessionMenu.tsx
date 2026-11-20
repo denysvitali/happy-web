@@ -1,10 +1,12 @@
 import { Menu } from "@mantine/core";
-import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, Pencil, Square, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, FolderTree, Pencil, Square, Trash2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import type { ReactElement } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
 import type { SessionItem } from "@/lib/sync/account";
 import { sessionTitle } from "@/lib/sync/decode";
+import { canBrowseFiles } from "@/lib/sync/files";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { useSessionActions } from "./actions";
@@ -27,6 +29,7 @@ export function SessionMenu({ session: s, opened, onChange, target, onSelect }: 
   const folders = useFolderActions();
   const folderStatus = useStore(useAccount().folders.state).status;
   const live = isLive(s);
+  const navigate = useNavigate();
   return (
     <Menu position="bottom-end" width={200} opened={opened} onChange={onChange} shadow="md">
       <Menu.Target>
@@ -41,6 +44,11 @@ export function SessionMenu({ session: s, opened, onChange, target, onSelect }: 
         {(folderStatus === "ready" || folderStatus === "error") && (
           <Menu.Item leftSection={<FolderInput size={14} />} onClick={() => folders.move([filing(s)], sessionTitle(s.meta, s.id))}>
             Move to folder…
+          </Menu.Item>
+        )}
+        {canBrowseFiles(s) && (
+          <Menu.Item leftSection={<FolderTree size={14} />} onClick={() => void navigate({ to: "/s/$sessionId/files", params: { sessionId: s.id }, search: { path: "" } })}>
+            Browse files
           </Menu.Item>
         )}
         {onSelect && (
