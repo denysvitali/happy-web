@@ -71,7 +71,7 @@ Server wins over Flutter; record every discrepancy in README.md.
   `metadata.inbox` (`src/lib/sync/inbox.ts`; same rules as happy_flutter). Read/done/replied
   is per-browser triage in localStorage (Done = acknowledge; filing offers Undo); a reply is a user message `Re: <subject>\n\n<text>`.
 - Files (`/s/$sessionId/files?path=`, lazy; session menu "Browse files"): the session's
-  own `listDirectory`/`readFile`/`bash` RPCs, daemon-confined to its cwd, Claude sessions only.
+  own `listDirectory`/`readFile`/`bash` RPCs, confined to its cwd (in the Pod for k8s), any agent, running sessions only.
   Always send absolute paths. `readFile` caps at 1 MiB, so bigger downloads stream as 768 KiB
   `dd | base64` chunks over `bash` (path via stdin, never in the command), up to 512 MiB.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload

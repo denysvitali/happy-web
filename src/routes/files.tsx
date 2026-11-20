@@ -123,7 +123,7 @@ export function FilesScreen() {
             <LoaderCircle size={18} className={chat.spinner} aria-label="Loading" />
           </div>
         ) : (
-          <EmptyState icon={<FolderX />} title="Files unavailable" message={!session ? "Session not found." : "Files can be browsed while a Claude session is running."} />
+          <EmptyState icon={<FolderX />} title="Files unavailable" message={!session ? "Session not found." : "Files can be browsed while the session is running."} />
         )}
       </>
     );

@@ -29,10 +29,10 @@ test("files: browse from the session menu, download, oversize", async ({ page })
   expect(violations).toEqual([]);
 });
 
-test("files: unavailable for sessions that don't serve them", async ({ page }) => {
+test("files: unavailable while the session isn't running", async ({ page }) => {
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
-  await page.goto("/#/s/s2/files");
+  await page.goto("/#/s/s3/files");
   await expect(page.getByText("Files unavailable")).toBeVisible();
 });

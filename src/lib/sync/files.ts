@@ -1,9 +1,8 @@
 // Session file browser: the session process's `listDirectory` / `readFile` /
-// `bash` RPCs (happy-cli-go internal/rpc/common_handlers.go), confined by the
-// daemon to the session's working directory. Only Claude sessions register
-// them. `readFile` stops at 1 MiB, so larger files stream through `bash` +
+// `bash` RPCs (happy-cli-go internal/rpc/common_handlers.go), registered by
+// runRemoteSession for every agent and confined to the session's working
+// directory (inside the Pod for Kubernetes sessions). `readFile` stops at 1 MiB, so larger files stream through `bash` +
 // `dd` in chunks sized to the 1 MiB bash stdout cap.
-import { agentOf } from "./sessionList";
 import type { SessionItem } from "./account";
 
 export interface FileEntry {
@@ -31,9 +30,9 @@ export const CHUNK_BYTES = 768 * 1024;
 export const DOWNLOAD_LIMIT = 512 * 1024 * 1024;
 const PARALLEL = 4;
 
-/** Sessions whose process serves the file RPCs. */
+/** The file RPCs live in the session process, so it must be running. */
 export function canBrowseFiles(s: SessionItem): boolean {
-  return !s.archived && s.active && !!s.meta.path && agentOf(s.meta.flavor) === "claude";
+  return !s.archived && s.active && !!s.meta.path;
 }
 
 /** Joins the session root with a relative path (`""` is the root). Absolute
