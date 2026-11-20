@@ -10,6 +10,15 @@ test("swipe left archives a session (stopping it), with undo", async ({ page }) 
   await linkAndOpen(page, mock);
   const nav = page.getByRole("navigation", { name: "Sessions" });
   const row = () => nav.locator("[data-status]").filter({ hasText: "Build the web client" });
+  await expect(row()).toHaveCount(1);
+
+  // The hidden action layer must not make the list scroll sideways.
+  const scrollers = await page.evaluate(() =>
+    [document.scrollingElement!, ...document.querySelectorAll("*")]
+      .filter((el) => el.scrollWidth > el.clientWidth && (el === document.scrollingElement || /auto|scroll/.test(getComputedStyle(el).overflowX)))
+      .map((el) => el.className || el.tagName),
+  );
+  expect(scrollers).toEqual([]);
 
   // A short swipe springs back and neither archives nor opens the chat.
   await swipeLeft(page, row(), 40);

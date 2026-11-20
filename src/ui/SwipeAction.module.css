@@ -18,17 +18,18 @@
 .root[data-animating] .content { background: var(--swipe-surface, var(--happy-surface)); }
 .root[data-animating] .content { transition: transform var(--happy-dur-slow) var(--happy-ease); }
 
-/* Hidden at rest, so it never peeks around the row's rounded corners. The
-   icon and label trail the row's edge, so a short swipe shows the icon first. */
+/* Not rendered at rest: it never peeks around the row's rounded corners, and
+   its label (which sits past the row's right edge) can't widen the scroll area;
+   visibility:hidden would still count as overflow. The icon and label trail
+   the row's edge, so a short swipe shows the icon first. */
 .action {
   position: absolute;
   inset: 0;
-  display: flex;
+  display: none;
   align-items: center;
   gap: 6px;
   padding-left: calc(100% + var(--swipe-x) + 20px);
   white-space: nowrap;
-  visibility: hidden;
   color: var(--happy-on-color);
   background: color-mix(in srgb, var(--happy-indigo) 70%, var(--happy-gray));
   font-size: var(--happy-text-subhead);
@@ -38,6 +39,6 @@
 .action > * { flex-shrink: 0; }
 .action > svg { transition: transform var(--happy-dur-fast) var(--happy-ease-out); }
 .root[data-swiping] .action,
-.root[data-animating] .action { visibility: visible; }
+.root[data-animating] .action { display: flex; }
 .root[data-armed] .action { background: var(--happy-indigo); }
 .root[data-armed] .action > svg { transform: scale(1.15); }
