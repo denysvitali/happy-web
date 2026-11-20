@@ -341,6 +341,32 @@ function sessionProtocol(ev: Obj): Placed[] {
 export interface Normalized {
   role: "user" | "agent";
   items: Placed[];
+  /** The model that produced this agent row, when the row says. */
+  model?: string;
+}
+
+/** Claude marks rows it made up itself (errors, interrupts) `<synthetic>`. */
+const realModel = (v: unknown): string | undefined => {
+  const m = s(v)?.trim();
+  return m && m !== "<synthetic>" ? m : undefined;
+};
+
+/** The model that produced an agent row: Claude's `message.model` (the one
+ * that actually answered, so server-side fallbacks show), the Codex/ACP
+ * payload's `model`, else the row's `meta.model` (Har, agy). Claude's meta
+ * is the session's selection (an alias like `opus`), not what answered. */
+function modelOf(record: Obj, content: Obj, data: Obj): string | undefined {
+  const meta = isObj(record.meta) ? record.meta : {};
+  if (content.type === "output") {
+    if (data.type === "assistant") return realModel(isObj(data.message) ? data.message.model : undefined);
+    return data.type === "message" ? realModel(meta.model) : undefined;
+  }
+  if (content.type === "event") return undefined;
+  return realModel(data.model) ?? realModel(meta.model);
+}
+
+function withModel(n: Normalized, model: string | undefined): Normalized {
+  return model && n.items.some((i) => i.kind !== "ready" && i.kind !== "unknown") ? { ...n, model } : n;
 }
 
 export function normalizeRecord(record: unknown): Normalized {
@@ -362,14 +388,15 @@ export function normalizeRecord(record: unknown): Normalized {
   const content = isObj(record.content) ? record.content : undefined;
   const data = content && isObj(content.data) ? content.data : undefined;
   if (!content || !data) return { role: "agent", items: [{ kind: "unknown", type: "malformed" }] };
+  const model = modelOf(record, content, data);
   switch (content.type) {
     case "output":
-      return { role: "agent", items: claudeOutput(data) };
+      return withModel({ role: "agent", items: claudeOutput(data) }, model);
     case "codex":
     case "acp":
     case "opencode":
     case "grok":
-      return { role: "agent", items: codexLike(data) };
+      return withModel({ role: "agent", items: codexLike(data) }, model);
     case "event":
       return { role: "agent", items: agentEvent(data) };
     default:

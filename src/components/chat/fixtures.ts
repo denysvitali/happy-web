@@ -249,6 +249,10 @@ const opsQuestion = { questions: [
   { header: "Keep", question: "Which artefacts should I keep after flashing?", multiSelect: true, options: [{ label: "initramfs" }, { label: "build log" }, { label: "old boot.img" }] },
 ] };
 
+// The ops session runs on Opus 5.5 until a fallback drops it to Opus 4.8.
+const opus = { model: "claude-opus-5-5" };
+const fallback = { model: "claude-opus-4-8" };
+
 export const opsRecords: unknown[] = [
   {
     role: "user",
@@ -257,13 +261,13 @@ export const opsRecords: unknown[] = [
       { type: "image", source: { type: "base64", media_type: "image/png", data: DEMO_IMAGE } },
     ],
   },
-  say([think("Start with the staging script: it should build into /var/tmp/stage and never write /boot."), text("Let me check the staging script first."), call("o1", "Bash", { command: "./stage-initramfs.sh --dry-run", description: "Dry-run the staging script" })]),
+  say([think("Start with the staging script: it should build into /var/tmp/stage and never write /boot."), text("Let me check the staging script first."), call("o1", "Bash", { command: "./stage-initramfs.sh --dry-run", description: "Dry-run the staging script" })], {}, opus),
   results([out("o1", "staging into /var/tmp/stage\nmkinitfs: using config /etc/mkinitfs/mkinitfs.conf\nboot-deploy: not found\nExit code 1", true)]),
   say([think("The script failed as designed and kernel.release is missing. Check what the stage dir holds.\nIf it is empty, mkinitfs never ran."), ssh("o2", "ls -la /var/tmp/stage/initramfs")]),
   results([out("o2", "total 0\ndrwxr-xr-x 2 root root 40 Nov 19 09:58 .\ndrwxr-xr-x 4 root root 80 Nov 19 09:58 ..")]),
   say([think("The output directory is empty, though mkinitfs logged a config. Compare /boot timestamps."), ssh("o3", "ls -la --time-style=+%m-%d /boot/"), ssh("o4", "ls -la /boot/ 2>&1 | head -20")]),
   results([out("o3", "-rw-r--r-- 1 root root 7340032 11-03 initramfs\n-rw-r--r-- 1 root root 9175040 11-03 vmlinuz"), out("o4", "initramfs  vmlinuz  dtbs/")]),
-  say([think("/boot hasn't changed since Nov 3, good. mkinitfs calls boot-deploy by bare name, so a stub on PATH keeps it from touching /boot."), ssh("o5", "strings $(command -v mkinitfs) | grep -n boot-deploy")]),
+  say([think("/boot hasn't changed since Nov 3, good. mkinitfs calls boot-deploy by bare name, so a stub on PATH keeps it from touching /boot."), ssh("o5", "strings $(command -v mkinitfs) | grep -n boot-deploy")], {}, opus),
   results([out("o5", "412:boot-deploy -i initramfs -k vmlinuz -d /boot")]),
   say([call("o6", "TodoWrite", { todos: [
     { content: "Stub boot-deploy in the staging PATH", status: "completed", activeForm: "Stubbing boot-deploy" },
@@ -272,12 +276,12 @@ export const opsRecords: unknown[] = [
     { content: "Summarise the change", status: "pending", activeForm: "Summarising" },
   ] })]),
   results([out("o6", "Todos have been modified successfully.")]),
-  say([call("o7", "Edit", { file_path: "/root/stage-initramfs.sh", old_string: "export PATH=\"/usr/sbin:/usr/bin\"", new_string: "mkdir -p \"$STAGE/bin\"\nprintf '#!/bin/sh\\nexit 0\\n' > \"$STAGE/bin/boot-deploy\"\nchmod +x \"$STAGE/bin/boot-deploy\"\nexport PATH=\"$STAGE/bin:/usr/sbin:/usr/bin\"" })]),
+  say([call("o7", "Edit", { file_path: "/root/stage-initramfs.sh", old_string: "export PATH=\"/usr/sbin:/usr/bin\"", new_string: "mkdir -p \"$STAGE/bin\"\nprintf '#!/bin/sh\\nexit 0\\n' > \"$STAGE/bin/boot-deploy\"\nchmod +x \"$STAGE/bin/boot-deploy\"\nexport PATH=\"$STAGE/bin:/usr/sbin:/usr/bin\"" })], {}, fallback),
   results([out("o7", "The file /root/stage-initramfs.sh has been updated.")]),
   say([text("Stubbed `boot-deploy`. While the rebuild runs, two helpers check the kernel config and diff the module trees:"),
     call("a1", "Task", { description: "Check kernel config for initramfs", subagent_type: "Explore", model: "haiku", prompt: "On host galaxy, confirm CONFIG_BLK_DEV_INITRD and the compression the initramfs needs." }),
     call("a2", "Task", { description: "Diff module trees 7.1.4 vs 7.1.5", subagent_type: "general-purpose", prompt: "Compare /lib/modules/7.1.4 and 7.1.5 on galaxy; list modules missing from 7.1.5." }),
-  ]),
+  ], {}, fallback),
   say([call("a1t1", "mcp__ssh__ssh_execute", { host: "galaxy", command: "zcat /proc/config.gz | grep -E 'INITRD|RD_GZIP|RD_ZSTD'" })], { parent_tool_use_id: "a1" }),
   results([out("a1t1", "CONFIG_BLK_DEV_INITRD=y\nCONFIG_RD_GZIP=y\nCONFIG_RD_ZSTD=y")], { parent_tool_use_id: "a1" }),
   say([call("a1t2", "Read", { file_path: "/etc/mkinitfs/mkinitfs.conf" })], { parent_tool_use_id: "a1" }),

@@ -6,6 +6,7 @@ import { Tooltip } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Copy, FileText, Pencil } from "lucide-react";
 import { useContext, type ReactNode } from "react";
+import { modelLabel } from "@/lib/sync/models";
 import { IconButton } from "@/ui/IconButton";
 import { ResendContext } from "./draft";
 import { TimeLabel } from "./primitives";
@@ -37,12 +38,17 @@ function Action({ label, icon, onClick }: { label: string; icon: ReactNode; onCl
   );
 }
 
-/** `text` is the message's markdown source. */
-export function MessageActions({ at, text, user = false }: { at?: number | undefined; text: string; user?: boolean }) {
+/** `text` is the message's markdown source; `model` the one that wrote it. */
+export function MessageActions({ at, text, model, user = false }: { at?: number | undefined; text: string; model?: string | undefined; user?: boolean }) {
   const resend = useContext(ResendContext);
   const plain = text ? plainText(text) : "";
   return (
     <div className={classes.rowTools} role="toolbar" aria-label="Actions">
+      {model && (
+        <span className={classes.time} data-model title={model}>
+          {modelLabel(model)}
+        </span>
+      )}
       <TimeLabel at={at} />
       {text && (
         <>

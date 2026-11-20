@@ -443,6 +443,8 @@
   overflow-wrap: anywhere;
 }
 .event[data-tone="unknown"] > span { background: none; font-style: italic; color: var(--happy-label-3); }
+.event[data-tone="model"] b { font-weight: 600; color: var(--happy-label); }
+.time[data-model] { color: var(--happy-label-2); }
 
 /* ---- markdown --------------------------------------------------------------- */
 

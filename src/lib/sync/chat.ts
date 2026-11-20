@@ -164,10 +164,12 @@ export const TASK_TERMINAL: ReadonlySet<string> = new Set(["completed", "failed"
 
 export type Block =
   | { type: "user"; key: string; text: string; images?: string[] | undefined; pending?: "sending" | "failed"; at?: number | undefined }
-  | { type: "text"; key: string; text: string; streaming?: boolean; at?: number | undefined }
+  | { type: "text"; key: string; text: string; streaming?: boolean; at?: number | undefined; model?: string | undefined }
   | { type: "thinking"; key: string; text: string; at?: number | undefined }
   | { type: "event"; key: string; text: string; at?: number | undefined }
   | { type: "unknown"; key: string; label: string }
+  /** The thread's agent rows switched model (a user switch or a fallback). */
+  | { type: "model"; key: string; from: string; to: string; at?: number | undefined }
   | ToolBlock
   /** A run of plain tool calls and thinking, shown as one collapsible line. */
   | { type: "steps"; key: string; items: StepBlock[] }
@@ -271,12 +273,17 @@ function foldTurn(seg: Block[], since: number | undefined): Block[] {
   if (start > last) start = seg.length; // ended on work: no reply to keep
   const work: Block[] = [];
   const keep: Block[] = [];
-  for (const b of seg.slice(0, start)) (needsUser(b) ? keep : work).push(b);
+  // Model switches stay visible too; one before any work stays above it.
+  const lead: Block[] = [];
+  for (const b of seg.slice(0, start)) {
+    if (b.type === "model" && work.length === 0) lead.push(b);
+    else (needsUser(b) || b.type === "model" ? keep : work).push(b);
+  }
   if (work.length < 2) return seg;
   const reply = seg[start];
   const lastWork = work[work.length - 1]!;
   const to = (reply ? blockTime(reply) : undefined) ?? (lastWork.type === "tool" ? (lastWork.result?.at ?? lastWork.at) : blockTime(lastWork));
-  return [{ type: "work", key: `work:${work[0]!.key}`, items: work, from: since ?? blockTime(work[0]!), to }, ...keep, ...seg.slice(start)];
+  return [...lead, { type: "work", key: `work:${work[0]!.key}`, items: work, from: since ?? blockTime(work[0]!), to }, ...keep, ...seg.slice(start)];
 }
 
 const dayKey = (t: number) => {
@@ -355,6 +362,10 @@ export function buildView(state: ChatState, agentState: AgentState, halted = fal
     return t;
   };
 
+  /** Last model seen per thread ("" is the main thread, else the anchor id). */
+  const models = new Map<string, string>();
+  let model: string | undefined;
+
   const pushItem = (item: Placed, key: string, at: number) => {
     const meta = item.agentMetadata;
     const parentAnchor = item.parent ? anchor(item.parent, at) : undefined;
@@ -366,7 +377,7 @@ export function buildView(state: ChatState, agentState: AgentState, halted = fal
         to.push(
           item.role === "user"
             ? { type: "user", key, text: item.text, ...(item.images ? { images: item.images } : {}), at }
-            : { type: "text", key, text: item.text, at },
+            : { type: "text", key, text: item.text, at, ...(model ? { model } : {}) },
         );
         break;
       case "thinking":
@@ -432,6 +443,16 @@ export function buildView(state: ChatState, agentState: AgentState, halted = fal
   };
 
   for (const m of state.messages) {
+    model = m.norm.model;
+    if (model) {
+      const parent = m.norm.items.find((i) => (i as Placed).parent)?.parent as string | undefined;
+      const thread = parent ?? "";
+      const prev = models.get(thread);
+      if (prev !== undefined && modelKey(prev) !== modelKey(model)) {
+        (parent ? anchor(parent, m.createdAt).children : top).push({ type: "model", key: `model:${m.id}`, from: prev, to: model, at: m.createdAt });
+      }
+      models.set(thread, model);
+    }
     m.norm.items.forEach((item: Item | Placed, i) => pushItem(item as Placed, `${m.id}:${i}`, m.createdAt));
     if (m.norm.role === "agent" && m.norm.items.length > 0) {
       turnOpen = !m.norm.items.some((i) => i.kind === "ready");
@@ -513,5 +534,8 @@ export function sameBlock(a: Block, b: Block): boolean {
   if (ak.length !== Object.keys(bo).length) return false;
   return ak.every((k) => ao[k] === bo[k]);
 }
+
+/** Claude reports `[1m]`-style context markers on some ids but not others. */
+const modelKey = (m: string) => m.trim().toLowerCase().replace(/\[[^\]]*\]$/, "");
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

@@ -55,6 +55,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   session is halted (`isHalted`); questions, pending permissions and background agents wait.
   A pending AskUserQuestion is answered in the card (no Allow/Deny bar): picks go back on the
   `permission` RPC as `updatedInput.answers` (question → comma-joined labels); Skip denies.
+  Models: Claude's `message.model` (what actually answered, so fallbacks show; never its
+  `meta.model`, which is the selected alias), else payload/meta `model`. A change per thread
+  is a `model` block that never folds; agent replies show their model on hover.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
 - Session list: grouped by project by default (approvals pinned on top, archive collapsed;

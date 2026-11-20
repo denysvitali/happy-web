@@ -437,3 +437,35 @@ describe("calls that never finish", () => {
     expect(agentStatus(tool(blocks, "bg"))).toBe("running");
   });
 });
+
+describe("model transitions", () => {
+  const said = (model: string, t: string, extra: object = {}) => claude({ type: "assistant", ...extra, message: { model, content: [{ type: "text", text: t }] } });
+
+  it("marks each switch of the answering model, per thread", () => {
+    const s = addMessages(emptyChat, [
+      msg(user("go")),
+      msg(said("claude-opus-5-5", "a")),
+      msg(said("claude-opus-5-5[1m]", "b")),
+      msg(claude({ type: "assistant", parent_tool_use_id: "t1", message: { model: "claude-haiku-5-5", content: [{ type: "text", text: "sub" }] } })),
+      msg(said("<synthetic>", "c")),
+      msg(said("claude-opus-4-8", "d")),
+    ]);
+    const blocks = buildView(s, {}).blocks;
+    const switches = blocks.filter((b) => b.type === "model");
+    expect(switches).toEqual([expect.objectContaining({ from: "claude-opus-5-5[1m]", to: "claude-opus-4-8" })]);
+    expect(blocks.filter((b) => b.type === "text").map((b) => (b as { model?: string }).model)).toEqual(["claude-opus-5-5", "claude-opus-5-5[1m]", undefined, "claude-opus-4-8"]);
+  });
+
+  it("keeps a switch visible when a finished turn folds", () => {
+    const s = addMessages(emptyChat, [
+      msg(said("claude-opus-5-5", "hi")),
+      msg(user("go")),
+      msg(claude({ type: "assistant", message: { model: "claude-opus-4-8", content: [{ type: "tool_use", id: "x1", name: "Read", input: {} }] } })),
+      msg(said("claude-opus-4-8", "narration")),
+      msg(claude({ type: "assistant", message: { model: "claude-opus-4-8", content: [{ type: "tool_use", id: "x2", name: "Read", input: {} }] } })),
+      msg(said("claude-opus-4-8", "done")),
+      msg(ready),
+    ]);
+    expect(types(buildView(s, {}).blocks)).toEqual(["text", "user", "model", "work", "text"]);
+  });
+});

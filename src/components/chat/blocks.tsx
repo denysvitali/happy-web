@@ -8,6 +8,7 @@
 import { ChevronDown, CircleAlert, ShieldQuestion } from "lucide-react";
 import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { isAgent, sameBlock, type Block } from "@/lib/sync/chat";
+import { modelLabel } from "@/lib/sync/models";
 import { ImageStrip } from "./images";
 import { Markdown } from "./markdown";
 import { PermissionBar, type PermissionHandler } from "./permission";
@@ -104,7 +105,7 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       return (
         <div className={`${classes.agentText} ${classes.hoverable}`} tabIndex={-1} data-streaming={b.streaming || undefined}>
           <Markdown text={b.text} streaming={b.streaming} />
-          {!b.streaming && <MessageActions at={b.at} text={b.text} />}
+          {!b.streaming && <MessageActions at={b.at} text={b.text} model={b.model} />}
         </div>
       );
     case "thinking":
@@ -113,6 +114,14 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       return (
         <div className={classes.event} title={b.at ? new Date(b.at).toLocaleString() : undefined}>
           <span>{b.text}</span>
+        </div>
+      );
+    case "model":
+      return (
+        <div className={classes.event} data-tone="model" title={`${b.from} → ${b.to}${b.at ? ` · ${new Date(b.at).toLocaleString()}` : ""}`}>
+          <span>
+            Switched from {modelLabel(b.from)} to <b>{modelLabel(b.to)}</b>
+          </span>
         </div>
       );
     case "day":

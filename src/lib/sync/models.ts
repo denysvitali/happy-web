@@ -263,3 +263,20 @@ export function sendOptions(kind: AgentKind, catalog: Catalog, sw: Switch): Send
   }
   return out;
 }
+
+const CLAUDE_FAMILY = "(opus|sonnet|haiku|fable)";
+const CLAUDE_NEW = new RegExp(`^claude-${CLAUDE_FAMILY}-(\\d+)(?:-(\\d))?(?:-\\d{8})?$`);
+const CLAUDE_OLD = new RegExp(`^claude-(\\d+)(?:-(\\d))?-${CLAUDE_FAMILY}(?:-\\d{8})?$`);
+const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/** A short name for a reported model id: `claude-opus-4-8-20260101` →
+ * `Opus 4.8`. Anything else (GPT, provider/model ids) is shown as is. */
+export function modelLabel(id: string): string {
+  const raw = id.trim();
+  const m = raw.toLowerCase().replace(/\[[^\]]*\]$/, "");
+  let hit = CLAUDE_NEW.exec(m);
+  if (hit) return `${cap(hit[1]!)} ${hit[2]}${hit[3] ? `.${hit[3]}` : ""}`;
+  hit = CLAUDE_OLD.exec(m);
+  if (hit) return `${cap(hit[3]!)} ${hit[1]}${hit[2] ? `.${hit[2]}` : ""}`;
+  return raw;
+}

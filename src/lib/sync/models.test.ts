@@ -8,6 +8,7 @@ import {
   opencodeCatalog,
   parseSelection,
   permissionModes,
+  modelLabel,
   primeCatalog,
   selectionLabel,
   sendOptions,
@@ -125,5 +126,16 @@ describe("permission modes", () => {
     expect(currentPermissionMode("codex", "yolo")).toBe("yolo");
     expect(currentPermissionMode("codex", "bypassPermissions")).toBe("yolo");
     expect(currentPermissionMode("claude", undefined)).toBe("bypassPermissions");
+  });
+});
+
+describe("modelLabel", () => {
+  it("shortens Claude ids and leaves others alone", () => {
+    expect(modelLabel("claude-opus-4-8")).toBe("Opus 4.8");
+    expect(modelLabel("claude-opus-5-5[1m]")).toBe("Opus 5.5");
+    expect(modelLabel("claude-sonnet-4-5-20250929")).toBe("Sonnet 4.5");
+    expect(modelLabel("claude-opus-4-20250514")).toBe("Opus 4");
+    expect(modelLabel("claude-3-5-haiku-20241022")).toBe("Haiku 3.5");
+    expect(modelLabel("gpt-5.1-codex")).toBe("gpt-5.1-codex");
   });
 });

@@ -180,6 +180,11 @@ for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.width, height: 1800 });
       await page.waitForTimeout(300);
       await shot(page, "12-ops-expanded");
+      // Hovering a reply shows the model that wrote it (a fallback switch sits above).
+      const reply = page.locator('[tabindex="-1"]', { hasText: "Stubbed" }).last();
+      await reply.hover();
+      await expect(reply.locator("[data-model]")).toHaveText("Opus 4.8");
+      await shot(page, "12c-ops-model-hover");
       await page.setViewportSize({ width: vp.width, height: vp.height });
       // Session ToDos: the chip counts them, the popover lists them with the agent's plan.
       await page.getByRole("button", { name: "ToDos: 1 of 5 done" }).click();
