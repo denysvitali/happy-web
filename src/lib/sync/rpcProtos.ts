@@ -12,6 +12,8 @@ export {
   PermissionResponseSchema,
   ReadFileRequestSchema,
   ReadFileResponseSchema,
+  WriteFileRequestSchema,
+  WriteFileResponseSchema,
 } from "@/gen/common_pb";
 export {
   SpawnHappySessionRequestSchema,

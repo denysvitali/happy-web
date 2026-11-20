@@ -3,7 +3,7 @@
 // scripts/screenshot-gallery.mjs. Run: pnpm screenshots
 import { expect, test, type Page } from "@playwright/test";
 import { DEMO_IMAGE, demoRecords, opsRecords } from "../src/components/chat/fixtures";
-import { createMock, linkAndOpen, MOCK_SERVER, watchCsp } from "./mock";
+import { createMock, linkAndOpen, MOCK_SERVER, watchCsp, type RpcHandler } from "./mock";
 
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
@@ -155,7 +155,8 @@ for (const vp of VIEWPORTS) {
     test("ops conversation", async ({ page }) => {
       const violations = watchCsp(page);
       const mock = createMock();
-      await mock.install(page);
+      const rpc: Record<string, RpcHandler> = {};
+      await mock.install(page, { rpc });
       await linkAndOpen(page, mock);
       await page.getByText("pmos-galaxy").first().click();
       await expect(page.getByRole("button", { name: /^Question / })).toBeVisible();
@@ -267,6 +268,18 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(200);
       await shot(page, "19c-files-dist-dark");
       await page.emulateMedia({ colorScheme: "light" });
+      await page.locator('input[type="file"]').setInputFiles([{ name: "index.html", mimeType: "text/html", buffer: Buffer.from("<p>") }]);
+      await expect(page.getByRole("dialog", { name: "Replace index.html?" })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "19d-files-replace");
+      await page.getByRole("button", { name: "Cancel" }).click();
+      // An upload in flight: the daemon never answers this one.
+      rpc.writeFile = () => new Promise(() => undefined);
+      await page.locator('input[type="file"]').setInputFiles([{ name: "release-notes.md", mimeType: "text/markdown", buffer: Buffer.from("# 1.4") }]);
+      await expect(page.getByText("Uploading", { exact: true })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "19e-files-uploading");
+      delete rpc.writeFile;
       // Prose: a markdown-heavy user prompt (collapsed, then open) and a rich reply.
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await page.goto("/#/s/s1");

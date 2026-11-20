@@ -455,6 +455,8 @@ export class Account {
     pick: (p: Protos) => [I, O],
     init: MessageInitShape<I>,
     timeoutMs?: number,
+    /** Return replies that carry an `error` instead of throwing (bash: exit codes). */
+    keepErrors = false,
   ): Promise<MessageShape<O>> {
     const p = await loadProtos();
     const [input, output] = pick(p);
@@ -464,7 +466,7 @@ export class Account {
     const c = await cipher;
     const params = await c.encrypt(toJson(input, create(input, init)));
     const result = (await c.decrypt(await this.realtime.rpc(`${scopeId}:${name}`, params, timeoutMs))) as unknown;
-    if (result && typeof result === "object" && "error" in result && typeof result.error === "string" && result.error) {
+    if (!keepErrors && result && typeof result === "object" && "error" in result && typeof result.error === "string" && result.error) {
       throw new RpcError(result.error);
     }
     return fromJson(output, (result ?? {}) as JsonObject, { ignoreUnknownFields: true });
@@ -522,8 +524,13 @@ export class Account {
     return this.rpc(sessionId, "readFile", (p) => [p.ReadFileRequestSchema, p.ReadFileResponseSchema], { path }, 60_000);
   }
 
+  /** `mustBeNew` fails instead of overwriting an existing file. */
+  writeFile(sessionId: string, path: string, content: string, mustBeNew: boolean) {
+    return this.rpc(sessionId, "writeFile", (p) => [p.WriteFileRequestSchema, p.WriteFileResponseSchema], { path, content, ...(mustBeNew ? { expectedHash: "" } : {}) }, 60_000);
+  }
+
   bash(sessionId: string, command: string, stdin: string) {
-    return this.rpc(sessionId, "bash", (p) => [p.BashRequestSchema, p.BashResponseSchema], { command, stdin, timeout: 60_000 }, 90_000);
+    return this.rpc(sessionId, "bash", (p) => [p.BashRequestSchema, p.BashResponseSchema], { command, stdin, timeout: 60_000 }, 90_000, true);
   }
 
   /** Default branch, branches and (with `ref`) whether `ref` resolves, via

@@ -74,6 +74,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   own `listDirectory`/`readFile`/`bash` RPCs, confined to its cwd (in the Pod for k8s), any agent, running sessions only.
   Always send absolute paths. `readFile` caps at 1 MiB, so bigger downloads stream as 768 KiB
   `dd | base64` chunks over `bash` (path via stdin, never in the command), up to 512 MiB.
+  Uploads (button or drop, into the open folder): `writeFile` up to 3 MiB, else parallel
+  `dd seek` chunks into a hidden temp file, size-checked and `mv`'d into place; existing
+  names need a Replace confirm, directories are never replaced.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Unread badges are per browser (no server read state): `src/lib/sync/unread.ts` keeps each

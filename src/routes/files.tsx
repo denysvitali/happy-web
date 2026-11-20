@@ -1,19 +1,23 @@
 // A session's working directory, browsed over the session's own file RPCs
 // (src/lib/sync/files.ts). Directories navigate (`?path=` relative to the
-// session root); files download, large ones in chunks with progress.
+// session root); files download, large ones in chunks with progress. Files
+// picked with the upload button or dropped on the page go to the open folder.
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { ChevronLeft, CornerLeftUp, Download, File, Folder, FolderX, LoaderCircle, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, CornerLeftUp, Download, File, Folder, FolderX, LoaderCircle, Upload, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions } from "@/app/hooks";
 import chat from "@/components/chat/chat.module.css";
 import { sessionTitle } from "@/lib/sync/decode";
-import { absPath, canBrowseFiles, childPath, DOWNLOAD_LIMIT, fetchFile, formatSize, parentPath, saveBlob, splitRel, type FileEntry, type FileRpc } from "@/lib/sync/files";
+import { absPath, canBrowseFiles, childPath, DOWNLOAD_LIMIT, fetchFile, formatSize, parentPath, saveBlob, splitRel, UPLOAD_LIMIT, uploadFile, validName, type FileEntry, type FileRpc } from "@/lib/sync/files";
 import { formatAgo } from "@/lib/sync/sessionList";
 import { CopyButton } from "@/ui/CopyButton";
 import { EmptyState } from "@/ui/EmptyState";
+import { IconButton } from "@/ui/IconButton";
 import { ListRow, ListSection, ListSkeleton } from "@/ui/List";
 import { SearchField } from "@/ui/SearchField";
 import agent from "./agent.module.css";
@@ -22,6 +26,25 @@ import classes from "./files.module.css";
 interface Transfer {
   done: number;
   abort: AbortController;
+}
+
+interface Upload extends Transfer {
+  id: string;
+  name: string;
+  /** Absolute destination folder. */
+  dir: string;
+  size: number;
+}
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** Dropped folders show up as files that cannot be read. */
+function droppedFiles(e: DragEvent): { files: File[]; folders: number } {
+  const items = [...e.dataTransfer.items].filter((i) => i.kind === "file");
+  const isDir = (i: DataTransferItem) => i.webkitGetAsEntry?.()?.isDirectory ?? false;
+  const files = items.filter((i) => !isDir(i)).flatMap((i) => i.getAsFile() ?? []);
+  return { files, folders: items.length - files.length };
 }
 
 export function FilesScreen() {
@@ -41,7 +64,11 @@ export function FilesScreen() {
   const filter = filterState.rel === rel ? filterState.q : "";
   const setFilter = (q: string) => setFilterState({ rel, q });
   const [transfers, setTransfers] = useState<ReadonlyMap<string, Transfer>>(new Map());
-  // Leaving the page cancels running downloads.
+  const [uploads, setUploads] = useState<readonly Upload[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+  // Leaving the page cancels running transfers.
   const aborts = useRef(new Set<AbortController>());
   useEffect(() => {
     const all = aborts.current;
@@ -64,6 +91,7 @@ export function FilesScreen() {
     () => ({
       readFile: (p) => account.readFile(sessionId, p),
       bash: (c, stdin) => account.bash(sessionId, c, stdin),
+      writeFile: (p, content, mustBeNew) => account.writeFile(sessionId, p, content, mustBeNew),
     }),
     [account, sessionId],
   );
@@ -94,6 +122,87 @@ export function FilesScreen() {
     }
   };
 
+  const patchUpload = (id: string, patch: Partial<Upload> | null) =>
+    setUploads((list) => (patch ? list.map((u) => (u.id === id ? { ...u, ...patch } : u)) : list.filter((u) => u.id !== id)));
+
+  /** Uploads one batch, a file at a time; `replace` names may overwrite. */
+  const runUploads = async (files: readonly File[], target: string, replace: ReadonlySet<string>) => {
+    const batch: { file: File; u: Upload }[] = files.map((file) => {
+      const abort = new AbortController();
+      aborts.current.add(abort);
+      return { file, u: { id: crypto.randomUUID(), name: file.name, dir: target, size: file.size, done: 0, abort } };
+    });
+    setUploads((list) => [...list, ...batch.map((b) => b.u)]);
+    let ok = 0;
+    for (const { file, u } of batch) {
+      try {
+        if (u.abort.signal.aborted) continue;
+        await uploadFile(rpc, file, absPath(target, file.name), { replace: replace.has(file.name), signal: u.abort.signal, onProgress: (done) => patchUpload(u.id, { done }) });
+        ok++;
+      } catch (err) {
+        if (!u.abort.signal.aborted) notifications.show({ color: "red", title: `Couldn't upload ${u.name}`, message: message(err) });
+      } finally {
+        aborts.current.delete(u.abort);
+        patchUpload(u.id, null);
+        void qc.invalidateQueries({ queryKey: ["files", sessionId, target] });
+      }
+    }
+    if (ok) notifications.show({ message: `Uploaded ${plural(ok, "file")} to ${target.split("/").pop() || target}`, autoClose: 2500 });
+  };
+
+  /** Checks names, sizes and clashes with the open folder, then uploads. */
+  const startUploads = (picked: readonly File[], folders = 0) => {
+    const target = dir;
+    const existing = new Map((list.data ?? []).map((e) => [e.name, e.type]));
+    const skipped: string[] = [];
+    if (folders) skipped.push(`${plural(folders, "folder")} (folders can't be uploaded)`);
+    const files = picked.filter((f) => {
+      if (!validName(f.name)) return skipped.push(`${f.name} (unsupported name)`), false;
+      if (f.size > UPLOAD_LIMIT) return skipped.push(`${f.name} (over ${formatSize(UPLOAD_LIMIT)})`), false;
+      if (existing.has(f.name) && existing.get(f.name) !== "file") return skipped.push(`${f.name} (a folder has that name)`), false;
+      return true;
+    });
+    if (skipped.length) notifications.show({ color: "orange", title: `Skipped ${plural(skipped.length, "item")}`, message: skipped.join(", ") });
+    if (!files.length) return;
+    const clashes = files.filter((f) => existing.has(f.name)).map((f) => f.name);
+    if (!clashes.length) return void runUploads(files, target, new Set());
+    modals.openConfirmModal({
+      title: clashes.length === 1 ? `Replace ${clashes[0]}?` : `Replace ${clashes.length} existing files?`,
+      children: (
+        <Text size="sm">
+          {clashes.length === 1 ? "A file with that name" : `${clashes.join(", ")} already`} exist{clashes.length === 1 ? "s" : ""} in this folder.
+        </Text>
+      ),
+      labels: { confirm: "Replace", cancel: clashes.length === files.length ? "Cancel" : "Skip them" },
+      confirmProps: { color: "red" },
+      onConfirm: () => void runUploads(files, target, new Set(clashes)),
+      onCancel: () => {
+        const rest = files.filter((f) => !clashes.includes(f.name));
+        if (rest.length) void runUploads(rest, target, new Set());
+      },
+    });
+  };
+
+  const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+  const drop = {
+    onDragOver: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      setDragging(true);
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setDragging(false);
+      const { files, folders } = droppedFiles(e);
+      startUploads(files, folders);
+    },
+  };
+
   const title = parts.at(-1) ?? (session ? sessionTitle(session.meta, session.id) : "Files");
   const header = (
     <header className={chat.header}>
@@ -109,6 +218,22 @@ export function FilesScreen() {
           </div>
         )}
       </div>
+      {browsable && (
+        <>
+          <IconButton label="Upload files" icon={<Upload size={18} />} onClick={() => picker.current?.click()} />
+          <input
+            ref={picker}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              const files = [...(e.currentTarget.files ?? [])];
+              e.currentTarget.value = "";
+              startUploads(files);
+            }}
+          />
+        </>
+      )}
       {root && <CopyButton value={dir} label="Copy path" />}
     </header>
   );
@@ -134,8 +259,25 @@ export function FilesScreen() {
   return (
     <>
       {header}
-      <div className={`${chat.scroller} ${classes.page}`}>
+      <div className={`${chat.scroller} ${classes.page}`} data-dragging={dragging || undefined} {...drop}>
         <div className={`${chat.column} ${classes.body}`}>
+          {uploads.length > 0 && (
+            <ListSection variant="inset" header={<h2 className={classes.label}>Uploading</h2>}>
+              {uploads.map((u) => {
+                const pct = u.size ? Math.floor((u.done / u.size) * 100) : 0;
+                const where = u.dir === dir ? "" : ` to ${u.dir}`;
+                return (
+                  <ListRow
+                    key={u.id}
+                    title={u.name}
+                    subtitle={`${pct}% of ${formatSize(u.size)}${where}`}
+                    leading={<Upload size={18} className={classes.folder} />}
+                    accessory={<IconButton size="sm" label={`Cancel uploading ${u.name}`} icon={<X size={14} />} onClick={() => u.abort.abort()} />}
+                  />
+                );
+              })}
+            </ListSection>
+          )}
           {(list.data?.length ?? 0) > 12 && <SearchField value={filter} onChange={setFilter} placeholder="Filter" label="Filter files" />}
           {list.isPending ? (
             <ListSection variant="inset">
@@ -144,7 +286,7 @@ export function FilesScreen() {
           ) : list.isError ? (
             <EmptyState icon={<FolderX />} title="Couldn't list this folder" message={list.error.message} />
           ) : (
-            <ListSection variant="inset" footer={`Downloads up to ${formatSize(DOWNLOAD_LIMIT)}.`}>
+            <ListSection variant="inset" footer={`Up to ${formatSize(DOWNLOAD_LIMIT)} per file. Drop files here to upload them to this folder.`}>
               {parts.length > 0 && <ListRow title=".." leading={<CornerLeftUp size={18} className={classes.icon} />} onClick={() => toDir(parentPath(rel))} />}
               {entries.map((e) => {
                 const path = absPath(root, childPath(rel, e.name));

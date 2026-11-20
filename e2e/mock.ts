@@ -229,8 +229,11 @@ export function createMock() {
         rpcCalls.push({ method: data.method, params });
         const bare = data.method.slice(data.method.indexOf(":") + 1);
         const handler = opts.rpc?.[data.method] ?? opts.rpc?.[bare] ?? defaultRpc[bare];
-        const ack = handler ? { ok: true, result: enc(handler(params)) } : { ok: false, error: "method not mocked", code: "method_unsupported" };
-        ws.send(`43${ev[1]}${JSON.stringify([ack])}`);
+        // Handlers may return a promise (e.g. one that never settles, to hold a transfer open).
+        void Promise.resolve(handler?.(params)).then((result) => {
+          const ack = handler ? { ok: true, result: enc(result) } : { ok: false, error: "method not mocked", code: "method_unsupported" };
+          ws.send(`43${ev[1]}${JSON.stringify([ack])}`);
+        });
       });
     });
   }
@@ -283,6 +286,7 @@ export function createMock() {
       return entries ? { success: true, entries } : { success: false, error: `open ${path}: no such file or directory` };
     },
     readFile: () => ({ success: true, content: btoa("<!doctype html><title>app</title>") }),
+    writeFile: () => ({ success: true, hash: "0".repeat(64) }),
     "get-claude-usage-limits": () => ({
       success: true,
       data: JSON.stringify({
