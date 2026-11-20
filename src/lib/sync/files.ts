@@ -218,6 +218,24 @@ export async function uploadFile(
   }
 }
 
+/** Runs a one-path command (path on stdin); throws with the shell's stderr. */
+async function onPath(rpc: FileRpc, command: string, path: string, what: string): Promise<void> {
+  const r = await rpc.bash(`IFS= read -r p && ${command}`, `${path}\n`);
+  if (!r.success) throw new FileError(r.stderr.trim().split("\n").pop() || r.error || `${what} failed`);
+}
+
+/** Creates one folder; fails if the name is taken. */
+export function makeDir(rpc: FileRpc, path: string): Promise<void> {
+  return onPath(rpc, 'mkdir -- "$p"', path, "mkdir");
+}
+
+/** Deletes a file, or a folder with everything in it. A symlink is removed,
+ * never followed. Refuses the root and relative paths. */
+export async function removePath(rpc: FileRpc, path: string): Promise<void> {
+  if (!path.startsWith("/") || splitRel(path).length === 0) throw new FileError("refusing to delete that path");
+  return onPath(rpc, 'rm -rf -- "$p"', path, "delete");
+}
+
 /** Hands a Blob to the browser as a download. */
 export function saveBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);

@@ -287,6 +287,7 @@ export function createMock() {
     },
     readFile: () => ({ success: true, content: btoa("<!doctype html><title>app</title>") }),
     writeFile: () => ({ success: true, hash: "0".repeat(64) }),
+    bash: () => ({ success: true, stdout: "", stderr: "", exitCode: 0 }),
     "get-claude-usage-limits": () => ({
       success: true,
       data: JSON.stringify({

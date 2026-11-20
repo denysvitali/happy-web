@@ -2,18 +2,20 @@
 // (src/lib/sync/files.ts). Directories navigate (`?path=` relative to the
 // session root); files download, large ones in chunks with progress. Files
 // picked with the upload button or dropped on the page go to the open folder.
+// The header makes folders; each row's menu deletes.
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Text } from "@mantine/core";
+import { Menu, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { ChevronLeft, CornerLeftUp, Download, File, Folder, FolderX, LoaderCircle, Upload, X } from "lucide-react";
+import { ChevronLeft, CornerLeftUp, Download, Ellipsis, File, Folder, FolderPlus, FolderX, LoaderCircle, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions } from "@/app/hooks";
 import chat from "@/components/chat/chat.module.css";
+import { RenameForm } from "@/components/sessions/RenameForm";
 import { sessionTitle } from "@/lib/sync/decode";
-import { absPath, canBrowseFiles, childPath, DOWNLOAD_LIMIT, fetchFile, formatSize, parentPath, saveBlob, splitRel, UPLOAD_LIMIT, uploadFile, validName, type FileEntry, type FileRpc } from "@/lib/sync/files";
+import { absPath, canBrowseFiles, childPath, DOWNLOAD_LIMIT, fetchFile, formatSize, makeDir, parentPath, removePath, saveBlob, splitRel, UPLOAD_LIMIT, uploadFile, validName, type FileEntry, type FileRpc } from "@/lib/sync/files";
 import { formatAgo } from "@/lib/sync/sessionList";
 import { CopyButton } from "@/ui/CopyButton";
 import { EmptyState } from "@/ui/EmptyState";
@@ -183,6 +185,70 @@ export function FilesScreen() {
     });
   };
 
+  const refresh = (path: string) => qc.invalidateQueries({ queryKey: ["files", sessionId, path] });
+
+  const newFolder = () => {
+    const target = dir;
+    const id = "new-directory";
+    modals.open({
+      modalId: id,
+      title: "New directory",
+      children: (
+        <RenameForm
+          initial=""
+          submitLabel="Create"
+          maxLength={255}
+          onCancel={() => modals.close(id)}
+          onSubmit={(name) => {
+            if (!validName(name)) return void notifications.show({ color: "red", message: "Names can't contain / or line breaks, or be . or .." });
+            modals.close(id);
+            void makeDir(rpc, absPath(target, name)).then(
+              () => refresh(target),
+              (err: unknown) => notifications.show({ color: "red", title: `Couldn't create ${name}`, message: message(err) }),
+            );
+          }}
+        />
+      ),
+    });
+  };
+
+  const remove = (e: FileEntry) => {
+    const target = dir;
+    const path = absPath(target, e.name);
+    const folder = e.type === "directory";
+    modals.openConfirmModal({
+      title: `Delete ${e.name}?`,
+      children: (
+        <Text size="sm">
+          {folder ? "This folder and everything in it" : "This file"} will be permanently deleted from the session's machine. This can't be undone.
+        </Text>
+      ),
+      labels: { confirm: "Delete", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: () =>
+        void removePath(rpc, path).then(
+          () => {
+            qc.removeQueries({ queryKey: ["files", sessionId, path] });
+            return refresh(target);
+          },
+          (err: unknown) => notifications.show({ color: "red", title: `Couldn't delete ${e.name}`, message: message(err) }),
+        ),
+    });
+  };
+
+  const rowMenu = (e: FileEntry) => (
+    <Menu position="bottom-end" width={160} shadow="md">
+      <Menu.Target>
+        <IconButton size="sm" label={`Actions for ${e.name}`} icon={<Ellipsis size={16} />} />
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item color="red" leftSection={<Trash2 size={14} />} onClick={() => remove(e)}>
+          Delete…
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+
   const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
   const drop = {
     onDragOver: (e: DragEvent) => {
@@ -220,6 +286,7 @@ export function FilesScreen() {
       </div>
       {browsable && (
         <>
+          <IconButton label="New directory" icon={<FolderPlus size={18} />} onClick={newFolder} />
           <IconButton label="Upload files" icon={<Upload size={18} />} onClick={() => picker.current?.click()} />
           <input
             ref={picker}
@@ -293,8 +360,8 @@ export function FilesScreen() {
                 const t = transfers.get(path);
                 const when = e.modified ? formatAgo(e.modified, now) : "";
                 if (e.type === "directory")
-                  return <ListRow key={e.name} title={e.name} subtitle={when} leading={<Folder size={18} className={classes.folder} />} chevron onClick={() => toDir(childPath(rel, e.name))} />;
-                if (e.type !== "file") return <ListRow key={e.name} title={e.name} subtitle="Not a regular file" leading={<File size={18} className={classes.icon} />} dimmed />;
+                  return <ListRow key={e.name} title={e.name} subtitle={when} leading={<Folder size={18} className={classes.folder} />} chevron accessory={rowMenu(e)} onClick={() => toDir(childPath(rel, e.name))} />;
+                if (e.type !== "file") return <ListRow key={e.name} title={e.name} subtitle="Not a regular file" leading={<File size={18} className={classes.icon} />} accessory={rowMenu(e)} dimmed />;
                 const size = e.size;
                 const pct = t && size ? Math.floor((t.done / size) * 100) : 0;
                 return (
@@ -304,6 +371,7 @@ export function FilesScreen() {
                     subtitle={[formatSize(size), when].filter(Boolean).join(" · ")}
                     leading={<File size={18} className={classes.icon} />}
                     dimmed={size > DOWNLOAD_LIMIT}
+                    accessory={rowMenu(e)}
                     trailing={
                       t ? (
                         <span className={classes.progress} aria-label={`Downloading, ${pct}%. Click to cancel`}>

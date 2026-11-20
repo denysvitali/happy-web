@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { absPath, CHUNK_BYTES, chunkCommand, childPath, DOWNLOAD_LIMIT, fetchFile, formatSize, parentPath, UPLOAD_CHUNK, uploadFile, validName, type FileRpc } from "./files";
+import { absPath, CHUNK_BYTES, chunkCommand, childPath, DOWNLOAD_LIMIT, fetchFile, formatSize, makeDir, parentPath, removePath, UPLOAD_CHUNK, uploadFile, validName, type FileRpc } from "./files";
 
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 
@@ -158,5 +158,31 @@ describe("uploadFile", () => {
     expect(validName("..")).toBe(false);
     expect(validName("a/b")).toBe(false);
     expect(validName("a\nb")).toBe(false);
+  });
+});
+
+describe("makeDir / removePath", () => {
+  const shell = (exit = 0, stderr = "") => {
+    const calls: [string, string][] = [];
+    const rpc = {
+      bash: async (c: string, stdin: string) => (calls.push([c, stdin]), { success: !exit, stdout: "", stderr, error: exit ? `exit status ${exit}` : "", exitCode: exit, stdoutTruncated: false }),
+    } as unknown as FileRpc;
+    return { rpc, calls };
+  };
+
+  it("passes the path on stdin and surfaces the shell's error", async () => {
+    const ok = shell();
+    await makeDir(ok.rpc, "/r/new dir");
+    await removePath(ok.rpc, "/r/old");
+    expect(ok.calls).toEqual([
+      ['IFS= read -r p && mkdir -- "$p"', "/r/new dir\n"],
+      ['IFS= read -r p && rm -rf -- "$p"', "/r/old\n"],
+    ]);
+    await expect(makeDir(shell(1, "mkdir: cannot create directory '/r/x': File exists\n").rpc, "/r/x")).rejects.toThrow(/File exists/);
+  });
+
+  it("never deletes / or relative paths", async () => {
+    await expect(removePath(shell().rpc, "/")).rejects.toThrow(/refusing/);
+    await expect(removePath(shell().rpc, "r/x")).rejects.toThrow(/refusing/);
   });
 });

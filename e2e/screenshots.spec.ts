@@ -257,11 +257,16 @@ for (const vp of VIEWPORTS) {
       await page.emulateMedia({ colorScheme: "light" });
       // Session files: the root, then a build-artifacts folder (light + dark).
       await page.goto("/#/s/s1/files");
-      await expect(page.getByRole("button", { name: /package\.json/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^package\.json/ })).toBeVisible();
       await page.waitForTimeout(300);
       await shot(page, "19-files");
+      await page.getByRole("button", { name: "Actions for src" }).click();
+      await expect(page.getByRole("menuitem", { name: "Delete…" })).toBeVisible();
+      await page.waitForTimeout(200);
+      await shot(page, "19f-files-row-menu");
+      await page.keyboard.press("Escape");
       await page.getByRole("button", { name: /^dist/ }).click();
-      await expect(page.getByRole("button", { name: /app-release\.apk/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^app-release\.apk/ })).toBeVisible();
       await page.waitForTimeout(300);
       await shot(page, "19b-files-dist");
       await page.emulateMedia({ colorScheme: "dark" });
