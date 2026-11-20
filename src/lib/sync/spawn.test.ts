@@ -242,6 +242,12 @@ describe("buildSpawnRequest", () => {
     });
   });
 
+  it("passes a system prompt to Claude only", () => {
+    const claude = buildSpawnRequest({ machineId: "m", agent: "claude", directory: "/x", systemPrompt: "  Be terse.  " }, "c1");
+    expect(claude.environmentVariables.HAPPY_APPEND_SYSTEM_PROMPT).toBe("Be terse.");
+    expect(buildSpawnRequest({ machineId: "m", agent: "codex", directory: "/x", systemPrompt: "x" }, "c1").environmentVariables).not.toHaveProperty("HAPPY_APPEND_SYSTEM_PROMPT");
+  });
+
   it("sends the chosen profile's routing env and default model", () => {
     const zai = findProfile([], "zai")!;
     const r = buildSpawnRequest({ machineId: "m", agent: "claude", directory: "/x", profile: zai, initialPrompt: "go" }, "c1");

@@ -58,6 +58,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   Models: Claude's `message.model` (what actually answered, so fallbacks show; never its
   `meta.model`, which is the selected alias), else payload/meta `model`. A change per thread
   is a `model` block that never folds; agent replies show their model on hover.
+- New session "System prompt" (Advanced, Claude only): spawn env `HAPPY_APPEND_SYSTEM_PROMPT`, which the
+  daemon passes as `--append-system-prompt`. Not re-sent on provider switch restores.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
 - Session list: grouped by project by default (approvals pinned on top, archive collapsed;

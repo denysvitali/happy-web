@@ -317,6 +317,8 @@ export interface SpawnOptions {
   /** Codex Fast/Priority tier (account setting `codexFastMode`). */
   codexFastMode?: boolean | undefined;
   initialPrompt?: string | undefined;
+  /** Appended to the agent's system prompt (Claude only; the daemon reads `HAPPY_APPEND_SYSTEM_PROMPT`). */
+  systemPrompt?: string | undefined;
 }
 
 export type SpawnRequestInit = Pick<
@@ -364,6 +366,8 @@ export function buildSpawnRequest(o: SpawnOptions, sessionId: string): SpawnRequ
   if (agentKey(o.agent) === "codex") environmentVariables.HAPPY_CODEX_FAST_MODE = o.codexFastMode ? "1" : "0";
   const prompt = o.initialPrompt?.trim();
   if (prompt) environmentVariables.HAPPY_INITIAL_PROMPT = prompt;
+  const system = o.systemPrompt?.trim();
+  if (system && agentKey(o.agent) === "claude") environmentVariables.HAPPY_APPEND_SYSTEM_PROMPT = system;
   const k8s = o.backend === "kubernetes";
   const primary = k8s && o.repoUrl ? parseRepo(o.repoUrl) : null;
   const additional = k8s && o.repoUrl ? cleanAdditionalRepos(o.additionalRepos ?? [], o.repoUrl).repos.map((r) => parseRepo(r)!.url) : [];

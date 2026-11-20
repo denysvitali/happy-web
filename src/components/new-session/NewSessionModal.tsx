@@ -143,6 +143,7 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   const profileModel = modelForProfile({ profile, agent, favorites: settings.favoriteModelsByProfile });
   const [model, setModel] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
   const [advanced, setAdvanced] = useState(false);
 
   const [busy, setBusy] = useState(false);
@@ -229,6 +230,7 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
         profile,
         codexFastMode: settings.codexFastMode,
         initialPrompt: prompt,
+        systemPrompt,
       });
       savePrefs({ mode, machineId: isK8s ? undefined : machine.id, clusterMachineId: isK8s ? machine.id : undefined, agent, permissionMode: permission, profile: usesProfiles ? profileId : undefined, repoKey: isK8s ? repo!.key : undefined, branch: isK8s ? branch.branch.trim() : undefined });
       notifications.show({ color: "green", message: "Session started" });
@@ -440,6 +442,19 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
                   comboboxProps={within}
                 />
               </FormRow>
+              {agentKey(agent) === "claude" && (
+                <FormRow label="System prompt" labelFor={`${uid}-system`}>
+                  <Textarea
+                    id={`${uid}-system`}
+                    placeholder="Appended to Claude's system prompt"
+                    autosize
+                    minRows={2}
+                    maxRows={8}
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.currentTarget.value)}
+                  />
+                </FormRow>
+              )}
             </FormSection>
           </div>
         </Disclosure>
