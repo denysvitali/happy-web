@@ -1,6 +1,6 @@
 import { Tooltip } from "@mantine/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { CircleUserRound, Inbox, SquarePen } from "lucide-react";
+import { CircleUserRound, Inbox, PanelLeftClose, PanelLeftOpen, SquarePen } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAccount, useAuth } from "@/app/auth";
 import { useStore } from "@/app/hooks";
@@ -17,8 +17,11 @@ import { StatusDot } from "@/components/status";
 import { groupViews } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { PresenceDot } from "@/ui/Status";
+import { toggleSidebar } from "./sidebarLayout";
 import { openSpawnModal } from "./spawn";
 import classes from "./shell.module.css";
+
+const SIDEBAR_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl B";
 
 const CONN_LABEL = { online: "Live", connecting: "Connecting", offline: "Offline" } as const;
 
@@ -37,11 +40,11 @@ function ConnectionIndicator({ compact = false }: { compact?: boolean }) {
 }
 
 /** Opens the agent Inbox; the badge counts unread messages outside Done. */
-function InboxButton() {
+function InboxButton({ rail = false }: { rail?: boolean }) {
   const { unread } = useInbox();
   const label = unread > 0 ? `Inbox, ${unread} unread` : "Inbox";
   return (
-    <Tooltip label={label} openDelay={400}>
+    <Tooltip label={label} openDelay={400} position={rail ? "right" : "bottom"}>
       <Link to="/inbox" className={classes.inboxLink} aria-label={label} activeProps={{ "aria-current": "page" }}>
         <Inbox size={19} strokeWidth={1.75} aria-hidden />
         {unread > 0 && <span className={classes.inboxBadge}>{unread > 99 ? "99+" : unread}</span>}
@@ -50,7 +53,24 @@ function InboxButton() {
   );
 }
 
-export function Sidebar() {
+/** Folds or unfolds the split-view sidebar; hidden on phones. */
+function SidebarToggle({ rail }: { rail: boolean }) {
+  const label = rail ? "Show sidebar" : "Hide sidebar";
+  return (
+    <Tooltip label={`${label} (${SIDEBAR_KEY})`} openDelay={400} position={rail ? "right" : "bottom"}>
+      <IconButton
+        className={`${classes.barButton} ${classes.sidebarToggle}`}
+        label={label}
+        aria-expanded={!rail}
+        icon={rail ? <PanelLeftOpen size={18} strokeWidth={1.75} /> : <PanelLeftClose size={18} strokeWidth={1.75} />}
+        onClick={toggleSidebar}
+      />
+    </Tooltip>
+  );
+}
+
+/** The session sidebar; `rail` folds it to a column of icons (split view only). */
+export function Sidebar({ rail = false }: { rail?: boolean }) {
   const account = useAccount();
   const navigate = useNavigate();
   const params: { sessionId?: string; toolId?: string } = useParams({ strict: false });
@@ -84,6 +104,7 @@ export function Sidebar() {
     newSession: canSpawn ? () => spawn() : undefined,
     home: () => void navigate({ to: "/" }),
     inbox: () => void navigate({ to: "/inbox" }),
+    sidebar: toggleSidebar,
     prev: () => step(-1),
     next: () => step(1),
     back: () => {
@@ -91,6 +112,40 @@ export function Sidebar() {
       else if (params.sessionId) void navigate({ to: "/" });
     },
   });
+
+  const host = (
+    <PaletteHost
+      opened={paletteOpen}
+      onClose={() => setPaletteOpen(false)}
+      views={views}
+      activeId={params.sessionId}
+      machines={onlineMachines}
+      onOpenSession={open}
+      onNewSession={spawn}
+      onSettings={settings}
+      onInbox={() => void navigate({ to: "/inbox" })}
+      onShortcuts={openShortcuts}
+      onDemo={demo}
+      onForget={() => confirmForget(forget)}
+    />
+  );
+
+  if (rail)
+    return (
+      <div className={classes.rail}>
+        <SidebarToggle rail />
+        <Tooltip label={canSpawn ? "New session" : "No machine is online"} openDelay={400} position="right">
+          <IconButton className={classes.barButton} label="New session" icon={<SquarePen size={17} strokeWidth={1.9} />} onClick={() => spawn()} disabled={!canSpawn} />
+        </Tooltip>
+        <InboxButton rail />
+        <div className={classes.spacer} />
+        <ConnectionIndicator compact />
+        <Tooltip label="Account and settings" openDelay={400} position="right">
+          <IconButton className={classes.barButton} label="Account and settings" icon={<CircleUserRound size={19} strokeWidth={1.75} />} onClick={settings} />
+        </Tooltip>
+        {host}
+      </div>
+    );
 
   return (
     <>
@@ -102,6 +157,7 @@ export function Sidebar() {
         <h1 className={classes.barTitle}>Sessions</h1>
         <ConnectionIndicator compact />
         <div className={classes.spacer} />
+        <SidebarToggle rail={false} />
         <InboxButton />
         <IconButton className={classes.barButton} label="Account and settings" icon={<CircleUserRound size={19} strokeWidth={1.75} />} onClick={settings} />
         <Tooltip label={canSpawn ? "New session" : "No machine is online"} openDelay={400}>
@@ -111,20 +167,7 @@ export function Sidebar() {
 
       <SessionList views={views} loading={sessions.isPending} error={sessions.error} activeId={params.sessionId} onOpen={open} onPalette={() => setPaletteOpen(true)} onRetry={() => void sessions.refetch()} />
 
-      <PaletteHost
-        opened={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        views={views}
-        activeId={params.sessionId}
-        machines={onlineMachines}
-        onOpenSession={open}
-        onNewSession={spawn}
-        onSettings={settings}
-        onInbox={() => void navigate({ to: "/inbox" })}
-        onShortcuts={openShortcuts}
-        onDemo={demo}
-        onForget={() => confirmForget(forget)}
-      />
+      {host}
 
       {/* Only worth the space when it explains a disabled compose button. */}
       {machinesLoaded && !canSpawn && (

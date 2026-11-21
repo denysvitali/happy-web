@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isPaletteChord,
+  isSidebarChord,
   resolveShortcut,
   shouldIgnoreShortcut,
   type KeyInfo,
@@ -43,6 +44,15 @@ describe("shouldIgnoreShortcut", () => {
     expect(
       shouldIgnoreShortcut(key("n", { target: { tagName: "BUTTON" } }), false),
     ).toBe(false);
+  });
+});
+
+describe("isSidebarChord", () => {
+  it("accepts Cmd/Ctrl+B only", () => {
+    expect(isSidebarChord(key("b", { metaKey: true }))).toBe(true);
+    expect(isSidebarChord(key("B", { ctrlKey: true }))).toBe(true);
+    expect(isSidebarChord(key("b"))).toBe(false);
+    expect(isSidebarChord(key("b", { metaKey: true, altKey: true }))).toBe(false);
   });
 });
 

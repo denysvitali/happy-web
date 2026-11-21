@@ -398,3 +398,52 @@ test.describe("mobile swipe", () => {
     expect(mock.archives).toEqual([]);
   });
 });
+
+// Split view: drag the sidebar narrow and wide, fold it to the rail and back.
+test.describe("desktop sidebar", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  test("resize and collapse", async ({ page }) => {
+    const violations = watchCsp(page);
+    const mock = createMock();
+    await mock.install(page);
+    await linkAndOpen(page, mock);
+    await page.getByText("Fix flaky login test").first().click();
+    await page.waitForTimeout(400);
+    const sidebar = page.getByRole("complementary", { name: "Sessions sidebar" });
+    const handle = page.getByRole("separator", { name: "Resize sidebar" });
+    const dragTo = async (x: number) => {
+      const box = (await handle.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + 300);
+      await page.mouse.down();
+      await page.mouse.move(x, box.y + 300, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+    };
+    await dragTo(250);
+    expect(Math.round((await sidebar.boundingBox())!.width)).toBe(250);
+    await page.mouse.move(700, 400);
+    await page.screenshot({ path: "screenshots/desktop-17-sidebar-narrow.png" });
+    await dragTo(460);
+    expect(Math.round((await sidebar.boundingBox())!.width)).toBe(460);
+    await page.screenshot({ path: "screenshots/desktop-17b-sidebar-wide.png" });
+
+    await page.getByRole("button", { name: "Hide sidebar" }).click();
+    await page.mouse.move(700, 400);
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: "screenshots/desktop-17c-sidebar-rail.png" });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: "screenshots/desktop-17d-sidebar-rail-dark.png" });
+
+    // Both stick across reloads; Ctrl+B unfolds to the saved width.
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Show sidebar" })).toBeVisible();
+    await page.keyboard.press("Control+b");
+    await expect(page.getByRole("button", { name: "Hide sidebar" })).toBeVisible();
+    expect(Math.round((await sidebar.boundingBox())!.width)).toBe(460);
+    // Dragging past the minimum folds it too.
+    await dragTo(60);
+    await expect(page.getByRole("button", { name: "Show sidebar" })).toBeVisible();
+    expect(violations).toEqual([]);
+  });
+});

@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 
 export type ShortcutAction =
-  "palette" | "help" | "newSession" | "home" | "inbox" | "prev" | "next" | "back";
+  "palette" | "help" | "newSession" | "home" | "inbox" | "prev" | "next" | "back" | "sidebar";
 
 export interface KeyInfo {
   key: string;
@@ -28,6 +28,7 @@ export const SHORTCUT_GROUPS: {
         label: "Command palette (Ctrl K on Windows and Linux)",
       },
       { keys: ["?"], label: "Keyboard shortcuts" },
+      { keys: ["⌘", "B"], label: "Show or hide the sidebar (Ctrl B on Windows and Linux)" },
       { keys: ["Esc"], label: "Close, or go back to the list" },
     ],
   },
@@ -75,6 +76,16 @@ export function shouldIgnoreShortcut(
 export function isPaletteChord(e: KeyInfo): boolean {
   return (
     e.key.toLowerCase() === "k" &&
+    (e.metaKey || e.ctrlKey) &&
+    !e.altKey &&
+    !e.shiftKey
+  );
+}
+
+/** Cmd/Ctrl+B: folds the sidebar, from text fields too. */
+export function isSidebarChord(e: KeyInfo): boolean {
+  return (
+    e.key.toLowerCase() === "b" &&
     (e.metaKey || e.ctrlKey) &&
     !e.altKey &&
     !e.shiftKey
@@ -146,6 +157,12 @@ export function useGlobalShortcuts(handlers: ShortcutHandlers): void {
         if (!h.paletteOpen && overlayOpen()) return;
         e.preventDefault();
         h.palette?.();
+        return;
+      }
+      if (isSidebarChord(e) && !e.isComposing && h.sidebar) {
+        if (h.paletteOpen || overlayOpen()) return;
+        e.preventDefault();
+        h.sidebar();
         return;
       }
       if (shouldIgnoreShortcut(e, overlayOpen() || h.paletteOpen)) {

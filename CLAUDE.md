@@ -38,6 +38,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   scheme selectors that cannot match `:root`. Mantine CSS is imported as `styles.layer.css`
   so our CSS modules always win. Every component appears in `/components-demo`
   (`src/routes/demo.tsx`).
+- Wide screens: the sidebar resizes from its edge and folds to an icon rail (toggle or
+  Cmd/Ctrl+B); per-browser in localStorage (`shell/sidebarLayout.ts`), ignored on phones.
 - Phones (<48em) use push navigation, not a drawer: `/` is the session list, a chat opens
   full-screen with a back button. A sub-agent card opens its own read-only page
   (`/s/$sessionId/agent/$toolId`, built from the parent chat's store).

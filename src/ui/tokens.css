@@ -115,7 +115,8 @@ body {
   --happy-dur-slow: 380ms;
 
   /* Layout. */
-  --happy-sidebar-width: 300px;
+  --happy-sidebar-width: 300px; /* default; the user resizes it (sidebarLayout.ts) */
+  --happy-sidebar-rail: 56px;
   --happy-bar-height: 52px;
   --happy-content-width: 780px;
 

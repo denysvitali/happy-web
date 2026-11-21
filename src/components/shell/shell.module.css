@@ -14,8 +14,15 @@
   overflow: clip;
 }
 
+/* Folded split view: the sidebar is a column of icons. */
+.root[data-sidebar="rail"] { grid-template-columns: var(--happy-sidebar-rail) minmax(0, 1fr); }
+.root[data-resizing] { cursor: col-resize; user-select: none; }
+
 .sidebar {
+  position: relative;
   grid-row: 2;
+  /* The bar drops the wordmark when the sidebar is dragged narrow. */
+  container-type: inline-size;
   /* What sits behind rows: avatars ring their status dot with it. */
   --avatar-ring: var(--happy-sidebar);
   display: flex;
@@ -33,6 +40,45 @@
   min-height: 0;
   background: var(--happy-bg);
 }
+
+/* ---- Resize handle: a wide hit area over the hairline edge. ---- */
+.resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  z-index: 10;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-accent);
+  opacity: 0;
+  transition: opacity var(--happy-dur-fast) var(--happy-ease-out);
+}
+.resizer:hover::after { opacity: 0.5; transition-delay: 150ms; }
+.root[data-resizing] .resizer::after { opacity: 1; transition-delay: 0s; }
+.resizer:focus-visible { outline: none; }
+.resizer:focus-visible::after { opacity: 1; }
+
+/* ---- Rail: the folded sidebar. ---- */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  padding: 10px 0 12px;
+}
+.rail .barButton { --ib-color: var(--happy-label-2); }
+.rail .barButton:hover:not(:disabled) { --ib-color: var(--happy-label); }
+.rail .conn { padding: 0; width: 32px; justify-content: center; }
 
 /* ---- Sidebar bar ---- */
 .bar {
@@ -60,6 +106,7 @@
   letter-spacing: -0.025em;
 }
 .spacer { flex: 1; }
+@container (width < 290px) { .wordmark { display: none; } }
 .bar .barButton { --ib-color: var(--happy-label-2); }
 .bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-label); }
 
@@ -229,6 +276,7 @@
 
   .bar { height: 52px; padding: 0 8px 0 20px; padding-top: env(safe-area-inset-top); box-sizing: content-box; }
   .brand { display: none; }
+  .sidebarToggle { display: none; }
   .bar .barButton { --ib-size: 38px; --ib-color: var(--happy-accent); }
   .bar .barButton:hover:not(:disabled) { --ib-color: var(--happy-accent); }
   .bar .barButton svg { width: 22px; height: 22px; }
