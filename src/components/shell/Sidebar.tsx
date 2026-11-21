@@ -17,6 +17,7 @@ import { StatusDot } from "@/components/status";
 import { groupViews } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { PresenceDot } from "@/ui/Status";
+import { useBrowserOnline } from "./connection";
 import { toggleSidebar } from "./sidebarLayout";
 import { openSpawnModal } from "./spawn";
 import classes from "./shell.module.css";
@@ -25,9 +26,10 @@ const SIDEBAR_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl 
 
 const CONN_LABEL = { online: "Live", connecting: "Connecting", offline: "Offline" } as const;
 
-/** Realtime socket state; "Live" collapses to a dot to stay quiet. */
+/** Realtime link ("Offline" only when the browser says so); "Live" collapses to a dot to stay quiet. */
 function ConnectionIndicator({ compact = false }: { compact?: boolean }) {
-  const conn = useStore(useAccount().status);
+  const socket = useStore(useAccount().status);
+  const conn = useBrowserOnline() ? socket : "offline";
   const tip = conn === "online" ? "Realtime updates connected" : conn === "connecting" ? "Connecting to the server…" : "Offline: reconnecting";
   return (
     <Tooltip label={tip} openDelay={300}>

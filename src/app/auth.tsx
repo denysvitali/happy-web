@@ -27,7 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (serverUrl: string, token: string, secret: Uint8Array) => {
       const keys = await deriveAccountKeys(secret);
       const account = new Account(serverUrl, token, keys, qc);
-      account.start();
       setState({ status: "linked", account });
     },
     [qc],
@@ -55,6 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (state.status !== "linked") return;
+    // Started here, not in activate: StrictMode's mount/unmount/mount would
+    // otherwise stop the socket for good.
+    state.account.start();
     return () => state.account.stop();
   }, [state]);
 

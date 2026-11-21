@@ -23,6 +23,7 @@ import type { ChatView, ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
 import { PlanChip } from "@/components/chat/plan";
 import { latestPlan } from "@/components/chat/tools/steps";
+import { useBrowserOnline } from "@/components/shell/connection";
 import { sessionTodos } from "@/lib/sync/todos";
 import { agentOf } from "@/lib/sync/sessionList";
 import { selectionLabel } from "@/lib/sync/models";
@@ -323,7 +324,7 @@ export function ChatScreen() {
   const view = useChatView(store, session);
   const plan = useMemo(() => (view ? latestPlan(view.blocks) : undefined), [view]);
   const status = session ? statusOf(session, presence, now) : "idle";
-  const link = useStore(account.status);
+  const offline = !useBrowserOnline();
   const history = useMemo(() => (view ? sentHistory(view.blocks) : []), [view]);
   const starting = useStore(account.spawning).get(sessionId);
   const sid = session?.id;
@@ -377,7 +378,7 @@ export function ChatScreen() {
       <ResendContext.Provider value={session.archived ? null : resend}>
         {store && view ? (
           <AgentSession.Provider value={session.id}>
-            <Messages store={store} view={view} onPermission={onPermission} working={status === "thinking"} offline={link === "offline"} />
+            <Messages store={store} view={view} onPermission={onPermission} working={status === "thinking"} offline={offline} />
           </AgentSession.Provider>
         ) : (
           <div className={classes.scroller}>

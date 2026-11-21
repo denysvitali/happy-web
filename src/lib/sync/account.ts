@@ -141,6 +141,7 @@ export class Account {
     this.realtime.start();
     document.addEventListener("visibilitychange", this.onVisible);
     window.addEventListener("storage", this.onStorage);
+    window.addEventListener("online", this.onOnline);
     void this.folders.load();
     void this.reads.load();
   }
@@ -149,6 +150,7 @@ export class Account {
     this.realtime.stop();
     document.removeEventListener("visibilitychange", this.onVisible);
     window.removeEventListener("storage", this.onStorage);
+    window.removeEventListener("online", this.onOnline);
     this.reads.stop();
   }
 
@@ -246,8 +248,11 @@ export class Account {
   /** An open chat in a visible tab is being read. */
   private viewing = (id: string): boolean => this.chats.has(id) && document.visibilityState === "visible";
 
+  private onOnline = (): void => this.realtime.nudge();
+
   private onVisible = (): void => {
     if (document.visibilityState !== "visible") return void this.reads.flush();
+    this.realtime.nudge();
     const list = this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? [];
     for (const s of list) if (this.chats.has(s.id)) this.unread.markSeen(s.id, s.lastSeq);
   };

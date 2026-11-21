@@ -11,7 +11,13 @@ export interface RealtimeHandlers {
   onStatus(status: RealtimeStatus): void;
 }
 
-export type RealtimeStatus = "connecting" | "online" | "offline";
+/** The socket cannot tell "device offline" from "server dropped us": being
+ * offline is `navigator.onLine`'s call (see shell/connection.ts). */
+export type RealtimeStatus = "connecting" | "online";
+
+/** Backoff for the retries socket.io will not do itself (see `retry`). */
+const RETRY_MIN_MS = 1000;
+const RETRY_MAX_MS = 30_000;
 
 export class RpcError extends Error {
   constructor(
@@ -26,6 +32,8 @@ export class RpcError extends Error {
 export class Realtime {
   private socket: Socket | null = null;
   private connectedOnce = false;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private retryMs = RETRY_MIN_MS;
 
   constructor(
     private readonly serverUrl: string,
@@ -49,12 +57,16 @@ export class Realtime {
     this.socket = socket;
     this.handlers.onStatus("connecting");
     socket.on("connect", () => {
+      this.retryMs = RETRY_MIN_MS;
       this.handlers.onStatus("online");
       this.handlers.onConnect(this.connectedOnce);
       this.connectedOnce = true;
     });
-    socket.on("disconnect", () => this.handlers.onStatus("offline"));
-    socket.on("connect_error", () => this.handlers.onStatus("offline"));
+    // socket.io gives up for good after a server-side disconnect or a
+    // middleware rejection (`socket.active` false), e.g. a server rollout;
+    // left alone the tab stays disconnected while HTTP keeps working.
+    socket.on("disconnect", () => this.retry());
+    socket.on("connect_error", () => this.retry());
     socket.on("update", (raw: unknown) => {
       const env = updateEnvelope.safeParse(raw);
       const parsed = updateBody.safeParse(env.success ? env.data.body : raw);
@@ -66,7 +78,28 @@ export class Realtime {
     });
   }
 
+  /** Reconnect now if the socket is down and nothing is retrying it (tab shown, network back). */
+  nudge(): void {
+    const socket = this.socket;
+    if (!socket || socket.connected || socket.active) return;
+    clearTimeout(this.retryTimer);
+    socket.connect();
+  }
+
+  private retry(): void {
+    this.handlers.onStatus("connecting");
+    const socket = this.socket;
+    if (!socket || socket.active) return; // socket.io's own reconnection is on it
+    clearTimeout(this.retryTimer);
+    const delay = this.retryMs * (0.5 + Math.random());
+    this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
+    this.retryTimer = setTimeout(() => {
+      if (this.socket === socket && !socket.connected) socket.connect();
+    }, delay);
+  }
+
   stop(): void {
+    clearTimeout(this.retryTimer);
     this.socket?.removeAllListeners();
     this.socket?.disconnect();
     this.socket = null;
