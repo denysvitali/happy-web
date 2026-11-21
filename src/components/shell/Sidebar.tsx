@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { CircleUserRound, Inbox, PanelLeftClose, PanelLeftOpen, SquarePen } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAccount, useAuth } from "@/app/auth";
-import { useStore } from "@/app/hooks";
 import { confirmForget } from "@/components/account/forget";
 import { openSettings } from "@/components/account/open";
 import { BrandMark } from "@/components/brand";
@@ -17,7 +16,7 @@ import { StatusDot } from "@/components/status";
 import { groupViews } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { PresenceDot } from "@/ui/Status";
-import { useBrowserOnline } from "./connection";
+import { useLink } from "./connection";
 import { toggleSidebar } from "./sidebarLayout";
 import { openSpawnModal } from "./spawn";
 import classes from "./shell.module.css";
@@ -28,8 +27,7 @@ const CONN_LABEL = { online: "Live", connecting: "Connecting", offline: "Offline
 
 /** Realtime link ("Offline" only when the browser says so); "Live" collapses to a dot to stay quiet. */
 function ConnectionIndicator({ compact = false }: { compact?: boolean }) {
-  const socket = useStore(useAccount().status);
-  const conn = useBrowserOnline() ? socket : "offline";
+  const conn = useLink(useAccount());
   const tip = conn === "online" ? "Realtime updates connected" : conn === "connecting" ? "Connecting to the server…" : "Offline: reconnecting";
   return (
     <Tooltip label={tip} openDelay={300}>

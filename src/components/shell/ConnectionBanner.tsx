@@ -1,8 +1,7 @@
 import { CloudOff, Check, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAccount } from "@/app/auth";
-import { useStore } from "@/app/hooks";
-import { troubleOf, useBrowserOnline, type Trouble } from "./connection";
+import { troubleOf, useLink, type Trouble } from "./connection";
 import classes from "./connection-banner.module.css";
 
 export type BannerKind = Trouble | "restored";
@@ -18,9 +17,7 @@ const RESTORED_MS = 2200;
  * folds away. Always mounted so the live region announces every change.
  */
 export function ConnectionBanner() {
-  const socket = useStore(useAccount().status);
-  const browserOnline = useBrowserOnline();
-  const trouble = troubleOf(browserOnline, socket);
+  const trouble = troubleOf(useLink(useAccount()));
   const [open, setOpen] = useState(false);
   const [restored, setRestored] = useState(false);
 

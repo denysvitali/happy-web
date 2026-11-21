@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { troubleOf } from "./connection";
+import { linkOf, troubleOf } from "./connection";
+
+describe("linkOf", () => {
+  it("trusts a live socket over navigator.onLine", () => {
+    expect(linkOf(true, "online")).toBe("online");
+    expect(linkOf(false, "online")).toBe("online");
+  });
+  it("a down socket is reconnecting unless the browser is offline", () => {
+    expect(linkOf(true, "connecting")).toBe("connecting");
+    expect(linkOf(false, "connecting")).toBe("offline");
+  });
+});
 
 describe("troubleOf", () => {
-  it("is quiet while the socket is live", () => expect(troubleOf(true, "online")).toBeNull());
-  it("reports a reconnecting socket", () => {
-    expect(troubleOf(true, "connecting")).toBe("reconnecting");
+  it("maps the link to the banner", () => {
+    expect(troubleOf("online")).toBeNull();
+    expect(troubleOf("connecting")).toBe("reconnecting");
+    expect(troubleOf("offline")).toBe("offline");
   });
-  it("browser offline wins", () => expect(troubleOf(false, "online")).toBe("offline"));
 });

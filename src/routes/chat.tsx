@@ -23,7 +23,7 @@ import type { ChatView, ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
 import { PlanChip } from "@/components/chat/plan";
 import { latestPlan } from "@/components/chat/tools/steps";
-import { useBrowserOnline } from "@/components/shell/connection";
+import { useLink } from "@/components/shell/connection";
 import { sessionTodos } from "@/lib/sync/todos";
 import { agentOf } from "@/lib/sync/sessionList";
 import { selectionLabel } from "@/lib/sync/models";
@@ -324,7 +324,7 @@ export function ChatScreen() {
   const view = useChatView(store, session);
   const plan = useMemo(() => (view ? latestPlan(view.blocks) : undefined), [view]);
   const status = session ? statusOf(session, presence, now) : "idle";
-  const offline = !useBrowserOnline();
+  const offline = useLink(account) === "offline";
   const history = useMemo(() => (view ? sentHistory(view.blocks) : []), [view]);
   const starting = useStore(account.spawning).get(sessionId);
   const sid = session?.id;

@@ -1,8 +1,8 @@
 import { SegmentedControl, Button, useMantineColorScheme } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Keyboard, LayoutGrid } from "lucide-react";
-import { useStore, useNow } from "@/app/hooks";
-import { useBrowserOnline } from "@/components/shell/connection";
+import { useNow } from "@/app/hooks";
+import { useLink } from "@/components/shell/connection";
 import { getServerUrl } from "@/lib/config";
 import {
   machinesKey,
@@ -78,8 +78,7 @@ function SettingsContent({
   close: () => void;
 }) {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const socket = useStore(ctx.account.status);
-  const conn = useBrowserOnline() ? socket : "offline";
+  const conn = useLink(ctx.account);
   const server = getServerUrl();
   const then = (fn: () => void) => () => {
     close();
