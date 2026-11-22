@@ -384,6 +384,18 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(200);
       await shot(page, "p5-settings-dark");
       await page.emulateMedia({ colorScheme: "light" });
+      // A machine: the daemon and agent CLIs, with updates on offer.
+      await page.getByRole("button", { name: /^denys@laptop/ }).click();
+      await expect(page.getByRole("dialog", { name: "denys@laptop" })).toBeVisible();
+      await expect(page.getByText("v2.1.3 · 2.1.7 available")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p7-machine");
+      await page.getByRole("button", { name: "Update Claude Code" }).click();
+      await expect(page.getByText("Updating to 2.1.7…")).toBeVisible();
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "p8-machine-updating-dark");
+      await page.emulateMedia({ colorScheme: "light" });
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Command palette" }).click();
       await page.getByRole("combobox").fill("shortcuts");

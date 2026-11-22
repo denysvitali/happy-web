@@ -20,6 +20,7 @@ import {
   type SessionMetadata,
 } from "./decode";
 import { normalizeRecord } from "./normalize";
+import { parseDaemon, parseProviderUpdate, parseVersions } from "./machineUpdates";
 import { FolderSync } from "./folderSync";
 import { FOLDERS_KV_KEY, forgetSession } from "./folders";
 import { fileType, type FileEntry } from "./files";
@@ -646,6 +647,24 @@ export class Account {
 
   codexModels(machineId: string, directory: string | undefined) {
     return this.rpcJson(machineId, "get-codex-models", directory ? { refresh: false, directory } : { refresh: false }, 30_000);
+  }
+
+  // Machine updates (machineUpdates.ts): each call returns the cached status
+  // at once; updates run as jobs on the daemon.
+  async providerVersions(machineId: string, refresh: boolean) {
+    return parseVersions(await this.rpcJson(machineId, "get-provider-versions", { refresh }, refresh ? 30_000 : 15_000));
+  }
+
+  async updateProvider(machineId: string, provider: string) {
+    return parseProviderUpdate(await this.rpcJson(machineId, "update-provider", { provider }, 20_000));
+  }
+
+  async daemonVersion(machineId: string, refresh: boolean) {
+    return parseDaemon(await this.rpcJson(machineId, "get-daemon-version", { refresh }, refresh ? 30_000 : 15_000));
+  }
+
+  async updateDaemon(machineId: string) {
+    return parseDaemon(await this.rpcJson(machineId, "update-daemon", {}, 20_000));
   }
 
   abort(sessionId: string) {

@@ -38,7 +38,7 @@ export function createMock() {
   const min = 60_000;
 
   const machines = [
-    { id: "m-laptop", meta: { host: "laptop", displayName: "denys@laptop", homeDir: "/home/denys", spawnBackends: ["local"] } },
+    { id: "m-laptop", meta: { host: "laptop", displayName: "denys@laptop", homeDir: "/home/denys", platform: "darwin", happyCliVersion: "0.42.0", spawnBackends: ["local"] } },
     { id: "m-k8s", meta: { host: "happy-daemon", displayName: "happy-daemon (k8s)", homeDir: "/root", spawnBackends: ["local", "kubernetes"], defaultSpawnBackend: "kubernetes", kubernetesCheckoutBaseDir: "/workspace" } },
   ].map((m) => ({
     id: m.id,
@@ -253,7 +253,21 @@ export function createMock() {
     });
   }
 
+  // Machine updates: a daemon one release behind, Claude Code behind, Codex
+  // current. An update request leaves its job running.
+  const daemon = { version: "0.42.0", latestVersion: "0.43.1", updateAvailable: true, canUpdate: true, installMethod: "release", updateStatus: "idle" };
+  const providers = [
+    { provider: "codex", installed: true, version: "0.61.0", latestVersion: "0.61.0", updateAvailable: false, canUpdate: true, installMethod: "npm", updateStatus: "idle" },
+    { provider: "claude", installed: true, version: "2.1.3", latestVersion: "2.1.7", updateAvailable: true, canUpdate: true, installMethod: "native", updateStatus: "idle" },
+  ];
   const defaultRpc: Record<string, RpcHandler> = {
+    "get-daemon-version": () => ({ success: true, daemon }),
+    "update-daemon": () => ({ success: true, daemon: Object.assign(daemon, { updateStatus: "running" }) }),
+    "get-provider-versions": () => ({ success: true, providers }),
+    "update-provider": (p) => {
+      const hit = providers.find((x) => x.provider === (p as { provider: string }).provider)!;
+      return { success: true, provider: Object.assign(hit, { updateStatus: "running" }) };
+    },
     abort: () => ({ success: true, message: "aborted" }),
     permission: () => ({ success: true }),
     "stop-session": () => ({ message: "stopped" }),

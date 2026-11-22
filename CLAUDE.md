@@ -91,6 +91,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   names need a Replace confirm, directories are never replaced.
   "New directory" (`mkdir`) and the row menu's Delete (`rm -rf`, confirmed) also go over
   `bash` with the path on stdin; `removePath` refuses `/` and relative paths.
+- Machine sheet (Settings → Machines → a machine, `account/MachineSheet.tsx`): the Happy daemon
+  (`get-daemon-version`/`update-daemon`) and agent CLIs (`get-provider-versions`/`update-provider`),
+  parsed in `src/lib/sync/machineUpdates.ts`. Updates are daemon-side jobs: start, then poll the
+  cached status; a daemon update ends in its own restart. Old daemons answer `method_unsupported`.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Session list fetch (`listCache.ts`): lite `/v2/sessions` (`omit=lastMessage,agentState`) +

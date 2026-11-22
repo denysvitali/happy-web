@@ -15,6 +15,7 @@ import { FormRow, FormSection } from "@/ui/FormSection";
 import { ListRow } from "@/ui/List";
 import { openSheet, SheetBody } from "@/ui/Sheet";
 import { PresenceDot } from "@/ui/Status";
+import { openMachine } from "./MachineSheet";
 import classes from "./settings.module.css";
 
 /** The sheet renders under ModalsProvider, outside the auth context: everything it needs comes in here. */
@@ -38,7 +39,7 @@ function buildLabel(build: string, mode: string): string {
   return mode === "production" ? id : `${id} (${mode})`;
 }
 
-function Machines({ account }: { account: Account }) {
+function Machines({ account, close }: { account: Account; close: () => void }) {
   const now = useNow();
   const q = useQuery<MachineItem[]>({
     queryKey: machinesKey,
@@ -59,10 +60,15 @@ function Machines({ account }: { account: Account }) {
             <ListRow
               key={m.id}
               title={machineName(m.meta, m.id)}
-              subtitle={m.meta.host}
+              subtitle={[m.meta.host, m.meta.happyCliVersion && `v${m.meta.happyCliVersion}`].filter(Boolean).join(" · ")}
               trailing={
                 <PresenceDot online={up} label={up ? "online" : "offline"} />
               }
+              chevron
+              onClick={() => {
+                close();
+                openMachine(account, m);
+              }}
             />
           );
         })}
@@ -118,7 +124,7 @@ function SettingsContent({
         </FormRow>
       </FormSection>
 
-      <Machines account={ctx.account} />
+      <Machines account={ctx.account} close={close} />
 
       <FormSection title="More">
           <ListRow

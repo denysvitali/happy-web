@@ -22,3 +22,4 @@
   color: var(--happy-label-2);
 }
 .danger { height: 48px; border-radius: var(--happy-radius-lg); }
+.check { margin: 2px 4px; }
