@@ -107,10 +107,12 @@ document they can't read or whose `v` is newer. happy_flutter does not use it ye
 **Session list sync** (`src/lib/sync/listCache.ts`): the lite `GET /v2/sessions?omit=lastMessage,agentState`
 plus `GET /v2/sessions/active` (full rows of live sessions: pending approvals, last-message
 time). Rows are cached in IndexedDB, so a reload paints at once and refetches only
-`changedSince` the newest row seen. A full listing (~4 KB of encrypted metadata per
-session) runs at most daily, because deltas never report deletions; the socket reports them
-while connected, and a ghost row drops when its chat 404s. Refreshes are coalesced and never
-cancel a running listing. Dead sessions' agentState is
+`changedSince` the newest row seen. Deltas never report deletions and new messages don't
+move `updatedAt`, so each page load (and every 10 min) also runs an id check,
+`omit=metadata,agentState,lastMessage`: every row's cheap columns, no ciphertext. It drops
+deleted rows, refreshes `lastSeq`/flags and re-reads rows whose metadata version moved. A full
+listing (~4 KB of encrypted metadata per session) runs only with an empty cache, or daily on
+servers without `omit=metadata`. Refreshes are coalesced and never cancel a running listing. Dead sessions' agentState is
 loaded when their chat opens.
 
 A socket that slept or switched networks still reads "connected" until the engine's
@@ -158,7 +160,7 @@ The server wins wherever they disagree. Found while building this client:
     have. This client writes `name` (and `summary`) through
     `POST /v1/sessions/:id/metadata` with `expectedVersion`, retrying on version mismatch.
 12. **No archived filter on `/v2/sessions`.** All sessions (archived included) are
-    downloaded and decrypted on a full listing (lite rows, at most daily; deltas in between).
+    downloaded and decrypted on a full listing (only with an empty cache; deltas and id checks after).
 13. **Codex speed on Claude spawns.** Flutter stamps `HAPPY_CODEX_FAST_MODE` on every
     spawn; on Claude it is meaningless and, as a non-switchable key, forced every
     Kubernetes provider switch into a full Pod replacement. The daemon now strips it

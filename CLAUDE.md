@@ -91,7 +91,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Session list fetch (`listCache.ts`): lite `/v2/sessions` (`omit=lastMessage,agentState`) +
   `/v2/sessions/active` overlay, cached as ciphertext rows in IndexedDB, refreshed by
-  `changedSince` deltas (full listing daily: deltas miss deletions; a chat 404 drops a ghost row).
+  `changedSince` deltas plus an id check (`omit=metadata`) for deletions/new messages; full
+  listing only with an empty cache (daily on servers without `omit=metadata`).
   Refresh via `refreshList()` (coalesced, never cancels a listing); prefer socket patches.
 - Unread badges: `src/lib/sync/unread.ts` keeps each session's seen seq and counts
   main-thread agent replies only. Seen marks and Inbox triage are cached in localStorage and

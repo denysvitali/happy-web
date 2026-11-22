@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SessionRow } from "../api/schemas";
-import { changedSinceFor, DELTA_OVERLAP_MS, FULL_SYNC_MS, mergeRows } from "./listCache";
+import { changedSinceFor, checkRows, DELTA_OVERLAP_MS, FULL_SYNC_MS, mergeRows } from "./listCache";
 
 const row = (id: string, o: Partial<SessionRow> = {}): SessionRow => ({
   id,
@@ -64,5 +64,30 @@ describe("mergeRows", () => {
   it("keeps a known message stamp the lite row leaves out", () => {
     const prev = map(row("a", { lastSeq: 3, lastMessage: { seq: 3, createdAt: 7 } }));
     expect(mergeRows(prev, [row("a", { lastSeq: 4 })], null, false).get("a")?.lastMessage).toEqual({ seq: 3, createdAt: 7 });
+  });
+});
+
+describe("checkRows", () => {
+  const id = (rid: string, o: Partial<SessionRow> = {}) => row(rid, { metadata: "", ...o });
+
+  it("drops rows the server no longer lists, except ones this pass just fetched", () => {
+    const rows = map(row("a"), row("gone"), row("new"));
+    const c = checkRows(rows, [id("a")], new Set(["new"]));
+    expect([...c.rows.keys()].sort()).toEqual(["a", "new"]);
+    expect(c.refetch).toEqual([]);
+  });
+
+  it("asks to re-read unknown rows and rows with newer metadata", () => {
+    const c = checkRows(map(row("a", { metadataVersion: 2 })), [id("a", { metadataVersion: 3 }), id("b")], new Set());
+    expect(c.refetch).toEqual(["a", "b"]);
+    expect(c.rows.get("a")?.metadata).toBe("m-a");
+  });
+
+  it("takes new messages and flags from the cheap columns, keeping the ciphertext", () => {
+    const rows = map(row("a", { lastSeq: 3, agentState: "S", agentStateVersion: 2 }), row("b", { lastSeq: 1 }));
+    const c = checkRows(rows, [id("a", { lastSeq: 7, active: false }), id("b", { lastSeq: 1 })], new Set());
+    expect([...c.changed]).toEqual(["a"]);
+    expect(c.rows.get("a")).toMatchObject({ lastSeq: 7, active: false, metadata: "m-a", agentState: "" });
+    expect(c.rows.get("b")).toBe(rows.get("b"));
   });
 });

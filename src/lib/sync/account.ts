@@ -26,7 +26,7 @@ import { fileType, type FileEntry } from "./files";
 import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { InboxTriage, localTriageStorage } from "./inbox";
-import { changedSinceFor, emptyList, loadListCache, mergeRows, saveListCache, type ListState } from "./listCache";
+import { changedSinceFor, checkRows, emptyList, FULL_SYNC_MS, ID_CHECK_MS, loadListCache, MAX_REFETCH, mergeRows, saveListCache, type ListState } from "./listCache";
 import { Store } from "./store";
 import { newerEntry, READ_KV_KEY, ReadSync } from "./readSync";
 import { isReply, localSeenStorage, parseSeen, Unread } from "./unread";
@@ -113,6 +113,8 @@ export class Account {
   private list: ListState = emptyList();
   private hydration: Promise<void> | undefined;
   private listRefresh: Promise<void> | undefined;
+  /** The id check's last run (per page load) and whether the server has it. */
+  private idCheck = { at: 0, supported: true };
   private readonly listOwner: string;
 
   constructor(
@@ -235,19 +237,40 @@ export class Account {
     if (!this.qc.getQueryData(sessionsKey)) this.qc.setQueryData(sessionsKey, byActivity(items));
   }
 
-  /** A delta since the newest row seen (a full lite listing when the cache is
-   * empty or due, see FULL_SYNC_MS), plus the live sessions' full rows. */
+  /** A delta since the newest row seen (a full lite listing only when nothing
+   * is cached), the live sessions' full rows, and now and then the id check
+   * (see listCache.ts), which may re-read a few rows. */
   async fetchSessions(signal?: AbortSignal): Promise<SessionItem[]> {
     await (this.hydration ??= this.hydrate());
     const startedAt = Date.now();
-    const changedSince = changedSinceFor(this.list, startedAt);
-    const [listed, live] = await Promise.all([
+    const changedSince = changedSinceFor(this.list, startedAt, this.idCheck.supported ? Infinity : FULL_SYNC_MS);
+    let full = changedSince === undefined;
+    const checkIds = !full && this.idCheck.supported && startedAt - this.idCheck.at > ID_CHECK_MS;
+    const [listed, live, ids] = await Promise.all([
       this.api.listSessions({ changedSince, signal }),
       this.api.listActiveSessions(signal).catch(() => null),
+      checkIds ? this.api.listSessionIds(signal) : undefined,
     ]);
-    const full = changedSince === undefined;
-    this.list = { rows: mergeRows(this.list.rows, listed, live, full), fullAt: full ? startedAt : this.list.fullAt };
+    let rows = mergeRows(this.list.rows, listed, live, full);
     const touched = new Set([...listed, ...(live ?? [])].map((r) => r.id));
+    if (ids === null) this.idCheck.supported = false;
+    if (ids) {
+      this.idCheck.at = startedAt;
+      const checked = checkRows(rows, ids, touched);
+      rows = checked.rows;
+      for (const id of checked.changed) touched.add(id);
+      if (checked.refetch.length > MAX_REFETCH) {
+        rows = mergeRows(rows, await this.api.listSessions({ signal }), live, true);
+        full = true;
+      } else if (checked.refetch.length) {
+        const fresh = await Promise.all(checked.refetch.map((id) => this.api.getSession(id, signal).catch(() => null)));
+        const got = fresh.filter((r): r is SessionRow => r !== null);
+        rows = mergeRows(rows, got, null, false);
+        for (const r of got) touched.add(r.id);
+      }
+    }
+    this.list = { rows, fullAt: full || ids ? startedAt : this.list.fullAt };
+    if (full) for (const id of rows.keys()) touched.add(id);
     const current = new Map((this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? []).map((s) => [s.id, s]));
     const items = await Promise.all(
       [...this.list.rows.values()].map(async (r) => {

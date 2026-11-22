@@ -121,7 +121,7 @@ for (const vp of VIEWPORTS) {
   });
 }
 
-test("a reload paints the cached list, then asks only for a lite delta", async ({ page }) => {
+test("a reload paints the cached list, then asks only for a lite delta and an id check", async ({ page }) => {
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
@@ -136,10 +136,17 @@ test("a reload paints the cached list, then asks only for a lite delta", async (
   });
   await page.reload();
   await expect(page.getByText("Fix flaky login test").first()).toBeVisible();
-  expect(lists).toHaveLength(1);
-  expect(lists[0]!.searchParams.get("omit")).toBe("lastMessage,agentState");
-  expect(Number(lists[0]!.searchParams.get("changedSince"))).toBeGreaterThan(0);
+  // A delta for changes, plus the id check for deletions; never a full listing.
+  await expect.poll(() => lists.length).toBe(2);
+  const delta = lists.find((u) => u.searchParams.has("changedSince"));
+  const ids = lists.find((u) => !u.searchParams.has("changedSince"));
+  expect(delta?.searchParams.get("omit")).toBe("lastMessage,agentState");
+  expect(Number(delta?.searchParams.get("changedSince"))).toBeGreaterThan(0);
+  expect(ids?.searchParams.get("omit")).toBe("metadata,agentState,lastMessage");
   release();
+  // The id check keeps every listed row.
+  await page.waitForTimeout(500);
+  await expect(page.getByText("Fix flaky login test").first()).toBeVisible();
 });
 
 test.describe("phone push navigation", () => {

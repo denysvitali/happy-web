@@ -41,6 +41,27 @@ export class ApiClient {
     return out;
   }
 
+  /** Every session's cheap columns (id, seq, versions, flags, lastSeq), no
+   * ciphertext: GET /v2/sessions?omit=metadata,…. Null when the server does
+   * not know omit=metadata (it answers 400). */
+  async listSessionIds(signal?: AbortSignal): Promise<SessionRow[] | null> {
+    const out: SessionRow[] = [];
+    let cursor: string | undefined;
+    try {
+      for (let page = 0; page < 40; page++) {
+        const query = { limit: 200, cursor, omit: "metadata,agentState,lastMessage" };
+        const res = await this.get(sessionsV2Response, "/v2/sessions", { query, signal });
+        out.push(...res.sessions);
+        if (!res.hasNext || !res.nextCursor) return out;
+        cursor = res.nextCursor;
+      }
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 400 && out.length === 0) return null;
+      throw e;
+    }
+    return out;
+  }
+
   /** Full rows (agentState, last message) of sessions alive in the last 15 minutes. */
   async listActiveSessions(signal?: AbortSignal): Promise<SessionRow[]> {
     return (await this.get(activeSessionsResponse, "/v2/sessions/active", { query: { limit: 200 }, signal })).sessions;

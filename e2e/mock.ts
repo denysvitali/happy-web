@@ -172,7 +172,10 @@ export function createMock() {
         return json({ state: "authorized", token: "test-token", response: encodeBase64(encryptForPublicKey(secret, decodeBase64(publicKey))) });
       }
       expect(req.headers().authorization).toBe("Bearer test-token");
-      if (url.pathname === "/v2/sessions") return json({ sessions, nextCursor: null, hasNext: false });
+      if (url.pathname === "/v2/sessions") {
+        const lite = url.searchParams.get("omit")?.split(",").includes("metadata");
+        return json({ sessions: lite ? sessions.map((s) => ({ ...s, metadata: "", agentState: null, dataEncryptionKey: null })) : sessions, nextCursor: null, hasNext: false });
+      }
       if (url.pathname === "/v2/sessions/active") return json({ sessions: sessions.filter((s) => s.active && !s.archived) });
       if (url.pathname === "/v1/machines") return json(machines);
       const kvKey = url.pathname.match(/^\/v1\/kv\/(.+)$/);
