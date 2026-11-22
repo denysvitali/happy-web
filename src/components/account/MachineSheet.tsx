@@ -136,7 +136,7 @@ function Software({ account, machine, online }: { account: Account; machine: Mac
           ? "Checking…"
           : "Offline";
   const list = agents.q.data?.value ?? [];
-  const noAgentRpc = isUnsupported(agents.q.error);
+  const noAgentRpc = isUnsupported(agents.q.error) || isUnsupported(agents.check.error);
 
   const notes: string[] = [];
   const note = (who: string, n: string | undefined) => n && notes.push(`${who}: ${n}`);
@@ -147,9 +147,12 @@ function Software({ account, machine, online }: { account: Account; machine: Mac
     note(label, updateAgent.variables === p.provider && updateAgent.data?.error ? updateAgent.data.error : statusNote(p));
   }
   if (updateAgent.error) notes.push(errText(updateAgent.error));
+  // A failed check says why, next to its tool, instead of only "Check failed".
+  if (daemon.check.error && !oldDaemon) notes.push(`Happy daemon: couldn't check for updates (${errText(daemon.check.error)})`);
+  if (agents.check.error && !noAgentRpc) notes.push(`Agents: couldn't check for updates (${errText(agents.check.error)})`);
   if (agents.q.data?.error) notes.push(agents.q.data.error);
   const checking = daemon.check.isPending || agents.check.isPending;
-  const checkFailed = !!(daemon.check.error && !oldDaemon) || !!agents.check.error;
+  const checkFailed = !!(daemon.check.error && !oldDaemon) || !!(agents.check.error && !noAgentRpc);
 
   return (
     <FormSection title="Software" footer={notes.length > 0 ? notes.map((n) => <div key={n}>{n}</div>) : undefined}>

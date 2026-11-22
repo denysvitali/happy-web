@@ -34,6 +34,8 @@ describe("machine updates", () => {
 
   it("recognises daemons without the RPC", () => {
     expect(isUnsupported(new RpcError("method not found", "method_unsupported"))).toBe(true);
+    // What the server answers today when no daemon registered the method.
+    expect(isUnsupported(new RpcError("no handler", "handler_offline"))).toBe(true);
     expect(isUnsupported(new RpcError("RPC timed out", "timeout"))).toBe(false);
   });
 });

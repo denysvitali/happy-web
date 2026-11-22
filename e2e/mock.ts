@@ -17,6 +17,8 @@ export interface MockOptions {
   rpc?: Record<string, RpcHandler>;
   /** Session folders to start with (default: a small realistic tree; null: none). */
   folders?: FolderDoc | null;
+  /** Bare RPC names no daemon registered: answered like the server does, with `handler_offline`. */
+  unregistered?: string[];
 }
 
 /** The folder tree the mocked account starts with. */
@@ -243,6 +245,9 @@ export function createMock() {
         const params = dec(data.params);
         rpcCalls.push({ method: data.method, params });
         const bare = data.method.slice(data.method.indexOf(":") + 1);
+        if (opts.unregistered?.includes(bare)) {
+          return ws.send(`43${ev[1]}${JSON.stringify([{ ok: false, error: `no handler registered for ${data.method}`, code: "handler_offline" }])}`);
+        }
         const handler = opts.rpc?.[data.method] ?? opts.rpc?.[bare] ?? defaultRpc[bare];
         // Handlers may return a promise (e.g. one that never settles, to hold a transfer open).
         void Promise.resolve(handler?.(params)).then((result) => {

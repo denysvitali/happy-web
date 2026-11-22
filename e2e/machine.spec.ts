@@ -38,3 +38,17 @@ test("machine: a session's menu opens its machine", async ({ page }) => {
   await expect(sheet.getByText("v2.1.3 · 2.1.7 available")).toBeVisible();
   await expect(sheet.getByRole("button", { name: "Update Claude Code" })).toBeVisible();
 });
+
+test("machine: a daemon without self-update is an old daemon, not a failed check", async ({ page }) => {
+  const mock = createMock();
+  // Production today: provider RPCs exist, get-daemon-version is not registered anywhere.
+  await mock.install(page, { unregistered: ["get-daemon-version", "update-daemon"] });
+  await linkAndOpen(page, mock);
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  await page.getByRole("button", { name: /^denys@laptop/ }).click();
+  const sheet = page.getByRole("dialog", { name: "denys@laptop" });
+  await expect(sheet.getByText("v2.1.3 · 2.1.7 available")).toBeVisible();
+  await expect(sheet.getByText(/this version cannot update itself/)).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Check for updates" })).toBeVisible();
+  await expect(sheet.getByText(/Check failed/)).toHaveCount(0);
+});

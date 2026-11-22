@@ -62,7 +62,12 @@ export function parseDaemon(raw: unknown): Reply<DaemonStatus | undefined> {
 }
 
 /** The daemon has no such RPC (an older build). */
-export const isUnsupported = (e: unknown): boolean => !!e && typeof e === "object" && "code" in e && e.code === "method_unsupported";
+/** The daemon lacks this RPC. Only meaningful while the machine is online:
+ * the server answers `method_unsupported` when it knows, and otherwise
+ * `handler_offline` once no replica has the method registered, which for a
+ * connected daemon also means it predates the method. */
+export const isUnsupported = (e: unknown): boolean =>
+  !!e && typeof e === "object" && "code" in e && (e.code === "method_unsupported" || e.code === "handler_offline");
 
 export const PROVIDER_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
 
