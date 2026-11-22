@@ -18,6 +18,14 @@ export type RealtimeStatus = "connecting" | "online";
 /** Backoff for the retries socket.io will not do itself (see `retry`). */
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 30_000;
+/** A socket that slept or changed networks still reads "connected" until the
+ * engine's ping timeout (server: 15 s interval + 45 s grace = 60 s). Instead,
+ * when nothing arrived for QUIET_MS (the server pings every 15 s) or the tab
+ * wakes, an acked `ping` event (the daemon's liveness echo) must come back
+ * within PROBE_MS, else the link is rebuilt at once. */
+const QUIET_MS = 20_000;
+const PROBE_MS = 4000;
+const WATCHDOG_MS = 10_000;
 
 export class RpcError extends Error {
   constructor(
@@ -34,6 +42,10 @@ export class Realtime {
   private connectedOnce = false;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private retryMs = RETRY_MIN_MS;
+  private watchdog: ReturnType<typeof setInterval> | undefined;
+  /** Last packet or engine ping from the server. */
+  private heardAt = 0;
+  private probing = false;
 
   constructor(
     private readonly serverUrl: string,
@@ -49,14 +61,21 @@ export class Realtime {
       auth: { token: this.token, clientType: "user-scoped" },
       transports: ["websocket"],
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10_000,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
       randomizationFactor: 0.5,
-      timeout: 20_000,
+      timeout: 10_000,
     });
+    const heard = () => (this.heardAt = Date.now());
+    socket.io.on("ping", heard);
+    socket.io.on("packet", heard);
+    this.watchdog = setInterval(() => {
+      if (globalThis.document?.visibilityState !== "hidden" && Date.now() - this.heardAt > QUIET_MS) void this.probe();
+    }, WATCHDOG_MS);
     this.socket = socket;
     this.handlers.onStatus("connecting");
     socket.on("connect", () => {
+      heard();
       this.retryMs = RETRY_MIN_MS;
       this.handlers.onStatus("online");
       this.handlers.onConnect(this.connectedOnce);
@@ -78,11 +97,37 @@ export class Realtime {
     });
   }
 
-  /** Reconnect now if the socket is down and nothing is retrying it (tab shown, network back). */
+  /** The tab was shown or the network came back: check a "connected" socket
+   * is really alive, and redial a down one now rather than after its backoff
+   * or a connect attempt that hangs on the old network. */
   nudge(): void {
     const socket = this.socket;
-    if (!socket || socket.connected || socket.active) return;
-    clearTimeout(this.retryTimer);
+    if (!socket) return;
+    if (socket.connected) void this.probe();
+    else this.redial();
+  }
+
+  private async probe(): Promise<void> {
+    const socket = this.socket;
+    if (!socket?.connected || this.probing) return;
+    this.probing = true;
+    try {
+      await socket.timeout(PROBE_MS).emitWithAck("ping");
+      this.heardAt = Date.now();
+    } catch {
+      if (this.socket === socket) this.redial();
+    } finally {
+      this.probing = false;
+    }
+  }
+
+  /** Drops the current link (and any pending backoff or attempt) and dials now. */
+  private redial(): void {
+    const socket = this.socket;
+    if (!socket) return;
+    this.handlers.onStatus("connecting");
+    socket.disconnect();
+    clearTimeout(this.retryTimer); // set by the disconnect handler
     socket.connect();
   }
 
@@ -100,6 +145,7 @@ export class Realtime {
 
   stop(): void {
     clearTimeout(this.retryTimer);
+    clearInterval(this.watchdog);
     this.socket?.removeAllListeners();
     this.socket?.disconnect();
     this.socket = null;

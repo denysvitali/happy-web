@@ -48,12 +48,15 @@ for (const vp of VIEWPORTS) {
       await linkAndOpen(page, mock);
       const banner = page.getByRole("status").filter({ hasText: /offline|Back online/ });
       await expect(banner).toHaveCount(0);
+      await mock.setSocketUp(false);
       await setBrowserOnline(page, false);
       await expect(page.getByText("You're offline")).toBeVisible();
       await page.waitForTimeout(400);
       await both(page, "offline");
+      await mock.setSocketUp(true);
       await setBrowserOnline(page, true);
-      await expect(page.getByText("Back online")).toBeVisible();
+      // The "online" event redials at once instead of waiting out socket.io's backoff.
+      await expect(page.getByText("Back online")).toBeVisible({ timeout: 2000 });
       await page.waitForTimeout(400);
       await shot(page, "back-online");
       await expect(page.getByText("Back online")).toBeHidden({ timeout: 6000 });

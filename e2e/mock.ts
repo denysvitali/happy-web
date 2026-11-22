@@ -156,6 +156,9 @@ export function createMock() {
   const rpcCalls: { method: string; params: unknown }[] = [];
   const archives: { sessionId: string; archived: boolean }[] = [];
   let socketAuth: unknown = null;
+  /** While false the socket server is unreachable: open links drop, new ones are refused. */
+  let socketUp = true;
+  const links = new Set<{ close(): Promise<void> }>();
 
   async function install(page: Page, opts: MockOptions = {}) {
     const seed = opts.folders === undefined ? MOCK_FOLDERS : opts.folders;
@@ -214,6 +217,9 @@ export function createMock() {
     });
 
     await page.routeWebSocket(/\/v1\/updates\//, (ws) => {
+      if (!socketUp) return void ws.close();
+      links.add(ws);
+      ws.onClose(() => links.delete(ws));
       ws.send(`0${JSON.stringify({ sid: "eio", upgrades: [], pingInterval: 25000, pingTimeout: 20000, maxPayload: 1e6 })}`);
       ws.onMessage((raw) => {
         const msg = String(raw);
@@ -229,6 +235,7 @@ export function createMock() {
         const ev = msg.match(/^42(\d+)(.*)$/);
         if (!ev) return;
         const [name, data] = JSON.parse(ev[2]!) as [string, { method: string; params: string }];
+        if (name === "ping") return ws.send(`43${ev[1]}[{}]`);
         if (name !== "rpc-call") return;
         const params = dec(data.params);
         rpcCalls.push({ method: data.method, params });
@@ -331,7 +338,12 @@ export function createMock() {
     }),
   };
 
-  return { install, sent, rpcCalls, archives, socketAuth: () => socketAuth, enc, dec, sessions, machines, secret, kv };
+  async function setSocketUp(up: boolean) {
+    socketUp = up;
+    if (!up) await Promise.all([...links].map((l) => l.close()));
+  }
+
+  return { install, sent, rpcCalls, archives, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, secret, kv };
 }
 
 export function watchCsp(page: Page): string[] {

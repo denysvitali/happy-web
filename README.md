@@ -111,6 +111,11 @@ time). Rows are cached in IndexedDB, so a reload paints at once and refetches on
 report deletions and new messages don't move `updatedAt`. Dead sessions' agentState is
 loaded when their chat opens.
 
+A socket that slept or switched networks still reads "connected" until the engine's
+60 s ping timeout, so the client probes it with an acked `ping` event when the tab is
+shown, the network returns, or nothing arrived for 20 s, and redials at once (skipping
+socket.io's backoff) when that goes unanswered or the socket is down.
+
 Realtime events are never trusted to be gapless. Every (re)connect and every seq gap
 triggers a catch-up from `GET /v3/sessions/:id/messages?after_seq=`. Sends are idempotent
 via `localId`. Codex `message-stream` previews are replaced by the final message that has
