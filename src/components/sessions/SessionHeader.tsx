@@ -1,4 +1,4 @@
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, Search } from "lucide-react";
 import { useMemo } from "react";
 import { useMachines, useNow } from "@/app/hooks";
 import { NavButton } from "@/components/shell/NavButton";
@@ -12,7 +12,7 @@ import { SessionMenu } from "./SessionMenu";
 
 /** Chat pane header: back (phones), agent, title, and a status · project ·
  * machine line, so a truncated title still says which session this is. */
-export function SessionHeader({ session, status }: { session: SessionItem; status: SessionStatus }) {
+export function SessionHeader({ session, status, onFind }: { session: SessionItem; status: SessionStatus; onFind?: () => void }) {
   const machines = useMachines().data;
   const now = useNow();
   const machineMap = useMemo(() => new Map((machines ?? []).map((m) => [m.id, m])), [machines]);
@@ -36,6 +36,7 @@ export function SessionHeader({ session, status }: { session: SessionItem; statu
       </div>
       <div className={classes.headerTrailing}>
         <PodBadge pod={v.pod} />
+        {onFind && <IconButton label="Find in session" icon={<Search size={17} />} onClick={onFind} />}
         <SessionMenu session={session} target={<IconButton label="Session actions" icon={<Ellipsis size={18} />} />} />
       </div>
     </header>

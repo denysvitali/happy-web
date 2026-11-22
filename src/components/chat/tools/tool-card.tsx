@@ -8,6 +8,7 @@ import { sameBlock, type Block, type StepBlock, type ToolBlock } from "@/lib/syn
 import { PermissionBar, PermissionOutcome, type PermissionHandler } from "../permission";
 import { firstLine, toolState, type ToolState } from "./format";
 import { titleOf, viewFor, type ToolKind } from "./registry";
+import { useFold } from "../reveal";
 import { failedSteps, runningSteps, stepLabel, stepsSummary } from "./steps";
 import classes from "../chat.module.css";
 
@@ -75,14 +76,14 @@ export const ToolCard = memo(
     );
     if (!pending) {
       return (
-        <div className={classes.step} data-state={state} data-open={open || undefined}>
+        <div className={classes.step} data-bkey={b.key} data-state={state} data-open={open || undefined}>
           {head}
           {body}
         </div>
       );
     }
     return (
-      <div className={classes.tool} data-attention>
+      <div className={classes.tool} data-bkey={b.key} data-attention>
         {head}
         {body}
         {!view.answers && <PermissionBar id={b.id} perm={b.permission} onPermission={onPermission} />}
@@ -93,10 +94,10 @@ export const ToolCard = memo(
 );
 
 /** A thinking block as a step: the first line, the rest on demand. */
-export function ThinkingStep({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
+export function ThinkingStep({ text, bkey }: { text: string; bkey?: string }) {
+  const [open, setOpen] = useFold(bkey);
   return (
-    <div className={classes.step} data-open={open || undefined}>
+    <div className={classes.step} data-bkey={bkey} data-open={open || undefined}>
       <UnstyledButton className={classes.stepHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <Brain size={14} strokeWidth={1.9} className={classes.stepIcon} aria-hidden />
         <span className={classes.stepTitle}>Thought</span>
@@ -109,14 +110,14 @@ export function ThinkingStep({ text }: { text: string }) {
 }
 
 export function StepView({ b, onPermission }: { b: StepBlock; onPermission?: PermissionHandler | undefined }) {
-  return b.type === "thinking" ? <ThinkingStep text={b.text} /> : <ToolCard b={b} onPermission={onPermission} />;
+  return b.type === "thinking" ? <ThinkingStep text={b.text} bkey={b.key} /> : <ToolCard b={b} onPermission={onPermission} />;
 }
 
 /** A run of steps as one line: what was done or, while a call runs, that
  * call (with the size of the run). */
 export const StepsGroup = memo(
-  function StepsGroup({ items, onPermission }: { items: StepBlock[]; onPermission?: PermissionHandler | undefined }) {
-    const [open, setOpen] = useState(false);
+  function StepsGroup({ items, bkey, onPermission }: { items: StepBlock[]; bkey?: string; onPermission?: PermissionHandler | undefined }) {
+    const [open, setOpen] = useFold(bkey);
     const current = runningSteps(items).at(-1);
     const failed = failedSteps(items);
     const live = current && !open ? stepLabel(current) : undefined;

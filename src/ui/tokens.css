@@ -30,6 +30,10 @@ body {
   --happy-green-tint: color-mix(in srgb, var(--happy-green) 14%, transparent);
   --happy-red-tint: color-mix(in srgb, var(--happy-red) 12%, transparent);
   --happy-orange-tint: color-mix(in srgb, var(--happy-orange) 14%, transparent);
+  /* Find-in-session highlights; yellow is light in both schemes, so ink stays dark. */
+  --happy-find-match: color-mix(in srgb, var(--happy-yellow) 40%, transparent);
+  --happy-find-current: var(--happy-yellow);
+  --happy-on-find: #1c1c1e;
   --happy-purple-tint: color-mix(in srgb, var(--happy-purple) 14%, transparent);
 
   /* Backgrounds, back to front. */

@@ -6,7 +6,7 @@
 // The permission handler is made stable here, so callers may pass a fresh
 // closure on every render.
 import { ChevronDown, CircleAlert, ShieldQuestion } from "lucide-react";
-import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
 import { isAgent, sameBlock, type Block } from "@/lib/sync/chat";
 import { modelLabel } from "@/lib/sync/models";
 import { ImageStrip } from "./images";
@@ -17,6 +17,7 @@ import { AgentCard } from "./tools/agent";
 import { titleOf, viewFor } from "./tools/registry";
 import { Glyph, StepsGroup, ThinkingStep, ToolCard } from "./tools/tool-card";
 import { WorkGroup } from "./work";
+import { useFold } from "./reveal";
 import classes from "./chat.module.css";
 
 export type { PermissionHandler } from "./permission";
@@ -66,10 +67,11 @@ function childrenFor(h: PermissionHandler | undefined) {
 const isLong = (t: string) => t.length > 900 || t.split("\n").length > 16;
 
 function UserMessage({ b }: { b: Extract<Block, { type: "user" }> }) {
-  const [open, setOpen] = useState(false);
+  // A find hit inside a clamped prompt unclamps it.
+  const [open, setOpen] = useFold(b.key);
   const long = isLong(b.text);
   return (
-    <div className={classes.userRow}>
+    <div className={classes.userRow} data-bkey={b.key}>
       <div className={`${classes.userInner} ${classes.hoverable}`} tabIndex={-1}>
         {b.images && <ImageStrip images={b.images} align="end" />}
         {b.text && (
@@ -103,16 +105,16 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
       return <UserMessage b={b} />;
     case "text":
       return (
-        <div className={`${classes.agentText} ${classes.hoverable}`} tabIndex={-1} data-streaming={b.streaming || undefined}>
+        <div className={`${classes.agentText} ${classes.hoverable}`} tabIndex={-1} data-bkey={b.key} data-streaming={b.streaming || undefined}>
           <Markdown text={b.text} streaming={b.streaming} />
           {!b.streaming && <MessageActions at={b.at} text={b.text} model={b.model} />}
         </div>
       );
     case "thinking":
-      return <ThinkingStep text={b.text} />;
+      return <ThinkingStep text={b.text} bkey={b.key} />;
     case "event":
       return (
-        <div className={classes.event} title={b.at ? new Date(b.at).toLocaleString() : undefined}>
+        <div className={classes.event} data-bkey={b.key} title={b.at ? new Date(b.at).toLocaleString() : undefined}>
           <span>{b.text}</span>
         </div>
       );
@@ -139,7 +141,7 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
     case "work":
       return <WorkGroup b={b} renderChildren={childrenFor(onPermission)} />;
     case "steps":
-      return <StepsGroup items={b.items} onPermission={onPermission} />;
+      return <StepsGroup items={b.items} bkey={b.key} onPermission={onPermission} />;
     case "tool":
       if (isAgent(b)) {
         return <AgentCard b={b} onPermission={onPermission} renderChildren={childrenFor(onPermission)} />;

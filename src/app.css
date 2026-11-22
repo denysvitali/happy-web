@@ -14,6 +14,9 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-tap-highlight-color: transparent;
 }
+/* Find in session (CSS Custom Highlight API, painted by chat/find.tsx). */
+::highlight(happy-find) { background-color: var(--happy-find-match); }
+::highlight(happy-find-current) { background-color: var(--happy-find-current); color: var(--happy-on-find); }
 ::selection { background: color-mix(in srgb, var(--happy-accent) 28%, transparent); }
 * { scrollbar-width: thin; scrollbar-color: var(--happy-fill) transparent; }
 /* ---- end base polish ---- */

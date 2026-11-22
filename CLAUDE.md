@@ -60,6 +60,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   Models: Claude's `message.model` (what actually answered, so fallbacks show; never its
   `meta.model`, which is the selected alias), else payload/meta `model`. A change per thread
   is a `model` block that never folds; agent replies show their model on hover.
+- Find in session (Cmd/Ctrl+F or the header button; the list is virtualized, so browser find
+  misses most of it): client-side over loaded history (E2E), "Earlier" pages older in. Hits
+  open their folds (`useFold` in `chat/reveal.ts`); matches are painted with the CSS Custom
+  Highlight API (`::highlight` rules in `app.css`), never by rewriting the DOM.
 - New session "System prompt" (Advanced, Claude only): spawn env `HAPPY_APPEND_SYSTEM_PROMPT`, which the
   daemon passes as `--append-system-prompt`. Not re-sent on provider switch restores.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,

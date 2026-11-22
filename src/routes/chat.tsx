@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button, UnstyledButton, VisuallyHidden } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Archive, ArrowDown, CircleAlert, History, LoaderCircle, MessageSquare, RotateCcw, SearchX, WifiOff } from "lucide-react";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useAccount } from "@/app/auth";
 import { useNow, useSessions, useStore } from "@/app/hooks";
 import { statusOf } from "@/app/status";
@@ -17,6 +17,9 @@ import { SessionHeader, SessionHeaderEmpty } from "@/components/sessions/Session
 import { prefill, ResendContext, sentHistory } from "@/components/chat/draft";
 import { atBottom, jumpLabel, messageCount, unseenCount } from "@/components/chat/scroll";
 import { WorkingRow } from "@/components/chat/working";
+import { FindBar } from "@/components/chat/find";
+import { isFindChord, RevealProvider, useFindHighlight } from "@/components/chat/reveal";
+import { findHits, keepHit, matcher } from "@/components/chat/search";
 import { EmptyState } from "@/ui/EmptyState";
 import classes from "@/components/chat/chat.module.css";
 import type { ChatView, ToolBlock } from "@/lib/sync/chat";
@@ -49,7 +52,30 @@ function Skeleton() {
   );
 }
 
-function Messages({ store, view, onPermission, working, offline }: { store: ChatStore; view: ChatView; onPermission: PermissionHandler; working: boolean; offline: boolean }) {
+/** Find-in-session state owned by the screen (the header toggles it). */
+interface Find {
+  query: string;
+  setQuery: (q: string) => void;
+  close: () => void;
+}
+
+const NO_REVEAL: ReadonlySet<string> = new Set();
+
+function Messages({
+  store,
+  view,
+  onPermission,
+  working,
+  offline,
+  find,
+}: {
+  store: ChatStore;
+  view: ChatView;
+  onPermission: PermissionHandler;
+  working: boolean;
+  offline: boolean;
+  find: Find | null;
+}) {
   const state = useStore(store.state);
   const meta = useStore(store.meta);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -112,17 +138,65 @@ function Messages({ store, view, onPermission, working, offline }: { store: Chat
     requestAnimationFrame(() => fix(2));
   }
 
-  const loadOlder = () => {
+  const loadOlder = (): Promise<void> => {
     const el = parentRef.current;
     const top = el?.getBoundingClientRect().top ?? 0;
     const row = el && [...el.querySelectorAll<HTMLElement>("[data-key]")].find((r) => r.getBoundingClientRect().bottom > top + 1);
     anchor.current = row ? { key: row.dataset.key!, index: Number(row.dataset.index), offset: row.getBoundingClientRect().top - top } : null;
     stick.current = false;
-    void store.loadOlder().finally(() => {
+    return store.loadOlder().finally(() => {
       // Nothing was prepended (error, or already complete): drop the anchor.
       setTimeout(() => (anchor.current = null), 1000);
     });
   };
+
+  // ---- find in session: hits are leaf blocks in transcript order; the
+  // current one is tracked by key so new messages or older pages keep it.
+  const query = find?.query ?? "";
+  const re = useMemo(() => matcher(query), [query]);
+  const hits = useMemo(() => findHits(blocks, re), [blocks, re]);
+  // Picks and seeks belong to the query they were made for.
+  const [picked, setPicked] = useState<{ query: string; key: string }>();
+  const hitKey = picked?.query === query ? picked.key : undefined;
+  const setHitKey = (key: string) => setPicked({ query, key });
+  const cur = keepHit(hits, hitKey);
+  const hit = hits[cur];
+  const reveal = useMemo(() => (hit ? new Set(hit.path) : NO_REVEAL), [hit]);
+  useFindHighlight(parentRef, re, hit?.key);
+  useEffect(() => {
+    if (!hit) return;
+    stick.current = false;
+    v.scrollToIndex(hit.row, { align: "center" });
+    // Folds open and rows re-measure over the next frames; settle on the leaf.
+    let n = 3;
+    const settle = () => {
+      parentRef.current?.querySelector(`[data-bkey="${CSS.escape(hit.key)}"]`)?.scrollIntoView({ block: "center" });
+      if (--n > 0) requestAnimationFrame(settle);
+    };
+    requestAnimationFrame(settle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hit?.key, v]);
+  // "Earlier": page older history in until a match older than `from` shows up.
+  const [seeking, setSeek] = useState<{ query: string; from: string | undefined } | null>(null);
+  const seek = seeking?.query === query ? seeking : null;
+  const [pages, setPages] = useState(0);
+  const paging = useRef(false);
+  useEffect(() => {
+    if (!seek || paging.current) return;
+    const at = seek.from ? hits.findIndex((h) => h.key === seek.from) : hits.length;
+    if (at > 0) {
+      setHitKey(hits[at - 1]!.key);
+      setSeek(null);
+    } else if (meta.firstSeq <= 1 || meta.error) setSeek(null);
+    else {
+      paging.current = true;
+      void loadOlder().finally(() => {
+        paging.current = false;
+        setPages((p) => p + 1);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seek, hits, pages, meta.firstSeq, meta.error]);
 
   const jump = useCallback(() => {
     stick.current = true;
@@ -168,6 +242,7 @@ function Messages({ store, view, onPermission, working, offline }: { store: Chat
         onScroll={(e) => onScroll(e.currentTarget)}
       >
         <div className={`${classes.column} ${classes.transcript}`}>
+          {find && <div className={classes.findRoom} />}
           {meta.firstSeq > 1 && !meta.loading && (
             <div className={classes.center}>
               <UnstyledButton className={classes.pillButton} onClick={loadOlder}>
@@ -205,7 +280,9 @@ function Messages({ store, view, onPermission, working, offline }: { store: Chat
                   data-gap={gapOf(blocks[item.index - 1], b)}
                   style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${item.start}px)` }}
                 >
-                  <BlockView b={b} onPermission={onPermission} />
+                  <RevealProvider value={hit?.row === item.index ? reveal : NO_REVEAL}>
+                    <BlockView b={b} onPermission={onPermission} />
+                  </RevealProvider>
                 </div>
               );
             })}
@@ -224,11 +301,30 @@ function Messages({ store, view, onPermission, working, offline }: { store: Chat
           )}
         </div>
       </div>
-      {offline && (
+      {(find || offline) && (
         <div className={classes.floatTop}>
-          <div className={classes.notice} role="status">
-            <WifiOff size={13} /> Offline · reconnecting…
-          </div>
+          {find && (
+            <FindBar
+              query={find.query}
+              onQuery={find.setQuery}
+              index={hit ? hits.length - 1 - cur : -1}
+              total={hits.length}
+              more={meta.firstSeq > 1}
+              loading={!!seek}
+              onOlder={() => cur > 0 && setHitKey(hits[cur - 1]!.key)}
+              onNewer={() => cur < hits.length - 1 && setHitKey(hits[cur + 1]!.key)}
+              onLoadMore={() => !seek && setSeek({ query, from: hits[0]?.key })}
+              onClose={() => {
+                find.close();
+                parentRef.current?.focus();
+              }}
+            />
+          )}
+          {offline && (
+            <div className={classes.notice} role="status">
+              <WifiOff size={13} /> Offline · reconnecting…
+            </div>
+          )}
         </div>
       )}
       {showJump && (
@@ -329,6 +425,32 @@ export function ChatScreen() {
   const starting = useStore(account.spawning).get(sessionId);
   const sid = session?.id;
   const resend = useCallback((text: string) => sid && prefill(sid, text), [sid]);
+  // Find stays with the session it was opened in.
+  const [findIn, setFindIn] = useState<{ sid: string; query: string } | null>(null);
+  const findQuery = findIn?.sid === sessionId ? findIn.query : null;
+  const setFindQuery = useCallback(
+    (next: (q: string | null) => string | null) =>
+      setFindIn((f) => {
+        const q = next(f?.sid === sessionId ? f.query : null);
+        return q === null ? null : { sid: sessionId, query: q };
+      }),
+    [sessionId],
+  );
+  const find = useMemo<Find | null>(
+    () => (findQuery === null ? null : { query: findQuery, setQuery: (q) => setFindQuery(() => q), close: () => setFindQuery(() => null) }),
+    [findQuery, setFindQuery],
+  );
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!isFindChord(e) || document.querySelector('[role="dialog"], [role="menu"]')) return;
+      // The transcript is virtualized, so the browser's own find misses most of it.
+      e.preventDefault();
+      setFindQuery((q) => q ?? "");
+      requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[role="search"] input')?.select());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setFindQuery]);
 
   const run = async (fn: () => Promise<unknown>) => {
     try {
@@ -374,11 +496,11 @@ export function ChatScreen() {
 
   return (
     <>
-      <SessionHeader session={session} status={status} />
+      <SessionHeader session={session} status={status} onFind={() => setFindQuery((q) => (q === null ? "" : null))} />
       <ResendContext.Provider value={session.archived ? null : resend}>
         {store && view ? (
           <AgentSession.Provider value={session.id}>
-            <Messages store={store} view={view} onPermission={onPermission} working={status === "thinking"} offline={offline} />
+            <Messages store={store} view={view} onPermission={onPermission} working={status === "thinking"} offline={offline} find={find} />
           </AgentSession.Provider>
         ) : (
           <div className={classes.scroller}>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Block } from "@/lib/sync/chat";
 import { getDraft, onPrefill, prefill, recall, sentHistory, setDraft } from "./draft";
 import { jumpLabel, messageCount, unseenCount } from "./scroll";
+import { findHits, keepHit, matcher, matchRanges } from "./search";
 import { imageFilename, lineCount, numberRows, plainText } from "./text";
 
 const t = (key: string, text = key): Block => ({ type: "text", key, text }) as Block;
@@ -80,5 +81,35 @@ describe("text helpers", () => {
     expect(rows.map((r) => ("n" in r ? r.n : undefined))).toEqual([10, undefined, 11, undefined, 15]);
     const patch = numberRows([{ op: " ", text: "@@ -1,2 +40,2 @@" }, { op: " ", text: "x" }]);
     expect(patch[1]).toMatchObject({ n: 40 });
+  });
+});
+
+describe("find in session", () => {
+  const tool = { type: "tool", key: "tool", id: "1", name: "Bash", input: { command: "pnpm test --run" }, children: [] } as unknown as Block;
+  const steps = { type: "steps", key: "steps:tool", items: [tool, { type: "thinking", key: "th", text: "Run the TESTS" }] } as unknown as Block;
+  const work = { type: "work", key: "work:x", items: [t("w1", "fixing tests"), steps] } as unknown as Block;
+  const agent = { type: "tool", key: "ag", id: "2", name: "Agent", input: {}, children: [t("child", "tests inside")] } as unknown as Block;
+  const blocks = [u("u1", "please run the Tests"), work, agent, t("t2", "no match"), t("t3", "all tests pass")];
+
+  it("matches literally and case-insensitively; blank finds nothing", () => {
+    expect(matcher("  ")).toBeNull();
+    expect(matchRanges("a.b axb A.B", matcher("a.b")!)).toEqual([
+      [0, 3],
+      [8, 11],
+    ]);
+  });
+
+  it("walks folds in transcript order with their path, not sub-agents", () => {
+    const hits = findHits(blocks, matcher("test"));
+    expect(hits.map((h) => h.key)).toEqual(["u1", "w1", "tool", "th", "t3"]);
+    expect(hits.find((h) => h.key === "th")).toEqual({ row: 1, key: "th", path: ["work:x", "steps:tool", "th"] });
+    expect(hits.at(-1)!.row).toBe(4);
+  });
+
+  it("keeps the current hit across updates, else lands on the newest", () => {
+    const hits = findHits(blocks, matcher("test"));
+    expect(keepHit(hits, "w1")).toBe(1);
+    expect(keepHit(hits, "gone")).toBe(hits.length - 1);
+    expect(keepHit([], undefined)).toBe(-1);
   });
 });

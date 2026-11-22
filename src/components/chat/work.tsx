@@ -2,9 +2,10 @@
 // commands, edited 3 files"), above the final reply. Expands in place.
 import { UnstyledButton } from "@mantine/core";
 import { ChevronRight, ListTree } from "lucide-react";
-import { memo, useState, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { sameBlock, type Block } from "@/lib/sync/chat";
 import { workSummary } from "./tools/steps";
+import { useFold } from "./reveal";
 import classes from "./chat.module.css";
 
 type Work = Extract<Block, { type: "work" }>;
@@ -19,7 +20,7 @@ function took(ms: number): string {
 
 export const WorkGroup = memo(
   function WorkGroup({ b, renderChildren }: { b: Work; renderChildren: (blocks: Block[]) => ReactNode }) {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useFold(b.key);
     const { summary, failed } = workSummary(b.items);
     const time = b.from && b.to && b.to - b.from >= 1000 ? took(b.to - b.from) : "";
     return (

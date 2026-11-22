@@ -36,6 +36,7 @@ export const SHORTCUT_GROUPS: {
     title: "Sessions",
     items: [
       { keys: ["/"], label: "Search sessions" },
+      { keys: ["⌘", "F"], label: "Find in the open session (Ctrl F on Windows and Linux)" },
       { keys: ["N"], label: "New session" },
       { keys: ["["], label: "Previous session" },
       { keys: ["]"], label: "Next session" },

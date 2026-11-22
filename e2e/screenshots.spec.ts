@@ -243,6 +243,23 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(200);
       await shot(page, "14e-ops-draft-dark");
       await page.emulateMedia({ colorScheme: "light" });
+      // Find in session: Cmd/Ctrl+F; a hit inside folded work opens its folds.
+      await page.getByLabel("Message").fill("");
+      await page.locator('[aria-label="Conversation"]').click({ position: { x: 4, y: 4 } });
+      await page.keyboard.press("ControlOrMeta+f");
+      await page.getByRole("searchbox", { name: "Find in session" }).fill("mkinitfs");
+      await expect(page.getByText(/^1 of \d+$/)).toBeVisible();
+      await page.keyboard.press("Enter");
+      await expect(page.getByText(/^2 of \d+$/)).toBeVisible();
+      await page.waitForTimeout(400);
+      await shot(page, "14f-ops-find");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "14g-ops-find-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("search")).toHaveCount(0);
       await page.goto("/#/s/s4");
       await expect(page.getByRole("button", { name: "Unarchive" })).toBeVisible();
       await page.waitForTimeout(300);

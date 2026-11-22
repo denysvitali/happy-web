@@ -26,7 +26,7 @@
 .scroller:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--happy-accent); }
 .floatBottom, .floatTop { position: absolute; left: 0; right: 0; z-index: 4; display: flex; justify-content: center; pointer-events: none; }
 .floatBottom { bottom: 12px; }
-.floatTop { top: 10px; }
+.floatTop { top: 10px; flex-direction: column; align-items: center; gap: 8px; padding: 0 12px; }
 .floatBottom > *, .floatTop > * { pointer-events: auto; }
 .jump {
   display: inline-flex;
@@ -63,6 +63,59 @@
   color: var(--happy-label-2);
 }
 .notice > svg { color: var(--happy-orange); }
+
+/* Find in session: a floating bar over the top of the transcript. */
+.find {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: min(560px, 100%);
+  padding: 5px 5px 5px 6px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-material-raised);
+  backdrop-filter: var(--happy-backdrop);
+  -webkit-backdrop-filter: var(--happy-backdrop);
+  box-shadow: var(--happy-shadow-md);
+  animation: pop var(--happy-dur) var(--happy-ease-out);
+}
+.findField { flex: 1; min-width: 0; }
+.findCount {
+  flex-shrink: 0;
+  padding: 0 6px;
+  font-size: var(--happy-text-footnote);
+  font-variant-numeric: tabular-nums;
+  color: var(--happy-label-2);
+  white-space: nowrap;
+}
+.findCount:empty { display: none; }
+.findMore {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-accent-tint);
+  color: var(--happy-accent);
+  font-size: var(--happy-text-footnote);
+  font-weight: 600;
+}
+.findMore:hover:not(:disabled) { background: var(--happy-accent-tint-hover); }
+.findBtn {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--happy-radius-pill);
+  color: var(--happy-label-2);
+}
+.findBtn:hover:not(:disabled) { background: var(--happy-hover); color: var(--happy-label); }
+.findBtn:disabled { opacity: 0.35; }
+.findBtn:focus-visible, .findMore:focus-visible { outline: none; box-shadow: var(--happy-focus-ring); }
+.findRoom { height: 48px; }
+@media (prefers-reduced-motion: reduce) { .find { animation: none; } }
 
 /* Working row: pinned to the bottom of the (padded) virtual list. */
 .working {
