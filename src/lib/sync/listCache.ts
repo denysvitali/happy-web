@@ -10,10 +10,13 @@ import { z } from "zod/mini";
 import { sessionRow, type SessionRow } from "../api/schemas";
 import { tx } from "../auth/storage";
 
-/** A full listing at least this often, so rows deleted elsewhere drop out. */
-export const FULL_SYNC_MS = 60 * 60_000;
+/** A full listing at most this often, so rows deleted while this browser was
+ * away drop out. It is the expensive call (~4 KB of encrypted metadata per
+ * session, all pages), and the socket reports deletions while connected;
+ * a ghost row also drops when its chat opens (404). */
+export const FULL_SYNC_MS = 24 * 60 * 60_000;
 /** Deltas reach back this far before the newest row seen: commits can land out of order. */
-export const DELTA_OVERLAP_MS = 5 * 60_000;
+export const DELTA_OVERLAP_MS = 60_000;
 
 export interface ListState {
   rows: Map<string, SessionRow>;

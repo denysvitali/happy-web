@@ -4,6 +4,7 @@
 import type { DescMessage, JsonObject, MessageInitShape, MessageShape } from "@bufbuild/protobuf";
 import type { QueryClient } from "@tanstack/react-query";
 import { ApiClient } from "../api/client";
+import { HttpError } from "../api/http";
 import type { Ephemeral, MachineRow, SessionRow, UpdateBody } from "../api/schemas";
 import { encodeBase64 } from "../crypto/base64";
 import { createCipher, type Cipher } from "../crypto/cipher";
@@ -111,6 +112,7 @@ export class Account {
   /** Server rows behind the session list (see listCache.ts). */
   private list: ListState = emptyList();
   private hydration: Promise<void> | undefined;
+  private listRefresh: Promise<void> | undefined;
   private readonly listOwner: string;
 
   constructor(
@@ -265,6 +267,23 @@ export class Account {
     return byActivity(items);
   }
 
+  /** Coalesces list refreshes (new-session bursts, reconnects, spawns) into
+   * one fetch after `delayMs`, queued behind a running one rather than
+   * cancelling it: a cancelled full listing restarts from its first page. */
+  private refreshList(delayMs = 300): Promise<void> {
+    this.listRefresh ??= new Promise<void>((resolve) => {
+      setTimeout(() => {
+        const run = async () => {
+          while (this.qc.isFetching({ queryKey: sessionsKey })) await new Promise((r) => setTimeout(r, 200));
+          this.listRefresh = undefined;
+          await this.qc.invalidateQueries({ queryKey: sessionsKey }).catch(() => undefined);
+        };
+        void run().then(resolve);
+      }, delayMs);
+    });
+    return this.listRefresh;
+  }
+
   /** Persists the rows with the message stamps the socket has moved since. */
   private saveList(items: readonly SessionItem[] | undefined = this.qc.getQueryData<SessionItem[]>(sessionsKey)): void {
     if (!this.list.fullAt) return;
@@ -284,9 +303,13 @@ export class Account {
     if (this.list.rows.delete(id)) this.saveList();
   }
 
-  /** The chat needs a dead session's agentState, which the lite list omits. */
+  /** The chat needs a dead session's agentState, which the lite list omits.
+   * A 404 means it was deleted while this tab was away (deltas can't say). */
   private async loadAgentState(id: string): Promise<void> {
-    const r = await this.api.getSession(id).catch(() => null);
+    const r = await this.api.getSession(id).catch((e: unknown) => {
+      if (e instanceof HttpError && e.status === 404) this.forgetRow(id);
+      return null;
+    });
     if (!r) return;
     const c = await this.cipherFor(r.id, r.dataEncryptionKey);
     const state = r.agentState ? agentStateSchema.parse(await c.decrypt(r.agentState).catch(() => ({}))) : {};
@@ -412,7 +435,7 @@ export class Account {
     if (!reconnect) return;
     void this.folders.load();
     void this.reads.load();
-    void this.qc.invalidateQueries({ queryKey: sessionsKey });
+    void this.refreshList();
     void this.qc.invalidateQueries({ queryKey: machinesKey });
     for (const { store } of this.chats.values()) void store.catchUp();
   }
@@ -439,7 +462,7 @@ export class Account {
       case "update-session": {
         const cipher = this.knownCipher(b.id);
         if (!cipher) {
-          void this.qc.invalidateQueries({ queryKey: sessionsKey });
+          void this.refreshList();
           return;
         }
         const c = await cipher;
@@ -465,7 +488,8 @@ export class Account {
       case "new-session":
       case "new-machine":
       case "machine-deleted":
-        void this.qc.invalidateQueries({ queryKey: b.t === "new-session" ? sessionsKey : machinesKey });
+        if (b.t === "new-session") void this.refreshList();
+        else void this.qc.invalidateQueries({ queryKey: machinesKey });
         return;
       case "kv-batch-update":
         for (const c of b.changes) {
@@ -666,7 +690,7 @@ export class Account {
         await new Promise((r) => setTimeout(r, 5000));
         const found = await this.api.getSession(sessionId).catch(() => null);
         if (found) {
-          void this.qc.invalidateQueries({ queryKey: sessionsKey });
+          void this.refreshList();
           return sessionId;
         }
       }
@@ -686,13 +710,13 @@ export class Account {
   private watchSpawn(id: string, kubernetes: boolean): void {
     const startedAt = Date.now();
     this.spawning.update((m) => new Map(m).set(id, { startedAt, kubernetes }));
-    void this.qc.invalidateQueries({ queryKey: sessionsKey });
+    void this.refreshList();
     const poll = async () => {
       while (this.spawning.get().has(id)) {
         if (Date.now() - startedAt > SPAWN_WAIT_MS) return this.settleSpawns([id]);
         await new Promise((r) => setTimeout(r, 2000));
         if (await this.api.getSession(id).then(() => true, () => false)) {
-          await this.qc.refetchQueries({ queryKey: sessionsKey });
+          await this.refreshList(0);
           return this.settleSpawns([id]);
         }
       }
@@ -728,7 +752,7 @@ export class Account {
     if (res.type === "error") throw new RpcError(res.errorMessage || "switch failed");
     if (res.type !== "success") throw new RpcError(`unexpected spawn result: ${res.type}`);
     if (res.sessionId && res.sessionId !== session.id) throw new RpcError("the daemon restarted a different session");
-    void this.qc.invalidateQueries({ queryKey: sessionsKey });
+    void this.refreshList();
   }
 
   stopSession(machineId: string, sessionId: string) {

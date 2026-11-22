@@ -107,8 +107,10 @@ document they can't read or whose `v` is newer. happy_flutter does not use it ye
 **Session list sync** (`src/lib/sync/listCache.ts`): the lite `GET /v2/sessions?omit=lastMessage,agentState`
 plus `GET /v2/sessions/active` (full rows of live sessions: pending approvals, last-message
 time). Rows are cached in IndexedDB, so a reload paints at once and refetches only
-`changedSince` the newest row seen; a full listing runs at most hourly, because deltas never
-report deletions and new messages don't move `updatedAt`. Dead sessions' agentState is
+`changedSince` the newest row seen. A full listing (~4 KB of encrypted metadata per
+session) runs at most daily, because deltas never report deletions; the socket reports them
+while connected, and a ghost row drops when its chat 404s. Refreshes are coalesced and never
+cancel a running listing. Dead sessions' agentState is
 loaded when their chat opens.
 
 A socket that slept or switched networks still reads "connected" until the engine's
@@ -156,7 +158,7 @@ The server wins wherever they disagree. Found while building this client:
     have. This client writes `name` (and `summary`) through
     `POST /v1/sessions/:id/metadata` with `expectedVersion`, retrying on version mismatch.
 12. **No archived filter on `/v2/sessions`.** All sessions (archived included) are
-    downloaded and decrypted on a full listing (lite rows, at most hourly; deltas in between).
+    downloaded and decrypted on a full listing (lite rows, at most daily; deltas in between).
 13. **Codex speed on Claude spawns.** Flutter stamps `HAPPY_CODEX_FAST_MODE` on every
     spawn; on Claude it is meaningless and, as a non-switchable key, forced every
     Kubernetes provider switch into a full Pod replacement. The daemon now strips it
