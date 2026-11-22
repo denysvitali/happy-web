@@ -118,6 +118,27 @@ for (const vp of VIEWPORTS) {
   });
 }
 
+test("a reload paints the cached list, then asks only for a lite delta", async ({ page }) => {
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  await expect(page.getByText("Fix flaky login test").first()).toBeVisible();
+  const lists: URL[] = [];
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((r) => (release = r));
+  await page.route(`${MOCK_SERVER}/v2/sessions?*`, async (route) => {
+    lists.push(new URL(route.request().url()));
+    await gate;
+    return route.fallback();
+  });
+  await page.reload();
+  await expect(page.getByText("Fix flaky login test").first()).toBeVisible();
+  expect(lists).toHaveLength(1);
+  expect(lists[0]!.searchParams.get("omit")).toBe("lastMessage,agentState");
+  expect(Number(lists[0]!.searchParams.get("changedSince"))).toBeGreaterThan(0);
+  release();
+});
+
 test.describe("phone push navigation", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

@@ -2,6 +2,7 @@ import { z } from "zod/mini";
 import { HttpError, requestJson, type RequestOptions } from "./http";
 import {
   accountSettingsResponse,
+  activeSessionsResponse,
   kvEntryResponse,
   machinesResponse,
   messagesV3Response,
@@ -23,17 +24,26 @@ export class ApiClient {
     return schema.parse(await requestJson(this.baseUrl, path, { ...opts, token: this.token }));
   }
 
-  /** Pages through GET /v2/sessions. */
-  async listSessions(signal?: AbortSignal): Promise<SessionRow[]> {
+  /** Pages through the lite GET /v2/sessions: no lastMessage or agentState
+   * (servers without `omit` send them anyway). `changedSince` (server ms)
+   * returns only rows whose updatedAt is newer; it never reports deletions,
+   * and new messages do not move updatedAt. */
+  async listSessions(opts: { changedSince?: number | undefined; signal?: AbortSignal | undefined } = {}): Promise<SessionRow[]> {
     const out: SessionRow[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < 40; page++) {
-      const res = await this.get(sessionsV2Response, "/v2/sessions", { query: { limit: 100, cursor }, signal });
+      const query = { limit: 200, cursor, changedSince: opts.changedSince, omit: "lastMessage,agentState" };
+      const res = await this.get(sessionsV2Response, "/v2/sessions", { query, signal: opts.signal });
       out.push(...res.sessions);
       if (!res.hasNext || !res.nextCursor) break;
       cursor = res.nextCursor;
     }
     return out;
+  }
+
+  /** Full rows (agentState, last message) of sessions alive in the last 15 minutes. */
+  async listActiveSessions(signal?: AbortSignal): Promise<SessionRow[]> {
+    return (await this.get(activeSessionsResponse, "/v2/sessions/active", { query: { limit: 200 }, signal })).sessions;
   }
 
   async getSession(id: string, signal?: AbortSignal): Promise<SessionRow> {

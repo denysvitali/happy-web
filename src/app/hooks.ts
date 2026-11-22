@@ -14,7 +14,8 @@ export function useSessions() {
   return useQuery<SessionItem[]>({
     queryKey: sessionsKey,
     queryFn: ({ signal }) => account.fetchSessions(signal),
-    staleTime: 60_000,
+    // The socket keeps it current and reconnects refetch; a refetch is a cheap delta.
+    staleTime: 5 * 60_000,
   });
 }
 

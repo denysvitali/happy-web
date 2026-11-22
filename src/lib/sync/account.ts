@@ -5,6 +5,7 @@ import type { DescMessage, JsonObject, MessageInitShape, MessageShape } from "@b
 import type { QueryClient } from "@tanstack/react-query";
 import { ApiClient } from "../api/client";
 import type { Ephemeral, MachineRow, SessionRow, UpdateBody } from "../api/schemas";
+import { encodeBase64 } from "../crypto/base64";
 import { createCipher, type Cipher } from "../crypto/cipher";
 import type { AccountKeys } from "../crypto/keys";
 import { Realtime, RpcError, type RealtimeStatus } from "../realtime/socket";
@@ -24,6 +25,7 @@ import { fileType, type FileEntry } from "./files";
 import { decodeAccountSettings, EMPTY_SETTINGS, type AccountSettings, type ProviderSpawn } from "./profiles";
 import { buildProviderSwitchRequest, buildSpawnRequest, newSessionId, parseRepoBranchesReply, type RepoBranches, type SpawnOptions } from "./spawn";
 import { InboxTriage, localTriageStorage } from "./inbox";
+import { changedSinceFor, emptyList, loadListCache, mergeRows, saveListCache, type ListState } from "./listCache";
 import { Store } from "./store";
 import { newerEntry, READ_KV_KEY, ReadSync } from "./readSync";
 import { isReply, localSeenStorage, parseSeen, Unread } from "./unread";
@@ -44,6 +46,9 @@ export interface SessionItem {
   metadataVersion: number;
   agentState: AgentState;
   agentStateVersion: number;
+  /** False when the lite list left agentState out (dead sessions); the chat
+   * loads it on open, since its completed permissions annotate the transcript. */
+  agentStateLoaded?: boolean;
   undecryptable: boolean;
 }
 
@@ -81,6 +86,8 @@ export interface Spawning {
  * image pull, clone). */
 const SPAWN_WAIT_MS = 5 * 60_000;
 
+const byActivity = (items: SessionItem[]) => items.sort((a, b) => activityAt(b) - activityAt(a));
+
 export class Account {
   readonly api: ApiClient;
   readonly realtime: Realtime;
@@ -101,6 +108,10 @@ export class Account {
   private machineCiphers = new Map<string, Cipher>();
   readonly folders: FolderSync;
   private chats = new Map<string, { store: ChatStore; refs: number }>();
+  /** Server rows behind the session list (see listCache.ts). */
+  private list: ListState = emptyList();
+  private hydration: Promise<void> | undefined;
+  private readonly listOwner: string;
 
   constructor(
     readonly serverUrl: string,
@@ -109,6 +120,7 @@ export class Account {
     private readonly qc: QueryClient,
   ) {
     this.api = new ApiClient(serverUrl, token);
+    this.listOwner = `${serverUrl}|${encodeBase64(keys.content.publicKey)}`;
     this.reads = new ReadSync(this.api, keys.secret, {
       local: () => ({ seen: { ...this.unread.snapshot() }, inbox: Object.fromEntries(this.inbox.states.get()) }),
       apply: (d) => {
@@ -138,6 +150,7 @@ export class Account {
   }
 
   start(): void {
+    this.hydration ??= this.hydrate();
     this.realtime.start();
     document.addEventListener("visibilitychange", this.onVisible);
     window.addEventListener("storage", this.onStorage);
@@ -204,23 +217,80 @@ export class Account {
       metadataVersion: r.metadataVersion,
       agentState,
       agentStateVersion: r.agentStateVersion,
+      agentStateLoaded: !!r.agentState,
+      lastMessage: r.lastMessage ? { seq: r.lastMessage.seq, at: r.lastMessage.createdAt } : undefined,
       undecryptable,
     };
   }
 
+  /** Paints the cached list before the first fetch returns. */
+  private async hydrate(): Promise<void> {
+    const cached = await loadListCache(this.listOwner).catch(() => null);
+    if (!cached) return;
+    this.list = cached;
+    if (this.qc.getQueryData(sessionsKey)) return;
+    const items = await Promise.all([...cached.rows.values()].map((r) => this.decodeSession(r)));
+    if (!this.qc.getQueryData(sessionsKey)) this.qc.setQueryData(sessionsKey, byActivity(items));
+  }
+
+  /** A delta since the newest row seen (a full lite listing when the cache is
+   * empty or due, see FULL_SYNC_MS), plus the live sessions' full rows. */
   async fetchSessions(signal?: AbortSignal): Promise<SessionItem[]> {
-    const rows = await this.api.listSessions(signal);
-    const items = await Promise.all(rows.map((r) => this.decodeSession(r)));
-    // Keep message stamps that are still current so refetches don't flicker.
-    const prev = new Map((this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? []).map((s) => [s.id, s.lastMessage]));
-    for (const it of items) {
-      const m = prev.get(it.id);
-      if (m && m.seq === it.lastSeq) it.lastMessage = m;
-    }
+    await (this.hydration ??= this.hydrate());
+    const startedAt = Date.now();
+    const changedSince = changedSinceFor(this.list, startedAt);
+    const [listed, live] = await Promise.all([
+      this.api.listSessions({ changedSince, signal }),
+      this.api.listActiveSessions(signal).catch(() => null),
+    ]);
+    const full = changedSince === undefined;
+    this.list = { rows: mergeRows(this.list.rows, listed, live, full), fullAt: full ? startedAt : this.list.fullAt };
+    const touched = new Set([...listed, ...(live ?? [])].map((r) => r.id));
+    const current = new Map((this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? []).map((s) => [s.id, s]));
+    const items = await Promise.all(
+      [...this.list.rows.values()].map(async (r) => {
+        const cur = current.get(r.id);
+        if (cur && !touched.has(r.id)) return cur;
+        const it = await this.decodeSession(r);
+        // The socket may be ahead of the listing (new messages do not move updatedAt).
+        if (cur && (cur.lastSeq ?? 0) > (it.lastSeq ?? 0)) it.lastSeq = cur.lastSeq;
+        if (cur?.lastMessage && cur.lastMessage.seq > (it.lastMessage?.seq ?? 0)) it.lastMessage = cur.lastMessage;
+        return it;
+      }),
+    );
     void this.stampLastMessages(items);
     void this.countUnread(items);
     this.settleSpawns(items.map((s) => s.id));
-    return items.sort((a, b) => activityAt(b) - activityAt(a));
+    this.saveList(items);
+    return byActivity(items);
+  }
+
+  /** Persists the rows with the message stamps the socket has moved since. */
+  private saveList(items: readonly SessionItem[] | undefined = this.qc.getQueryData<SessionItem[]>(sessionsKey)): void {
+    if (!this.list.fullAt) return;
+    const byId = new Map((items ?? []).map((s) => [s.id, s]));
+    const rows = [...this.list.rows.values()].map((r) => {
+      const it = byId.get(r.id);
+      if (!it?.lastSeq || it.lastSeq <= (r.lastSeq ?? 0)) return r;
+      const m = it.lastMessage;
+      return { ...r, lastSeq: it.lastSeq, lastMessage: m && m.seq > (r.lastMessage?.seq ?? 0) ? { seq: m.seq, createdAt: m.at } : r.lastMessage };
+    });
+    void saveListCache(this.listOwner, this.list.fullAt, rows).catch(() => undefined);
+  }
+
+  /** Drops a deleted session (deltas never report deletions). */
+  private forgetRow(id: string): void {
+    this.qc.setQueryData<SessionItem[]>(sessionsKey, (l) => l?.filter((s) => s.id !== id));
+    if (this.list.rows.delete(id)) this.saveList();
+  }
+
+  /** The chat needs a dead session's agentState, which the lite list omits. */
+  private async loadAgentState(id: string): Promise<void> {
+    const r = await this.api.getSession(id).catch(() => null);
+    if (!r) return;
+    const c = await this.cipherFor(r.id, r.dataEncryptionKey);
+    const state = r.agentState ? agentStateSchema.parse(await c.decrypt(r.agentState).catch(() => ({}))) : {};
+    this.patchSession(id, (s) => (r.agentStateVersion >= s.agentStateVersion ? { ...s, agentState: state, agentStateVersion: r.agentStateVersion, agentStateLoaded: true } : s));
   }
 
   /** Reads each live session's newest message time (one row per session,
@@ -251,7 +321,10 @@ export class Account {
   private onOnline = (): void => this.realtime.nudge();
 
   private onVisible = (): void => {
-    if (document.visibilityState !== "visible") return void this.reads.flush();
+    if (document.visibilityState !== "visible") {
+      this.saveList();
+      return void this.reads.flush();
+    }
     this.realtime.nudge();
     const list = this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? [];
     for (const s of list) if (this.chats.has(s.id)) this.unread.markSeen(s.id, s.lastSeq);
@@ -361,7 +434,7 @@ export class Account {
         this.patchSession(b.sid, (s) => ({ ...s, archived: b.archived, active: b.archived ? false : s.active }));
         return;
       case "delete-session":
-        this.qc.setQueryData<SessionItem[]>(sessionsKey, (l) => l?.filter((s) => s.id !== b.sid));
+        this.forgetRow(b.sid);
         return;
       case "update-session": {
         const cipher = this.knownCipher(b.id);
@@ -463,6 +536,7 @@ export class Account {
       entry = { store: new ChatStore(session.id, this.api, cipher), refs: 0 };
       this.chats.set(session.id, entry);
       void entry.store.open(session.lastSeq);
+      if (!session.agentStateLoaded) void this.loadAgentState(session.id);
     }
     entry.refs++;
     if (this.viewing(session.id)) this.unread.markSeen(session.id, session.lastSeq);
@@ -693,7 +767,7 @@ export class Account {
     } catch (e) {
       if (!(e instanceof Error && "status" in e && e.status === 404)) throw e;
     }
-    this.qc.setQueryData<SessionItem[]>(sessionsKey, (l) => l?.filter((s) => s.id !== session.id));
+    this.forgetRow(session.id);
     const filed = this.folders.state.get().doc;
     if (filed.sessions[session.id] || Object.values(filed.folders).some((f) => f.anchor === session.id)) {
       void this.folders.update((d) => forgetSession(d, session.id)).catch(() => undefined);

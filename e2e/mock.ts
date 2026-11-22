@@ -170,6 +170,7 @@ export function createMock() {
       }
       expect(req.headers().authorization).toBe("Bearer test-token");
       if (url.pathname === "/v2/sessions") return json({ sessions, nextCursor: null, hasNext: false });
+      if (url.pathname === "/v2/sessions/active") return json({ sessions: sessions.filter((s) => s.active && !s.archived) });
       if (url.pathname === "/v1/machines") return json(machines);
       const kvKey = url.pathname.match(/^\/v1\/kv\/(.+)$/);
       if (kvKey && req.method() === "GET") {

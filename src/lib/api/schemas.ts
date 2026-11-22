@@ -51,6 +51,9 @@ export const sessionRow = z.object({
   createdAt: ms,
   updatedAt: ms,
   lastSeq: z.optional(int),
+  /** Only its seq and time are kept (the content is dropped on parse). The
+   * lite list (omit=lastMessage) leaves it out; /v2/sessions/active has it. */
+  lastMessage: z.nullish(z.object({ seq: int, createdAt: ms })),
 });
 export type SessionRow = z.infer<typeof sessionRow>;
 
@@ -59,6 +62,8 @@ export const sessionsV2Response = z.object({
   nextCursor: z.nullish(z.string()),
   hasNext: z.boolean(),
 });
+
+export const activeSessionsResponse = z.object({ sessions: z.array(sessionRow) });
 
 export const sessionResponse = z.object({ session: sessionRow });
 

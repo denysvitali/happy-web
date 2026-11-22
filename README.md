@@ -64,7 +64,8 @@ Then open the Happy app → **Settings → Account → Link New Device** and sca
   key) or legacy NaCl secretbox. Both paths are tested against vectors produced by the Go
   code and by Flutter's own key derivation.
 - **Storage.** The master secret and token live in IndexedDB only, never in URLs,
-  `localStorage` or logs. **Forget this device** deletes the database.
+  `localStorage` or logs. The same database caches the session list as the server's
+  ciphertext rows (never decrypted data). **Forget this device** deletes the database.
 - **CSP** (meta tag): `default-src 'self'`, `script-src 'self'`, `style-src 'self'`,
   `connect-src` limited to `https:`/`wss:` and narrowed at startup to the configured server
   origin. No inline scripts or styles, no CDNs, no analytics. Mantine runs without runtime
@@ -102,6 +103,13 @@ It merges without coordination: `seen` takes the max per session, `inbox` keeps 
 with the newest `at` (ms; a cleared entry stays as `{ "at": … }`). Writers re-apply on a
 409, drop sessions they no longer list, keep at most 2000 Inbox entries, and never write a
 document they can't read or whose `v` is newer. happy_flutter does not use it yet.
+
+**Session list sync** (`src/lib/sync/listCache.ts`): the lite `GET /v2/sessions?omit=lastMessage,agentState`
+plus `GET /v2/sessions/active` (full rows of live sessions: pending approvals, last-message
+time). Rows are cached in IndexedDB, so a reload paints at once and refetches only
+`changedSince` the newest row seen; a full listing runs at most hourly, because deltas never
+report deletions and new messages don't move `updatedAt`. Dead sessions' agentState is
+loaded when their chat opens.
 
 Realtime events are never trusted to be gapless. Every (re)connect and every seq gap
 triggers a catch-up from `GET /v3/sessions/:id/messages?after_seq=`. Sends are idempotent
@@ -143,8 +151,7 @@ The server wins wherever they disagree. Found while building this client:
     have. This client writes `name` (and `summary`) through
     `POST /v1/sessions/:id/metadata` with `expectedVersion`, retrying on version mismatch.
 12. **No archived filter on `/v2/sessions`.** All sessions (archived included) are
-    downloaded and decrypted. The UI only renders archived ones on demand, but the
-    transfer cost remains until the server can filter.
+    downloaded and decrypted on a full listing (lite rows, at most hourly; deltas in between).
 13. **Codex speed on Claude spawns.** Flutter stamps `HAPPY_CODEX_FAST_MODE` on every
     spawn; on Claude it is meaningless and, as a non-switchable key, forced every
     Kubernetes provider switch into a full Pod replacement. The daemon now strips it

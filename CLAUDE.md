@@ -89,6 +89,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   `bash` with the path on stdin; `removePath` refuses `/` and relative paths.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
+- Session list fetch (`listCache.ts`): lite `/v2/sessions` (`omit=lastMessage,agentState`) +
+  `/v2/sessions/active` overlay, cached as ciphertext rows in IndexedDB, refreshed by
+  `changedSince` deltas (full listing hourly: deltas miss deletions and new messages).
+  Don't add list refetches; prefer socket patches.
 - Unread badges: `src/lib/sync/unread.ts` keeps each session's seen seq and counts
   main-thread agent replies only. Seen marks and Inbox triage are cached in localStorage and
   synced across browsers by `readSync.ts` (KV `read-state`, merge-only; format in README).
