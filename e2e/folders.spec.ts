@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { decodeBase64 } from "../src/lib/crypto/base64";
 import { decryptDataKeyJson, decryptLegacyJson, importAesKey } from "../src/lib/crypto/primitives";
 import type { FolderDoc } from "../src/lib/sync/folders";
@@ -130,4 +130,50 @@ test("folders: an open row menu hides the count under its button", async ({ page
   await page.mouse.move(800, 800);
   await expect(page.getByRole("menuitem", { name: "Rename" })).toBeVisible();
   await expect(folder.getByText("5", { exact: true })).toBeHidden();
+});
+
+test.describe("touch", () => {
+  // A tall phone: source and target both on screen, so the list never autoscrolls.
+  test.use({ viewport: { width: 390, height: 1400 }, hasTouch: true });
+
+  /** A real (CDP) touch: hold on `from` for `holdMs`, then slide onto `to` (if given) and let go. */
+  async function longPress(page: Page, from: Locator, to?: Locator, holdMs = 600) {
+    const a = (await from.boundingBox())!;
+    const [x0, y0] = [a.x + a.width / 3, a.y + a.height / 2];
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type: "touchStart" | "touchMove" | "touchEnd", x = 0, y = 0) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+    await touch("touchStart", x0, y0);
+    await page.waitForTimeout(holdMs);
+    if (to) {
+      const b = (await to.boundingBox())!;
+      const [x1, y1] = [b.x + b.width / 2, b.y + b.height / 2];
+      for (let i = 1; i <= 15; i++) await touch("touchMove", x0 + ((x1 - x0) * i) / 15, y0 + ((y1 - y0) * i) / 15);
+    }
+    await touch("touchEnd");
+  }
+
+  test("folders: long-press and drag a session onto a folder", async ({ page }) => {
+    const violations = watchCsp(page);
+    const mock = createMock();
+    await mock.install(page);
+    await linkAndOpen(page, mock);
+    const row = (text: string) => list(page).locator("[data-status]").filter({ hasText: text });
+    const web = list(page).getByRole("button", { name: /Web client/ });
+    await expect(row("Port nvim config")).toBeVisible();
+
+    // A quick move is a scroll, not a drag: nothing gets filed.
+    await longPress(page, row("Port nvim config"), web, 50);
+    // Held and let go in place: the row menu, as before.
+    await longPress(page, row("Port nvim config"));
+    await expect(page.getByRole("menuitem", { name: "Move to folder…" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menuitem", { name: "Move to folder…" })).toBeHidden();
+    expect((await stored(mock)).doc.sessions.r6).toBeUndefined();
+
+    // Held, then dragged onto a folder: filed there, without opening the chat.
+    await longPress(page, row("Port nvim config"), web);
+    await expect.poll(async () => (await stored(mock)).doc.sessions.r6).toBe("fweb");
+    await expect(page).not.toHaveURL(/#\/s\//);
+    expect(violations).toEqual([]);
+  });
 });

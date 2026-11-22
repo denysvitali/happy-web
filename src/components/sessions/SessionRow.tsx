@@ -6,6 +6,7 @@ import { SwipeAction } from "@/ui/SwipeAction";
 import { useSessionActions } from "./actions";
 import { SessionMenu } from "./SessionMenu";
 import classes from "./sessions.module.css";
+import type { TouchPress } from "./touchDrag";
 
 /** Virtualizer slot heights (px); phones get taller, inset-grouped rows. */
 export const ROW_HEIGHT = 56;
@@ -35,7 +36,9 @@ interface Props {
 export interface RowSelect {
   /** "range" extends from the last toggled row (Shift-click). */
   toggle(id: string, how: "toggle" | "range"): void;
-  /** Undefined on touch screens, where long-press opens the menu instead. */
+  /** Touch long-press: drags onto folders, or opens the menu if let go without moving. */
+  press: TouchPress;
+  /** Undefined without a fine pointer (touch uses `press`). */
   dragStart?: ((id: string, e: React.DragEvent) => void) | undefined;
   dragEnd(): void;
 }
@@ -79,6 +82,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
             e.preventDefault();
             select.toggle(v.id, e.shiftKey ? "range" : "toggle");
           }}
+          onPointerDown={select ? (e) => select.press(v.id, e, () => !selecting && setMenu(true)) : undefined}
           draggable={select?.dragStart ? true : undefined}
           onDragStart={select?.dragStart ? (e) => select.dragStart!(v.id, e) : undefined}
           onDragEnd={select?.dragStart ? select.dragEnd : undefined}

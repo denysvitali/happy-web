@@ -20,6 +20,7 @@ import { filing, useFolderActions } from "./folderActions";
 import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow, type FolderDrop } from "./FolderRow";
 import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow, type RowSelect } from "./SessionRow";
 import classes from "./sessions.module.css";
+import { useTouchDrag } from "./touchDrag";
 
 const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
@@ -167,6 +168,34 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const dragging = useRef<{ items: Filing[]; selection: boolean } | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const finePointer = useMediaQuery("(pointer: fine)", false, { getInitialValueInEffect: false });
+  const pickUp = (id: string): Filing[] => {
+    const { selected: sel, filings: toFilings } = live.current;
+    const selection = sel.has(id);
+    const items = toFilings(selection ? sel : [id]);
+    dragging.current = { items, selection };
+    return items;
+  };
+  // Touch: long-press and drag (HTML5 drag-and-drop is mouse/pen only).
+  const [touchOver, setTouchOver] = useState<string | null>(null);
+  const folderAnchors = useRef(new Map<string, string | null>());
+  useEffect(() => {
+    folderAnchors.current = new Map(rows.flatMap((r) => (r.type === "folder" ? [[r.id, r.anchor] as const] : [])));
+  }, [rows]);
+  const touchPress = useTouchDrag({
+    scrollRef,
+    ghostRef,
+    begin(id) {
+      if (!foldered) return null;
+      const items = pickUp(id);
+      return items.length > 1 ? `${items.length} sessions` : (byId.get(id)?.title ?? "1 session");
+    },
+    accepts: (folderId) => folderAnchors.current.has(folderId) && !!folderDrop?.accepts(folderAnchors.current.get(folderId)!),
+    hover: setTouchOver,
+    drop: (folderId) => folderDrop?.drop(folderId),
+    end: () => {
+      dragging.current = null;
+    },
+  });
   const rowSelect = useMemo<RowSelect | undefined>(() => {
     if (!canEditFolders) return undefined;
     return {
@@ -182,13 +211,10 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
           return next;
         });
       },
-      // Touch screens long-press for the menu; dragging is for mice and pens.
+      press: touchPress,
       dragStart: finePointer
         ? (id, e) => {
-            const { selected: sel, filings: toFilings } = live.current;
-            const selection = sel.has(id);
-            const items = toFilings(selection ? sel : [id]);
-            dragging.current = { items, selection };
+            const items = pickUp(id);
             if (items.length > 1 && ghostRef.current) {
               ghostRef.current.textContent = `${items.length} sessions`;
               e.dataTransfer.setDragImage(ghostRef.current, 14, 14);
@@ -199,7 +225,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
         dragging.current = null;
       },
     };
-  }, [canEditFolders, finePointer]);
+  }, [canEditFolders, finePointer, touchPress]);
   const folderDrop = useMemo<FolderDrop | undefined>(() => {
     if (!canEditFolders) return undefined;
     return {
@@ -439,6 +465,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                     readOnly={!canEditFolders}
                     onToggle={toggleFolder}
                     drop={folderDrop}
+                    target={touchOver === r.id}
                     first={!isItem(rows[vi.index - 1])}
                     last={!isItem(rows[vi.index + 1])}
                   />
@@ -471,7 +498,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
           </Button>
         </div>
       )}
-      {/* Drag image for several sessions; it must be rendered to be snapshotted. */}
+      {/* Drag image for several sessions (rendered to be snapshotted); follows the finger on touch. */}
       <div ref={ghostRef} className={classes.dragGhost} aria-hidden />
     </>
   );

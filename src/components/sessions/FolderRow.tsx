@@ -20,6 +20,8 @@ interface Props {
   last?: boolean;
   /** Dropping dragged sessions here; omitted when sessions can't be filed. */
   drop?: FolderDrop | undefined;
+  /** A touch drag (see touchDrag.ts) is over this folder and may drop here. */
+  target?: boolean;
 }
 
 /** Stable callbacks from the list for sessions being dragged. */
@@ -33,7 +35,7 @@ export interface FolderDrop {
 const SPRING_MS = 700;
 
 /** A collapsible folder in the session list; its menu edits the folder. */
-export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, first, last, drop }: Props) {
+export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, first, last, drop, target }: Props) {
   const [menu, setMenu] = useState(false);
   const [over, setOver] = useState(false);
   const spring = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -44,12 +46,18 @@ export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, f
     setOver(false);
   };
   useEffect(() => () => clearTimeout(spring.current), []);
+  useEffect(() => {
+    if (!target || r.open) return;
+    const t = setTimeout(() => onToggle(r.id), SPRING_MS);
+    return () => clearTimeout(t);
+  }, [target, r.open, r.id, onToggle]);
   return (
     <div
       className={classes.row}
       data-folder
       data-menu={menu || undefined}
-      data-drop={over || undefined}
+      data-folder-id={r.id}
+      data-drop={over || target || undefined}
       onDragOver={(e) => {
         if (!drop?.accepts(r.anchor)) return;
         e.preventDefault();

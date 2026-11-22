@@ -78,7 +78,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   holds the pure model, `folderSync.ts` the optimistic, version-checked sync,
   `folderList.ts` the foldered list (search stays flat). Never write a doc you
   can't read. Bulk filing: Cmd/Ctrl/Shift-click or the row menu's "Select" (phones), and
-  drag onto a folder row (fine pointers only; touch long-press stays the menu). `pnpm vectors` also regenerates the Go folder envelopes.
+  drag onto a folder row: HTML5 drag-and-drop for mice/pens, and on touch a long press lifts
+  the row (`touchDrag.ts`, pointer events; let go without moving = the row menu). `pnpm vectors` also regenerates the Go folder envelopes.
 - Inbox (`/inbox`, lazy): agents' `inbox_send` messages from each session's encrypted
   `metadata.inbox` (`src/lib/sync/inbox.ts`; same rules as happy_flutter). Read/done/replied
   is the user's triage (Done = acknowledge; filing offers Undo); a reply is a user message `Re: <subject>\n\n<text>`.
