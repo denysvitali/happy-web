@@ -1,6 +1,8 @@
 // One machine: what it is, and updating the Happy daemon and the agent CLIs
-// it runs (src/lib/sync/machineUpdates.ts). Opened from Settings → Machines.
-import { Button, Loader } from "@mantine/core";
+// it runs (src/lib/sync/machineUpdates.ts). Opened from Settings → Machines
+// and from a session's menu (lazily, through ./open.ts).
+import { Button, Loader, Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNow } from "@/app/hooks";
@@ -81,6 +83,21 @@ function UpdateRow({ title, subtitle, busy, action, pending, disabled, dimmed, o
   );
 }
 
+/** Any successful update restarts the daemon (an agent update so its sessions
+ * pick up the new CLI), so it is never one tap away. */
+function confirmUpdate(machine: string, tool: string, from: string | undefined, to: string | undefined, go: () => void) {
+  modals.openConfirmModal({
+    title: `Update ${tool} on ${machine}?`,
+    children: (
+      <Text size="sm">
+        {from && to ? `${from} → ${to}. ` : ""}When it finishes, the Happy daemon restarts and its running sessions resume on their own. This can take a few minutes.
+      </Text>
+    ),
+    labels: { confirm: "Update", cancel: "Cancel" },
+    onConfirm: go,
+  });
+}
+
 const daemonBusy = (d: DaemonStatus | undefined) => d?.updateStatus === "running" || d?.updateStatus === "succeeded";
 
 /** The daemon first, then the agent CLIs; reasons and errors in the footer. */
@@ -143,7 +160,7 @@ function Software({ account, machine, online }: { account: Account; machine: Mac
         action={d && !oldDaemon ? updateAction(d) : null}
         pending={updateDaemon.isPending}
         disabled={!online}
-        onUpdate={() => updateDaemon.mutate()}
+        onUpdate={() => confirmUpdate(machineName(machine.meta, id), "the Happy daemon", d?.version, d?.latestVersion, () => updateDaemon.mutate())}
       />
       {list.map((p) => (
         <UpdateRow
@@ -155,7 +172,7 @@ function Software({ account, machine, online }: { account: Account; machine: Mac
           action={updateAction(p)}
           pending={updateAgent.isPending && updateAgent.variables === p.provider}
           disabled={!online || updateAgent.isPending}
-          onUpdate={() => updateAgent.mutate(p.provider)}
+          onUpdate={() => confirmUpdate(machineName(machine.meta, id), PROVIDER_LABEL[p.provider] ?? p.provider, p.version, p.latestVersion, () => updateAgent.mutate(p.provider))}
         />
       ))}
       {list.length === 0 && !noAgentRpc && online && <ListRow title={agents.q.isError ? "Couldn't load agent versions" : "Checking agents…"} dimmed />}
@@ -209,6 +226,12 @@ function MachineContent({ account, id }: { account: Account; id: string }) {
   );
 }
 
-export function openMachine(account: Account, machine: MachineItem): void {
-  openSheet({ title: machineName(machine.meta, machine.id), size: 480, children: () => <MachineContent account={account} id={machine.id} /> });
+function MachineTitle({ account, id }: { account: Account; id: string }) {
+  const machines = useQuery<MachineItem[]>({ queryKey: machinesKey, queryFn: ({ signal }) => account.fetchMachines(signal), staleTime: 60_000 });
+  const m = machines.data?.find((x) => x.id === id);
+  return <>{m ? machineName(m.meta, m.id) : "Machine"}</>;
+}
+
+export function openMachine(account: Account, id: string): void {
+  openSheet({ title: <MachineTitle account={account} id={id} />, size: 480, children: () => <MachineContent account={account} id={id} /> });
 }

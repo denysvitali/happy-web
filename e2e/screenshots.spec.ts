@@ -391,6 +391,11 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(300);
       await shot(page, "p7-machine");
       await page.getByRole("button", { name: "Update Claude Code" }).click();
+      const confirm = page.getByRole("dialog", { name: "Update Claude Code on denys@laptop?" });
+      await expect(confirm).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p7b-machine-confirm");
+      await confirm.getByRole("button", { name: "Update", exact: true }).click();
       await expect(page.getByText("Updating to 2.1.7…")).toBeVisible();
       await page.emulateMedia({ colorScheme: "dark" });
       await page.waitForTimeout(200);

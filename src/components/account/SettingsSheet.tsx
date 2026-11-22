@@ -67,7 +67,7 @@ function Machines({ account, close }: { account: Account; close: () => void }) {
               chevron
               onClick={() => {
                 close();
-                openMachine(account, m);
+                openMachine(account, m.id);
               }}
             />
           );

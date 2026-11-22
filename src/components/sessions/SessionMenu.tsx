@@ -1,9 +1,10 @@
 import { Menu } from "@mantine/core";
-import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, FolderTree, Pencil, Square, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, FolderTree, Pencil, Server, Square, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactElement } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
+import { openMachine } from "@/components/account/open";
 import type { SessionItem } from "@/lib/sync/account";
 import { sessionTitle } from "@/lib/sync/decode";
 import { canBrowseFiles } from "@/lib/sync/files";
@@ -27,7 +28,8 @@ interface Props {
 export function SessionMenu({ session: s, opened, onChange, target, onSelect }: Props) {
   const a = useSessionActions();
   const folders = useFolderActions();
-  const folderStatus = useStore(useAccount().folders.state).status;
+  const account = useAccount();
+  const folderStatus = useStore(account.folders.state).status;
   const live = isLive(s);
   const navigate = useNavigate();
   return (
@@ -49,6 +51,11 @@ export function SessionMenu({ session: s, opened, onChange, target, onSelect }: 
         {canBrowseFiles(s) && (
           <Menu.Item leftSection={<FolderTree size={14} />} onClick={() => void navigate({ to: "/s/$sessionId/files", params: { sessionId: s.id }, search: { path: "" } })}>
             Browse files
+          </Menu.Item>
+        )}
+        {s.meta.machineId && (
+          <Menu.Item leftSection={<Server size={14} />} onClick={() => openMachine(account, s.meta.machineId!)}>
+            Machine…
           </Menu.Item>
         )}
         {onSelect && (
