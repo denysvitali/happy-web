@@ -315,6 +315,9 @@ export const opsRecords: unknown[] = [
   claude({ type: "system", subtype: "task_notification", task_id: "task-bg1", tool_use_id: "bg1", status: "completed", summary: "One upstream panel change (reset timing)." }),
   claude({ type: "system", subtype: "task_started", task_id: "task-bg2", tool_use_id: "bg2", status: "running" }),
   say([ssh("bg2t1", "tail -n 50 -f /var/tmp/stage/build.log")], { parent_tool_use_id: "bg2" }),
+  // A shell job left running in the background (it outlives the turn).
+  say([call("bgsh", "Bash", { command: "./flash-cycle.sh W12", description: "Flash W12 and wait for the Wi-Fi result", run_in_background: true })]),
+  results([out("bgsh", "Command running in background with ID: bgsh1. Output is being written to: /tmp/bgsh1.output")]),
   say([call("ask1", "AskUserQuestion", opsQuestion)]),
 ];
 

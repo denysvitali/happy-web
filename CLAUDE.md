@@ -58,6 +58,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   `tools/steps.ts`): the running call (a sub-agent's own, if deeper) and its time, else
   "Waiting for you", "Writing reply" or "Thinking" (+ "quiet Ns" after 30s with no new step),
   then the turn's step/agent counts and elapsed time; one line, never moves the transcript.
+  Background shell jobs (Bash `run_in_background`: receipt → `async`, ended by `local_bash`
+  task rows / `<task-notification>`) spin with a "background" chip and keep that row up after
+  the turn ("In background · …", `backgroundJobs`) while the session is online.
   A call with no result is closed as interrupted once a later `ready` ends its turn or the
   session is halted (`isHalted`); questions, pending permissions and background agents wait.
   A pending AskUserQuestion is answered in the card (no Allow/Deny bar): picks go back on the

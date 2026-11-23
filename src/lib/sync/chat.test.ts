@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentEndedAt, agentInfo, agentStatus } from "@/components/chat/tools/format";
+import { agentEndedAt, agentInfo, agentStatus, toolState } from "@/components/chat/tools/format";
 import { addMessages, addPending, addPreview, buildView as build, emptyChat, findTool, MAX_PREVIEWS, sameBlock, type Block, type ChatMessage, type ChatState, type ToolBlock } from "./chat";
 import type { AgentState } from "./decode";
 import { normalizeRecord } from "./normalize";
@@ -308,7 +308,8 @@ describe("background agents", () => {
     expect(normalizeRecord(lifecycle("task_notification", { task_id: "task-1", tool_use_id: "t", status: "completed", summary: "Research complete" })).items).toEqual([
       { kind: "task", id: "t", taskId: "task-1", status: "completed", summary: "Research complete" },
     ]);
-    expect(normalizeRecord(lifecycle("task_started", { task_id: "b1", tool_use_id: "t", task_type: "local_bash" })).items).toEqual([]);
+    expect(normalizeRecord(lifecycle("task_started", { task_id: "b1", tool_use_id: "t", task_type: "local_bash" })).items).toEqual([{ kind: "task", id: "t", taskId: "b1", status: "running" }]);
+    expect(normalizeRecord(lifecycle("task_progress", { task_id: "b1", tool_use_id: "t", task_type: "local_bash" })).items).toEqual([]);
     expect(normalizeRecord(lifecycle("task_progress", { task_id: "x" })).items).toEqual([]);
     expect(normalizeRecord(lifecycle("init", {})).items).toEqual([]);
     const legacy = normalizeRecord(user("<task-notification>\n<task-id>task-1</task-id>\n<status>failed</status>\n<summary>Gave up</summary>\n</task-notification>"));
@@ -330,6 +331,24 @@ describe("background agents", () => {
     // A late progress tick does not reopen it.
     s = addMessages(s, [msg(lifecycle("task_progress", { task_id: "task-1", tool_use_id: "t", status: "running" }), { createdAt: 62_000 })]);
     expect(agentStatus(agent())).toBe("completed");
+  });
+
+  it("keeps a background shell job running until its notification, after its turn", () => {
+    const receipt = (id: string, text: string, extra: object = {}) =>
+      claude({ type: "user", ...extra, message: { content: [{ type: "tool_result", tool_use_id: id, content: text }] } });
+    expect(normalizeRecord(receipt("b", "Command running in background with ID: bx1. Output is being written to: /tmp/bx1.output")).items[0]).toMatchObject({ async: { taskId: "bx1" } });
+    expect(normalizeRecord(receipt("b", "started", { tool_use_result: { backgroundTaskId: "bx2" } })).items[0]).toMatchObject({ async: { taskId: "bx2" } });
+    expect(normalizeRecord(receipt("b", "ok")).items[0]).not.toHaveProperty("async");
+    let s = addMessages(emptyChat, [
+      msg(use("b", "Bash", { command: "./flash.sh", run_in_background: true })),
+      msg(receipt("b", "Command running in background with ID: bx1. Output is being written to: /tmp/bx1.output")),
+      msg(claude({ type: "assistant", message: { content: [{ type: "text", text: "Flashing; ~8 min" }] } })),
+      msg(ready),
+    ]);
+    const bash = () => findTool(buildView(s, {}).blocks, "b")!;
+    expect(toolState(bash())).toBe("running");
+    s = addMessages(s, [msg(user("<task-notification>\n<task-id>bx1</task-id>\n<status>completed</status>\n</task-notification>"))]);
+    expect(toolState(bash())).toBe("done");
   });
 
   it("maps a legacy notification to its agent through the receipt's task id", () => {

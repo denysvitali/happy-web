@@ -159,8 +159,8 @@ export interface ToolBlock {
   prompt?: string | undefined;
 }
 
-/** Task statuses that end a background agent. */
-export const TASK_TERMINAL: ReadonlySet<string> = new Set(["completed", "failed", "stopped", "cancelled", "canceled"]);
+/** Task statuses that end a background agent or shell job. */
+export const TASK_TERMINAL: ReadonlySet<string> = new Set(["completed", "failed", "stopped", "killed", "cancelled", "canceled"]);
 
 export type Block =
   | { type: "user"; key: string; text: string; images?: string[] | undefined; pending?: "sending" | "failed"; at?: number | undefined }

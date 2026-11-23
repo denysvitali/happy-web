@@ -25,7 +25,7 @@ import classes from "@/components/chat/chat.module.css";
 import type { ChatView, ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
 import { PlanChip } from "@/components/chat/plan";
-import { latestPlan, liveActivity } from "@/components/chat/tools/steps";
+import { backgroundJobs, latestPlan, liveActivity } from "@/components/chat/tools/steps";
 import { useLink } from "@/components/shell/connection";
 import { sessionTodos } from "@/lib/sync/todos";
 import { agentOf } from "@/lib/sync/sessionList";
@@ -66,6 +66,7 @@ function Messages({
   view,
   onPermission,
   working,
+  online,
   offline,
   find,
 }: {
@@ -73,6 +74,8 @@ function Messages({
   view: ChatView;
   onPermission: PermissionHandler;
   working: boolean;
+  /** The session is up (its background jobs can still be running). */
+  online: boolean;
   offline: boolean;
   find: Find | null;
 }) {
@@ -228,6 +231,8 @@ function Messages({
   }, [blocks]);
   const mountedAt = useRef(Date.now());
   const activity = useMemo(() => (working ? liveActivity(blocks) : undefined), [working, blocks]);
+  // Background shell jobs outlive their turn, but not their session.
+  const jobs = useMemo(() => (online ? backgroundJobs(blocks) : []), [online, blocks]);
   const failed = blocks.some((b) => b.type === "user" && b.pending === "failed");
   const showSkeleton = meta.loading && blocks.length === 0;
   return (
@@ -287,7 +292,8 @@ function Messages({
                 </div>
               );
             })}
-            {working && blocks.length > 0 && <WorkingRow since={since ?? mountedAt.current} activity={activity} />}
+            {working && blocks.length > 0 && <WorkingRow since={since ?? mountedAt.current} activity={activity} jobs={jobs} />}
+            {!working && jobs.length > 0 && <WorkingRow jobs={jobs} />}
           </div>
           {failed && (
             <div className={classes.center}>
@@ -501,7 +507,7 @@ export function ChatScreen() {
       <ResendContext.Provider value={session.archived ? null : resend}>
         {store && view ? (
           <AgentSession.Provider value={session.id}>
-            <Messages store={store} view={view} onPermission={onPermission} working={status === "thinking"} offline={offline} find={find} />
+            <Messages store={store} view={view} onPermission={onPermission} working={status === "thinking"} online={status === "thinking" || status === "active"} offline={offline} find={find} />
           </AgentSession.Provider>
         ) : (
           <div className={classes.scroller}>

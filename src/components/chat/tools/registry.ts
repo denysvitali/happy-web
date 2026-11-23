@@ -64,7 +64,7 @@ export interface ToolView {
   summary?: (b: ToolBlock) => string;
   /** Short trailing badge (`+3 −1`, `exit 1`, `2/5`). */
   badge?: (b: ToolBlock) => string | undefined;
-  /** MCP server (or other origin) chip. */
+  /** MCP server (or other origin) chip; "background" on background shell jobs. */
   chip?: (b: ToolBlock) => string | undefined;
   Body: ComponentType<ToolViewProps>;
   /** Expanded by default. */
@@ -82,6 +82,7 @@ const shell: ToolView = {
   kind: "shell",
   title: "Bash",
   summary: (b) => field(inp(b), "description") ?? firstLine(commandOf(b.input) ?? ""),
+  chip: (b) => (b.result?.async ? "background" : undefined),
   badge: (b) => {
     if (!b.result) return undefined;
     const code = shellOutput(b.result.output).exitCode;

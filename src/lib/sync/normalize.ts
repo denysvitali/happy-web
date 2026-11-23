@@ -20,7 +20,8 @@ export type Item =
       isError: boolean;
       /** Reported terminal status (`completed`, `failed`, `unknown`, …). */
       status?: string;
-      /** A background launch receipt (Claude `isAsync`), not the agent's end.
+      /** A background launch receipt (Claude `isAsync`, or a background
+       * shell job's), not the task's end.
        * `taskId` is the id later lifecycle rows may use instead. */
       async?: { taskId?: string };
     }
@@ -122,14 +123,37 @@ function asyncReceipt(r: unknown): { taskId?: string } | undefined {
   return taskId ? { taskId } : {};
 }
 
+/** Claude's receipt for a `run_in_background` shell command (same pattern as
+ * happy-cli-go `backgroundBashReceipt`). */
+const BASH_RECEIPT = /^Command running in background with ID: ([A-Za-z0-9_-]+)\./m;
+
+/** A shell command launched in the background: its job id, from the
+ * structured result or the receipt text. */
+function bashReceipt(r: unknown, content: unknown): { taskId: string } | undefined {
+  const structured = isObj(r) ? first(r, "backgroundTaskId") : undefined;
+  if (structured) return { taskId: structured };
+  const texts = typeof content === "string" ? [content] : Array.isArray(content) ? content.map((c) => (isObj(c) ? s(c.text) : undefined)) : [];
+  for (const t of texts) {
+    const id = t && BASH_RECEIPT.exec(t)?.[1];
+    if (id) return { taskId: id };
+  }
+  return undefined;
+}
+
 const TASK_EVENTS = new Set(["task_started", "task_progress", "task_updated", "task_notification"]);
 
-/** Background-agent lifecycle; shell jobs (`local_bash`) are not agents. */
+/** Background task lifecycle: agents and shell jobs (`local_bash`), whose
+ * frequent progress ticks carry nothing to show. */
 function taskEvent(data: Obj): Item | undefined {
-  if (!TASK_EVENTS.has(String(data.subtype)) || data.task_type === "local_bash") return undefined;
+  if (!TASK_EVENTS.has(String(data.subtype))) return undefined;
+  const shell = data.task_type === "local_bash";
+  if (shell && data.subtype === "task_progress") return undefined;
   const id = first(data, "tool_use_id");
-  if (!id) return undefined;
-  return withTask({ kind: "task", id, status: s(data.status) ?? "running" }, s(data.task_id), s(data.summary));
+  const taskId = s(data.task_id);
+  if (!id && !(shell && taskId)) return undefined;
+  const item: Extract<Item, { kind: "task" }> = { kind: "task", status: s(data.status) ?? "running" };
+  if (id) item.id = id;
+  return withTask(item, taskId, s(data.summary));
 }
 
 function withTask(item: Extract<Item, { kind: "task" }>, taskId: string | undefined, summary: string | undefined): Item {
@@ -184,7 +208,8 @@ function claudeOutput(data: Obj): Placed[] {
           const id = first(b, "tool_use_id");
           if (!id) continue;
           const item: Item = { kind: "tool-result", id, output: b.content, isError: b.is_error === true };
-          if (receipt) item.async = receipt;
+          const job = receipt ?? (b.is_error === true ? undefined : bashReceipt(data.tool_use_result, b.content));
+          if (job) item.async = job;
           items.push(item);
         }
       }

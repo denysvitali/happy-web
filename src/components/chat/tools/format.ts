@@ -1,6 +1,6 @@
 // Pure helpers for tool views: argument/result shaping, MCP names, diffs.
 // No React here so the logic stays unit-testable.
-import { TASK_TERMINAL, type Block, type ToolBlock } from "@/lib/sync/chat";
+import { AGENT_TOOLS, TASK_TERMINAL, type Block, type ToolBlock } from "@/lib/sync/chat";
 
 export type Obj = Record<string, unknown>;
 export const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -375,7 +375,12 @@ export function questionAnswers(qs: readonly Question[], picks: readonly (readon
 // ---- tools and agents ------------------------------------------------------------
 
 export type ToolState = "running" | "done" | "error";
-export const toolState = (b: ToolBlock): ToolState => (b.result ? (b.result.isError ? "error" : "done") : "running");
+/** A shell job launched in the background that has not reported its end. */
+export const inBackground = (b: ToolBlock): boolean =>
+  !!b.result?.async && b.children.length === 0 && !AGENT_TOOLS.has(b.name) && !(b.task && TASK_TERMINAL.has(b.task.status));
+
+export const toolState = (b: ToolBlock): ToolState =>
+  !b.result || inBackground(b) ? "running" : b.result.isError || (b.task && FAILED_STATUS.has(b.task.status)) ? "error" : "done";
 
 export function countTools(blocks: readonly Block[]): number {
   let n = 0;

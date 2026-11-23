@@ -1,7 +1,7 @@
 // One-line descriptions of a run of steps ("Ran 3 commands, edited 2 files")
 // and of what a run or a sub-agent is doing right now.
 import { isAgent, needsUser, type Block, type StepBlock, type ToolBlock } from "@/lib/sync/chat";
-import { agentStatus, field, firstLine } from "./format";
+import { agentStatus, field, firstLine, inBackground } from "./format";
 import { titleOf, viewFor } from "./registry";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -196,4 +196,21 @@ export function liveActivity(blocks: readonly Block[]): LiveActivity {
   const last = turn.at(-1);
   if (last?.type === "text" && last.streaming) return { ...base, kind: "writing", label: "Writing reply" };
   return { ...base, kind: "thinking", label: "Thinking" };
+}
+
+/** Shell jobs still running in the background anywhere in the session
+ * (they outlive their turn), oldest first. */
+export function backgroundJobs(blocks: readonly Block[]): ToolBlock[] {
+  const out: ToolBlock[] = [];
+  const walk = (bs: readonly Block[]) => {
+    for (const b of bs) {
+      if (b.type === "steps" || b.type === "work") walk(b.items);
+      else if (b.type === "tool") {
+        if (inBackground(b)) out.push(b);
+        walk(b.children);
+      }
+    }
+  };
+  walk(blocks);
+  return out;
 }

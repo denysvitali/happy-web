@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Block, ToolBlock } from "@/lib/sync/chat";
-import { liveActivity } from "./steps";
+import { backgroundJobs, liveActivity } from "./steps";
 
 const tool = (id: string, name: string, input: unknown, at: number, done?: number, extra: Partial<ToolBlock> = {}): ToolBlock => ({
   type: "tool",
@@ -37,5 +37,17 @@ describe("liveActivity", () => {
   it("writes while a reply streams, else thinks", () => {
     expect(liveActivity([user, { type: "text", key: "t", text: "Hi", streaming: true }]).kind).toBe("writing");
     expect(liveActivity([user, tool("b", "Bash", {}, 2, 9)])).toMatchObject({ kind: "thinking", lastAt: 9 });
+  });
+});
+
+describe("backgroundJobs", () => {
+  it("finds live background shell jobs in folded turns, not ended ones or agents", () => {
+    const job = (id: string, extra: Partial<ToolBlock> = {}) => tool(id, "Bash", {}, 2, undefined, { result: { output: "", isError: false, async: true }, ...extra });
+    const blocks: Block[] = [
+      user,
+      { type: "work", key: "w", items: [{ type: "steps", key: "s", items: [job("live"), job("done", { task: { status: "completed", at: 3 } })] }] },
+      job("agent", { name: "Agent" }),
+    ];
+    expect(backgroundJobs(blocks).map((b) => b.id)).toEqual(["live"]);
   });
 });

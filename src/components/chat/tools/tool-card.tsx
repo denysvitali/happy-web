@@ -6,7 +6,7 @@ import { Brain, ChevronRight, CircleAlert, ListTree, LoaderCircle, ShieldQuestio
 import { memo, useState } from "react";
 import { sameBlock, type Block, type StepBlock, type ToolBlock } from "@/lib/sync/chat";
 import { PermissionBar, PermissionOutcome, type PermissionHandler } from "../permission";
-import { firstLine, toolState, type ToolState } from "./format";
+import { firstLine, inBackground, toolState, type ToolState } from "./format";
 import { titleOf, viewFor, type ToolKind } from "./registry";
 import { useFold } from "../reveal";
 import { failedSteps, runningSteps, stepLabel, stepsSummary } from "./steps";
@@ -47,10 +47,11 @@ export const ToolCard = memo(
     const pending = b.permission?.status === "pending";
     const state = toolState(b);
     // Open while the call runs (or awaits permission), collapsed once it
-    // finishes, unless the user toggled it. Views that are content rather
-    // than output (plan, todos, questions) set `open` and stay expanded.
+    // finishes, unless the user toggled it; a background job's body is only
+    // its launch receipt. Views that are content rather than output (plan,
+    // todos, questions) set `open` and stay expanded.
     const [userOpen, setUserOpen] = useState<boolean | null>(null);
-    const open = userOpen ?? (pending || state === "running" || (view.open?.(b) ?? false));
+    const open = userOpen ?? (pending || (state === "running" && !inBackground(b)) || (view.open?.(b) ?? false));
     const chip = view.chip?.(b);
     const badge = view.badge?.(b);
     const summary = view.summary?.(b) ?? "";
