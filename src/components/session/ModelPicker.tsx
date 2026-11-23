@@ -1,17 +1,18 @@
 import { Combobox, Loader, Text, useCombobox } from "@mantine/core";
 import { Check, ChevronDown, Sparkles } from "lucide-react";
-import { DEFAULT_MODEL, effortLabel, parseSelection, selectionLabel } from "@/lib/sync/models";
+import { chipLabel, DEFAULT_MODEL, effortLabel, parseSelection } from "@/lib/sync/models";
 import type { SessionSwitch } from "./hooks";
 import classes from "./session.module.css";
 
 const EFFORT_PREFIX = "effort\u0000";
 
 /** Model picker grouped by model, with effort variants as chips under each
- * model. The pick rides on the next user message. */
-export function ModelPicker({ sw }: { sw: SessionSwitch }) {
+ * model. The pick rides on the next user message. `running`: the model that
+ * answered last (`chipLabel`). */
+export function ModelPicker({ sw, running }: { sw: SessionSwitch; running?: string | undefined }) {
   const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() });
   const { catalog } = sw;
-  const label = selectionLabel(catalog, sw.model);
+  const label = chipLabel(catalog, sw.model, sw.pending ? undefined : running);
   const efforts = catalog.efforts ?? [];
   const effortText = sw.kind === "prime" && sw.effort ? (efforts.find((e) => e.value === sw.effort)?.label ?? sw.effort) : undefined;
   const picked = parseSelection(sw.model);

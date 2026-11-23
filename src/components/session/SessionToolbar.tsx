@@ -22,6 +22,10 @@ function Context({ session, store, model }: { session: SessionItem; store: ChatS
   return ctx ? <ContextMeter usage={ctx} model={model} hints={hints} /> : null;
 }
 
+function Model({ sw, store }: { sw: SessionSwitch; store: ChatStore }) {
+  return <ModelPicker sw={sw} running={useStore(store.context)?.model} />;
+}
+
 /** One row above the composer: controls (permission mode, provider, model)
  * on the left, status (`children`, e.g. the plan, then context) on the right. */
 export function SessionToolbar({ session, sw, store, children }: { session: SessionItem; sw: SessionSwitch; store: ChatStore | null; children?: ReactNode }) {
@@ -29,7 +33,7 @@ export function SessionToolbar({ session, sw, store, children }: { session: Sess
     <div className={classes.toolbar}>
       <PermissionPicker sw={sw} />
       {canSwitchProvider(session) && <ProviderPicker session={session} sw={sw} />}
-      <ModelPicker sw={sw} />
+      {store ? <Model sw={sw} store={store} /> : <ModelPicker sw={sw} />}
       <span className={classes.spacer} />
       {children}
       {store && sw.kind !== "opencode" && <Context session={session} store={store} model={sw.activeModel} />}

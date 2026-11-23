@@ -11,6 +11,7 @@ import {
   modelLabel,
   primeCatalog,
   selectionLabel,
+  chipLabel,
   sendOptions,
   withEffort,
 } from "./models";
@@ -47,6 +48,23 @@ describe("catalogs", () => {
     expect(selectionLabel(c, "opus[1m]:xhigh")).toBe("Opus (1M) · Extra high");
     expect(selectionLabel(c, undefined)).toBe("Default");
     expect(selectionLabel(c, "claude-unknown")).toBe("claude-unknown");
+  });
+
+  it("keeps what the CLI's default resolves to as the Default hint", () => {
+    const c = claudeCatalog([{ id: "default", name: "Default (recommended)", description: "Opus 5.5 · Best for everyday tasks", efforts: ["high"] }]);
+    expect(c.groups[0]).toMatchObject({ id: "default", label: "Default", description: "Opus 5.5 · Best for everyday tasks" });
+    expect(c.groups[0]!.choices).toHaveLength(1);
+  });
+
+  it("labels the chip with the model that answers when the selection does not say", () => {
+    const c = claudeCatalog([{ id: "opus", name: "Opus", efforts: ["high"] }]);
+    expect(chipLabel(c, "default", undefined)).toBe("Default");
+    expect(chipLabel(c, "default", "claude-opus-5-5")).toBe("Opus 5.5");
+    expect(chipLabel(c, "default", "<synthetic>")).toBe("Default");
+    expect(chipLabel(c, "opus:high", "claude-opus-5-5")).toBe("Opus · High");
+    // A stale guess recorded by an older daemon.
+    expect(chipLabel(c, "claude-sonnet-5-5", "claude-opus-5-5")).toBe("Opus 5.5");
+    expect(chipLabel(c, "claude-sonnet-5-5", undefined)).toBe("claude-sonnet-5-5");
   });
 
   it("falls back to the built-in Claude tiers", () => {

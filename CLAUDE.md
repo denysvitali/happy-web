@@ -60,6 +60,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   Models: Claude's `message.model` (what actually answered, so fallbacks show; never its
   `meta.model`, which is the selected alias), else payload/meta `model`. A change per thread
   is a `model` block that never folds; agent replies show their model on hover.
+  The picker chip shows the selection, but Default (and ids the catalog lacks, e.g. old
+  daemons' guessed `claude-sonnet-5-5`) show the model that answered (`chipLabel`).
 - Find in session (Cmd/Ctrl+F or the header button; the list is virtualized, so browser find
   misses most of it): client-side over loaded history (E2E), "Earlier" pages older in. Hits
   open their folds (`useFold` in `chat/reveal.ts`); matches are painted with the CSS Custom

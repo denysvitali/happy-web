@@ -113,6 +113,8 @@ export function claudeCatalog(raw: unknown[] | undefined): Catalog {
   const entries = Array.isArray(raw) ? raw.filter(isObj) : [];
   for (const m of entries) {
     const id = str(m.id);
+    // The CLI's own "default" says what it resolves to ("Opus 5.5 · …").
+    if (id === DEFAULT_MODEL) groups[0]!.description ??= str(m.description);
     if (!id || seen.has(id)) continue;
     seen.add(id);
     const efforts = Array.isArray(m.efforts) ? [...new Set(m.efforts.filter((e): e is Effort => typeof e === "string" && isEffort(e)))] : [];
@@ -193,6 +195,20 @@ export function selectionLabel(catalog: Catalog, sel: string | undefined): strin
   const { base, effort } = parseSelection(sel);
   const baseLabel = catalog.groups.find((g) => g.id === base)?.label ?? base;
   return effort ? `${baseLabel} · ${effortLabel(effort)}` : baseLabel;
+}
+
+/** The picker chip: the selection, except where the transcript knows better.
+ * "Default" shows the model that answers (`running`, the newest main-thread
+ * `message.model`), and so does a concrete id the catalog does not offer:
+ * such ids may be a stale guess (older daemons recorded `claude-sonnet-5-5`
+ * for every Default spawn) and `running` is what actually answers. */
+export function chipLabel(catalog: Catalog, sel: string, running: string | undefined): string {
+  const actual = running && running !== "<synthetic>" ? modelLabel(running) : undefined;
+  if (!actual) return selectionLabel(catalog, sel);
+  if (sel === DEFAULT_MODEL) return actual;
+  const { base, effort } = parseSelection(sel);
+  if (findChoice(catalog, sel) || catalog.groups.some((g) => g.id === base)) return selectionLabel(catalog, sel);
+  return effort ? `${actual} · ${effortLabel(effort)}` : actual;
 }
 
 // ---- permission modes ---------------------------------------------------------
