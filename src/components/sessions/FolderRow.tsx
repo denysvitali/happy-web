@@ -1,10 +1,12 @@
 import { Menu } from "@mantine/core";
 import { ChevronRight, Ellipsis, Folder, FolderOpen, FolderPlus, Pencil, Trash2 } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { AttentionBadge, UnreadBadge } from "@/components/status";
 import type { ListRow } from "@/lib/sync/sessionList";
 import { IconButton } from "@/ui/IconButton";
 import { useFolderActions } from "./folderActions";
+import { useFolderDrop, type FolderDrop } from "./folderDrop";
+import type { TouchPress } from "./touchDrag";
 import classes from "./sessions.module.css";
 import fc from "./folders.module.css";
 
@@ -18,63 +20,35 @@ interface Props {
   onToggle: (id: string) => void;
   first?: boolean;
   last?: boolean;
-  /** Dropping dragged sessions here; omitted when sessions can't be filed. */
   drop?: FolderDrop | undefined;
-  /** A touch drag (see touchDrag.ts) is over this folder and may drop here. */
   target?: boolean;
-}
-
-/** Stable callbacks from the list for sessions being dragged. */
-export interface FolderDrop {
-  /** Whether what is being dragged may go into a folder anchored at `anchor`. */
-  accepts(anchor: string | null): boolean;
-  drop(folderId: string): void;
+  press?: TouchPress | undefined;
+  dragStart?: ((id: string, e: React.DragEvent) => void) | undefined;
+  dragEnd: () => void;
 }
 
 /** Hovering a closed folder this long while dragging opens it (spring-loaded). */
 const SPRING_MS = 700;
 
 /** A collapsible folder in the session list; its menu edits the folder. */
-export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, first, last, drop, target }: Props) {
+export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, first, last, drop, target, press, dragStart, dragEnd }: Props) {
   const [menu, setMenu] = useState(false);
-  const [over, setOver] = useState(false);
-  const spring = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const dropProps = useFolderDrop(`f:${r.id}`, drop, target);
+  const over = dropProps["data-drop"];
   const a = useFolderActions();
   const Icon = r.open ? FolderOpen : Folder;
-  const leave = () => {
-    clearTimeout(spring.current);
-    setOver(false);
-  };
-  useEffect(() => () => clearTimeout(spring.current), []);
   useEffect(() => {
-    if (!target || r.open) return;
+    if (!over || r.open) return;
     const t = setTimeout(() => onToggle(r.id), SPRING_MS);
     return () => clearTimeout(t);
-  }, [target, r.open, r.id, onToggle]);
+  }, [over, r.open, r.id, onToggle]);
   return (
     <div
       className={classes.row}
       data-folder
       data-menu={menu || undefined}
       data-folder-id={r.id}
-      data-drop={over || target || undefined}
-      onDragOver={(e) => {
-        if (!drop?.accepts(r.anchor)) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        if (over) return;
-        setOver(true);
-        if (!r.open) spring.current = setTimeout(() => onToggle(r.id), SPRING_MS);
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) leave();
-      }}
-      onDrop={(e) => {
-        if (!drop?.accepts(r.anchor)) return;
-        e.preventDefault();
-        leave();
-        drop.drop(r.id);
-      }}
+      {...dropProps}
       data-child={r.depth > 0 || undefined}
       data-first={first || undefined}
       data-last={last || undefined}
@@ -88,6 +62,10 @@ export const FolderRow = memo(function FolderRow({ row: r, readOnly, onToggle, f
       <button
         type="button"
         className={`${classes.rowLink} ${fc.folderButton}`}
+        draggable={dragStart ? true : undefined}
+        onDragStart={dragStart ? (e) => dragStart(r.id, e) : undefined}
+        onDragEnd={dragStart ? dragEnd : undefined}
+        onPointerDown={press ? (e) => press(r.id, e, () => setMenu(true)) : undefined}
         aria-expanded={r.open}
         aria-label={`${r.name}, ${r.count} sessions${r.attention ? ", needs approval" : ""}${!r.open && r.unread ? `, ${r.unread} unread` : ""}`} onClick={() => onToggle(r.id)}>
         <ChevronRight size={14} strokeWidth={2.25} className={fc.chevron} data-open={r.open || undefined} />

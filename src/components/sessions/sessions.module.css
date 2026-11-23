@@ -297,3 +297,11 @@
   .row .rowActions:not([data-open]) { opacity: 0; pointer-events: none; }
   .rowLink { padding-right: 16px; }
 }
+
+.folderRoot { height: 100%; }
+.folderRoot[data-drop] {
+  background: var(--happy-accent-tint);
+  border-radius: var(--happy-radius-md);
+  outline: 1.5px solid var(--happy-accent);
+  outline-offset: -1.5px;
+}

@@ -121,6 +121,54 @@ test("folders: drag a session onto a folder", async ({ page }) => {
   expect((await stored(mock)).doc.sessions.r2).toBe("fhelp");
 });
 
+test("folders: drag a folder subtree into another folder and back to the top level", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1400 });
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  const folder = (id: string) => list(page).locator(`[data-folder-id="${id}"]`).getByRole("button", { expanded: true });
+  const infra = folder("finfra");
+  const cloud = folder("fcloud");
+  const web = folder("fweb");
+
+  // Dropping a folder on its own descendant or under a different session is invalid.
+  await infra.dragTo(cloud);
+  await infra.dragTo(folder("fhelp"));
+  expect((await stored(mock)).doc.folders.finfra!.parent).toBeNull();
+
+  await infra.dragTo(web);
+  await expect.poll(async () => (await stored(mock)).doc.folders.finfra!.parent).toBe("fweb");
+  await expect(list(page).locator('[data-folder-id="finfra"]')).toHaveAttribute("data-child", "true");
+  const { doc } = await stored(mock);
+  expect(doc.folders.fcloud!.parent).toBe("finfra");
+  expect(doc.sessions.s3).toBe("fcloud");
+
+  await infra.dragTo(list(page).getByRole("heading", { name: /Folders/ }));
+  await expect.poll(async () => (await stored(mock)).doc.folders.finfra!.parent).toBeNull();
+  await expect(list(page).locator('[data-folder-id="finfra"]')).not.toHaveAttribute("data-child");
+});
+
+test("folders: drag a nested session folder back onto its parent session", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1400 });
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+
+  const reviews = list(page).getByRole("button", { name: /Reviews/ });
+  await reviews.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New subfolder" }).click();
+  await page.getByRole("textbox", { name: "Name" }).fill("Notes");
+  await page.getByRole("button", { name: "Create" }).click();
+
+  const notes = list(page).getByRole("button", { name: /Notes, 0 sessions/ });
+  const session = list(page).locator('a[href="#/s/r1"]');
+  await notes.dragTo(session);
+  await expect.poll(async () => {
+    const { doc } = await stored(mock);
+    return Object.values(doc.folders).find((f) => f.name === "Notes");
+  }).toEqual({ name: "Notes", parent: null, anchor: "r1" });
+});
+
 test("folders: an open row menu hides the count under its button", async ({ page }) => {
   const mock = createMock();
   await mock.install(page);
@@ -151,6 +199,23 @@ test.describe("touch", () => {
     }
     await touch("touchEnd");
   }
+
+  test("folders: long-press and drag a folder", async ({ page }) => {
+    const mock = createMock();
+    await mock.install(page);
+    await linkAndOpen(page, mock);
+    const infra = list(page).getByRole("button", { name: /Infra/ });
+    const web = list(page).getByRole("button", { name: /Web client/ });
+
+    await longPress(page, infra);
+    await expect(page.getByRole("menuitem", { name: "Rename" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menuitem", { name: "Rename" })).toBeHidden();
+
+    await longPress(page, infra, web);
+    await expect.poll(async () => (await stored(mock)).doc.folders.finfra!.parent).toBe("fweb");
+    await expect(infra).toHaveAttribute("aria-expanded", "true");
+  });
 
   test("folders: long-press and drag a session onto a folder", async ({ page }) => {
     const violations = watchCsp(page);

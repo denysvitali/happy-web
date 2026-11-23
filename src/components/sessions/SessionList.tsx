@@ -2,7 +2,7 @@ import { Button, Menu, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Check, CircleAlert, Command, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
 import { useCompact } from "@/components/shell/nav";
@@ -17,10 +17,11 @@ import { ListSkeleton } from "@/ui/List";
 import { SearchField } from "@/ui/SearchField";
 import { SectionHeader } from "@/ui/SectionHeader";
 import { filing, useFolderActions } from "./folderActions";
-import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow, type FolderDrop } from "./FolderRow";
+import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow } from "./FolderRow";
 import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow, type RowSelect } from "./SessionRow";
 import classes from "./sessions.module.css";
-import { useTouchDrag } from "./touchDrag";
+import { useFolderDrop, type FolderDrop } from "./folderDrop";
+import { useTouchDrag, type TouchPress } from "./touchDrag";
 
 const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
@@ -76,6 +77,9 @@ function loadCollapsed(): Set<string> {
   }
 }
 
+type DragSource = { kind: "session" | "folder"; id: string };
+type DragItem = { kind: "session"; items: Filing[]; selection: boolean } | { kind: "folder"; id: string };
+
 interface Props {
   views: SessionView[];
   loading: boolean;
@@ -119,7 +123,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   }, []);
   const canEditFolders = folders.status === "ready" || folders.status === "error";
   // Searching is flat (and reaches into the archive); folders shape the list otherwise.
-  const foldered = !searching && views.length > 0 && hasFolders(folders.doc);
+  const foldered = !searching && hasFolders(folders.doc);
   const rows = useMemo(() => {
     if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping, archivedInFolders });
     const grouped = groupViews(views, { query, agent, runtime });
@@ -165,37 +169,76 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     live.current = { ids: sessionIndex.ids, selected, filings };
   });
   const lastToggled = useRef<string | null>(null);
-  const dragging = useRef<{ items: Filing[]; selection: boolean } | null>(null);
+  const dragging = useRef<DragItem | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const finePointer = useMediaQuery("(pointer: fine)", false, { getInitialValueInEffect: false });
   const pickUp = (id: string): Filing[] => {
     const { selected: sel, filings: toFilings } = live.current;
     const selection = sel.has(id);
     const items = toFilings(selection ? sel : [id]);
-    dragging.current = { items, selection };
+    dragging.current = { kind: "session", items, selection };
     return items;
   };
   // Touch: long-press and drag (HTML5 drag-and-drop is mouse/pen only).
   const [touchOver, setTouchOver] = useState<string | null>(null);
-  const folderAnchors = useRef(new Map<string, string | null>());
+  const folderDoc = useRef(folders.doc);
   useEffect(() => {
-    folderAnchors.current = new Map(rows.flatMap((r) => (r.type === "folder" ? [[r.id, r.anchor] as const] : [])));
-  }, [rows]);
-  const touchPress = useTouchDrag({
+    folderDoc.current = folders.doc;
+  }, [folders.doc]);
+  const folderDrop = useMemo<FolderDrop | undefined>(() => {
+    if (!canEditFolders) return undefined;
+    const accepts = (key: string) => {
+      const d = dragging.current;
+      if (!d) return false;
+      const isRoot = key.startsWith("r:");
+      const id = key.slice(2);
+      if (isRoot) return d.kind === "folder" && folderActions.canReparent(d.id, null, id || null);
+      const folder = folderDoc.current.folders[id];
+      if (!folder) return false;
+      if (d.kind === "folder") return folderActions.canReparent(d.id, id, folder.anchor);
+      return d.items.length > 0 && d.items.every((it) => it.parent === folder.anchor);
+    };
+    return {
+      accepts,
+      drop(key) {
+        if (!accepts(key)) return;
+        const d = dragging.current!;
+        dragging.current = null;
+        const folderId = key.startsWith("r:") ? null : key.slice(2);
+        if (d.kind === "folder") folderActions.reparent(d.id, folderId);
+        else if (folderActions.assign(d.items, folderId) && d.selection) setSelected(NONE);
+      },
+    };
+  }, [canEditFolders, folderActions]);
+  const endDrag = useCallback(() => {
+    dragging.current = null;
+  }, []);
+  const touchPress = useTouchDrag<DragSource>({
     scrollRef,
     ghostRef,
-    begin(id) {
+    begin({ kind, id }) {
       if (!foldered) return null;
+      if (kind === "folder") {
+        const folder = folders.doc.folders[id];
+        if (!folder) return null;
+        dragging.current = { kind, id };
+        return folder.name;
+      }
       const items = pickUp(id);
       return items.length > 1 ? `${items.length} sessions` : (byId.get(id)?.title ?? "1 session");
     },
-    accepts: (folderId) => folderAnchors.current.has(folderId) && !!folderDrop?.accepts(folderAnchors.current.get(folderId)!),
+    accepts: (key) => !!folderDrop?.accepts(key),
     hover: setTouchOver,
-    drop: (folderId) => folderDrop?.drop(folderId),
-    end: () => {
-      dragging.current = null;
-    },
+    drop: (key) => folderDrop?.drop(key),
+    end: endDrag,
   });
+  const sessionPress = useCallback<TouchPress>((id, e, openMenu) => touchPress({ kind: "session", id }, e, openMenu), [touchPress]);
+  const folderPress = useCallback<TouchPress>((id, e, openMenu) => touchPress({ kind: "folder", id }, e, openMenu), [touchPress]);
+  const dragFolder = useCallback((id: string, e: React.DragEvent) => {
+    dragging.current = { kind: "folder", id };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/x-happy-folder", id);
+  }, []);
   const rowSelect = useMemo<RowSelect | undefined>(() => {
     if (!canEditFolders) return undefined;
     return {
@@ -211,7 +254,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
           return next;
         });
       },
-      press: touchPress,
+      press: sessionPress,
       dragStart: finePointer
         ? (id, e) => {
             const items = pickUp(id);
@@ -221,22 +264,10 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             }
           }
         : undefined,
-      dragEnd: () => {
-        dragging.current = null;
-      },
+      dragEnd: endDrag,
     };
-  }, [canEditFolders, finePointer, touchPress]);
-  const folderDrop = useMemo<FolderDrop | undefined>(() => {
-    if (!canEditFolders) return undefined;
-    return {
-      accepts: (anchor) => !!dragging.current?.items.length && dragging.current.items.every((it) => it.parent === anchor),
-      drop(folderId) {
-        const d = dragging.current;
-        dragging.current = null;
-        if (d && folderActions.assign(d.items, folderId) && d.selection) setSelected(NONE);
-      },
-    };
-  }, [canEditFolders, folderActions]);
+  }, [canEditFolders, finePointer, sessionPress, endDrag]);
+  const folderAnchors = useMemo(() => new Set(Object.values(folders.doc.folders).map((f) => f.anchor)), [folders.doc]);
   const moveSelected = () => {
     const items = filings(selected);
     folderActions.move(items, items.map((it) => byId.get(it.id)!.title).join(", "), clearSelection);
@@ -447,43 +478,50 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {virtualizer.getVirtualItems().map((vi) => {
             const r = rows[vi.index]!;
+            const rootKey = r.type === "folders" ? "r:" : r.type === "session" && foldered && folderAnchors.has(r.view.id) ? `r:${r.view.id}` : undefined;
+            const content = r.type === "header" ? (
+              <GroupHeader row={r} searching={searching} onToggle={() => setArchivedOpen((o) => !o)} />
+            ) : r.type === "folders" ? (
+              <div className={classes.groupHeader}>
+                <SectionHeader label="Folders" count={r.count} level={3} />
+              </div>
+            ) : r.type === "folder" ? (
+              <FolderRow
+                row={r}
+                readOnly={!canEditFolders}
+                onToggle={toggleFolder}
+                drop={folderDrop}
+                target={touchOver === `f:${r.id}`}
+                press={canEditFolders ? folderPress : undefined}
+                dragStart={canEditFolders && finePointer ? dragFolder : undefined}
+                dragEnd={endDrag}
+                first={!isItem(rows[vi.index - 1])}
+                last={!isItem(rows[vi.index + 1])}
+              />
+            ) : (
+              <SessionRow
+                view={r.view}
+                depth={r.depth}
+                inProject={r.inProject}
+                badgeAgent={usualAgent !== undefined && r.view.agent !== usualAgent}
+                active={r.view.id === activeId}
+                cursor={r.view.id === cursorVisible}
+                first={!isItem(rows[vi.index - 1])}
+                last={!isItem(rows[vi.index + 1])}
+                select={rowSelect}
+                selecting={selecting}
+                selected={selected.has(r.view.id)}
+              />
+            );
             return (
               <div
                 key={vi.key}
                 data-index={vi.index}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", height: vi.size, transform: `translateY(${vi.start}px)` }}
               >
-                {r.type === "header" ? (
-                  <GroupHeader row={r} searching={searching} onToggle={() => setArchivedOpen((o) => !o)} />
-                ) : r.type === "folders" ? (
-                  <div className={classes.groupHeader}>
-                    <SectionHeader label="Folders" count={r.count} level={3} />
-                  </div>
-                ) : r.type === "folder" ? (
-                  <FolderRow
-                    row={r}
-                    readOnly={!canEditFolders}
-                    onToggle={toggleFolder}
-                    drop={folderDrop}
-                    target={touchOver === r.id}
-                    first={!isItem(rows[vi.index - 1])}
-                    last={!isItem(rows[vi.index + 1])}
-                  />
-                ) : (
-                  <SessionRow
-                    view={r.view}
-                    depth={r.depth}
-                    inProject={r.inProject}
-                    badgeAgent={usualAgent !== undefined && r.view.agent !== usualAgent}
-                    active={r.view.id === activeId}
-                    cursor={r.view.id === cursorVisible}
-                    first={!isItem(rows[vi.index - 1])}
-                    last={!isItem(rows[vi.index + 1])}
-                    select={rowSelect}
-                    selecting={selecting}
-                    selected={selected.has(r.view.id)}
-                  />
-                )}
+                {rootKey !== undefined && folderDrop ? (
+                  <FolderRoot dropKey={rootKey} drop={folderDrop} target={touchOver === rootKey}>{content}</FolderRoot>
+                ) : content}
               </div>
             );
           })}
@@ -502,6 +540,11 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
       <div ref={ghostRef} className={classes.dragGhost} aria-hidden />
     </>
   );
+}
+
+function FolderRoot({ children, dropKey, drop, target }: { children: ReactNode; dropKey: string; drop: FolderDrop; target: boolean }) {
+  const props = useFolderDrop(dropKey, drop, target);
+  return <div className={classes.folderRoot} {...props}>{children}</div>;
 }
 
 function GroupHeader({ row, searching, onToggle }: { row: Extract<ListRow, { type: "header" }>; searching: boolean; onToggle: () => void }) {

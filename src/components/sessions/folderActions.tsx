@@ -6,7 +6,7 @@ import { notifications } from "@mantine/notifications";
 import { useMemo } from "react";
 import { useAccount } from "@/app/auth";
 import type { Account, SessionItem } from "@/lib/sync/account";
-import { assignSessions, commonParent, createFolder, deleteFolder, folderPath, MAX_FOLDER_NAME, renameFolder, type FolderDoc, type Filing } from "@/lib/sync/folders";
+import { assignSessions, canMoveFolder, commonParent, createFolder, deleteFolder, folderPath, MAX_FOLDER_NAME, moveFolder, renameFolder, type FolderDoc, type Filing } from "@/lib/sync/folders";
 import { FolderPicker } from "./FolderPicker";
 import { RenameForm } from "./RenameForm";
 
@@ -15,6 +15,8 @@ export interface FolderActions {
   create(parent: string | null, anchor?: string | null): Promise<string | undefined>;
   rename(id: string): void;
   remove(id: string): void;
+  canReparent(id: string, parent: string | null, anchor: string | null): boolean;
+  reparent(id: string, parent: string | null): void;
   /** Folder picker for these sessions; `subtitle` names them. `onMoved` runs once they are filed. */
   move(items: readonly Filing[], subtitle: string, onMoved?: () => void): void;
   /** Files them all or none; false when it can't (already notified). */
@@ -97,6 +99,15 @@ function createActions(account: Account): FolderActions {
         confirmProps: { color: "red" },
         onConfirm: () => edit(account, "Couldn't delete folder", (d) => deleteFolder(d, id)),
       });
+    },
+
+    canReparent(id, parent, anchor) {
+      const d = doc();
+      return d.folders[id]?.anchor === anchor && canMoveFolder(d, id, parent);
+    },
+
+    reparent(id, parent) {
+      edit(account, "Couldn't move folder", (d) => moveFolder(d, id, parent));
     },
 
     assign(items, folderId) {

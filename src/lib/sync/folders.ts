@@ -58,9 +58,10 @@ function depth(d: FolderDoc, id: string | null): number {
   return n;
 }
 
-function height(d: FolderDoc, id: string): number {
+function height(d: FolderDoc, id: string, seen = new Set<string>()): number {
+  seen.add(id);
   let h = 1;
-  for (const [cid, c] of Object.entries(d.folders)) if (c.parent === id && cid !== id) h = Math.max(h, 1 + height(d, cid));
+  for (const [cid, c] of Object.entries(d.folders)) if (c.parent === id && !seen.has(cid)) h = Math.max(h, 1 + height(d, cid, seen));
   return h;
 }
 
@@ -109,7 +110,7 @@ export function renameFolder(d: FolderDoc, id: string, name: string): void {
   f.name = n;
 }
 
-export function moveFolder(d: FolderDoc, id: string, parent: string | null): void {
+function checkFolderMove(d: FolderDoc, id: string, parent: string | null): Folder {
   const f = d.folders[id] ?? fail("That folder no longer exists");
   if (parent) {
     const p = d.folders[parent] ?? fail("That folder no longer exists");
@@ -121,7 +122,22 @@ export function moveFolder(d: FolderDoc, id: string, parent: string | null): voi
     fail(`Folders can be at most ${MAX_FOLDER_DEPTH} deep`);
   }
   checkSiblingName(d, f.name, parent, f.anchor, id);
-  f.parent = parent;
+  return f;
+}
+
+export function canMoveFolder(d: FolderDoc, id: string, parent: string | null): boolean {
+  if (!Object.hasOwn(d.folders, id) || d.folders[id]!.parent === parent) return false;
+  try {
+    checkFolderMove(d, id, parent);
+    return true;
+  } catch (e) {
+    if (e instanceof FolderError) return false;
+    throw e;
+  }
+}
+
+export function moveFolder(d: FolderDoc, id: string, parent: string | null): void {
+  checkFolderMove(d, id, parent).parent = parent;
 }
 
 /** Removes a folder; its subfolders and sessions move to its parent. */
