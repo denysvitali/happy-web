@@ -15,6 +15,50 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
     const shot = (page: Page, name: string) => page.screenshot({ path: `screenshots/${vp.name}-${name}.png` });
 
+    test("Git review", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      const head = "a".repeat(40);
+      const base = "b".repeat(40);
+      const patch = (file: string) =>
+        `diff --git a/${file} b/${file}\n--- a/${file}\n+++ b/${file}\n@@ -1,2 +1,2 @@\n export const attempts = 3;\n-export const timeout = 1000;\n+export const timeout = 1500;\n`;
+      await mock.install(page, { rpc: {
+        "s2:bash": (params) => {
+          const { command, cwd } = params as { command: string; cwd: string };
+          expect(cwd).toBe("/workspace/happy-web");
+          let stdout: string;
+          if (command.includes("status --porcelain")) stdout = ["main", "MM src/auth.ts", " M src/session.ts", "?? tests/auth.test.ts", ""].join("\0");
+          else if (command.includes("git log")) stdout = [head, "2026-11-23", "Adjust login timeout", ""].join("\0");
+          else if (command.includes("git merge-base")) stdout = ["refs/remotes/origin/main", base, head, "0\t1", "M", "src/auth.ts", ""].join("\0");
+          else if (command.includes("--name-status")) stdout = [base, "M", "src/auth.ts", ""].join("\0");
+          else stdout = patch(command.includes("src/session.ts") ? "src/session.ts" : "src/auth.ts");
+          return { success: true, stdout };
+        },
+      } });
+      await linkAndOpen(page, mock);
+      await page.goto("/#/s/s2");
+      await page.getByRole("button", { name: "Review Git changes" }).click();
+      await expect(page.getByRole("heading", { name: "Staged for commit" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "File diff" })).toContainText("+export const timeout = 1500;");
+      await expect(page.getByRole("link", { name: "Open repository on GitHub" })).toHaveAttribute("href", "https://github.com/acme/happy-web");
+      await shot(page, "git-review");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      await shot(page, "git-review-dark");
+
+      await page.getByRole("button", { name: /src\/session.ts/ }).click();
+      await expect(page.getByRole("region", { name: "File diff" })).toContainText("diff --git a/src/session.ts");
+      await page.getByRole("tab", { name: "Commits" }).click();
+      await expect(page.getByLabel("Recent commits")).toHaveValue(head);
+      await expect(page.getByRole("heading", { name: /Files in commit/ })).toBeVisible();
+      await page.getByRole("tab", { name: "Outgoing" }).click();
+      await expect(page.getByText(/1 ahead · 0 behind/)).toBeVisible();
+      await expect(page.getByRole("heading", { name: /Files in outgoing commits/ })).toBeVisible();
+      await page.getByRole("link", { name: "Back to the chat" }).click();
+      await expect(page).toHaveURL(/#\/s\/s2$/);
+      expect(violations).toEqual([]);
+    });
+
     test("screens", async ({ page }) => {
       const violations = watchCsp(page);
       const mock = createMock();

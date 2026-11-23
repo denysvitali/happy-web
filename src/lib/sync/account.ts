@@ -713,8 +713,8 @@ export class Account {
     return this.rpc(sessionId, "writeFile", (p) => [p.WriteFileRequestSchema, p.WriteFileResponseSchema], { path, content, ...(mustBeNew ? { expectedHash: "" } : {}) }, 60_000);
   }
 
-  bash(sessionId: string, command: string, stdin: string) {
-    return this.rpc(sessionId, "bash", (p) => [p.BashRequestSchema, p.BashResponseSchema], { command, stdin, timeout: 60_000 }, 90_000, true);
+  bash(sessionId: string, command: string, stdin: string, cwd?: string) {
+    return this.rpc(sessionId, "bash", (p) => [p.BashRequestSchema, p.BashResponseSchema], { command, stdin, cwd, timeout: 60_000 }, 90_000, true);
   }
 
   /** Default branch, branches and (with `ref`) whether `ref` resolves, via

@@ -38,6 +38,11 @@ const files = createRoute({
   validateSearch: (s: Record<string, unknown>): { path: string } => ({ path: typeof s.path === "string" ? s.path : "" }),
   component: lazyRouteComponent(() => import("@/routes/files"), "FilesScreen"),
 });
+const review = createRoute({
+  getParentRoute: () => authed,
+  path: "/s/$sessionId/review",
+  component: lazyRouteComponent(() => import("@/routes/review"), "ReviewScreen"),
+});
 const inbox = createRoute({
   getParentRoute: () => authed,
   path: "/inbox",
@@ -55,7 +60,7 @@ const demo = createRoute({
 });
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, files, inbox, inboxMessage]), demo]),
+  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, files, review, inbox, inboxMessage]), demo]),
   defaultNotFoundComponent: NotFoundScreen,
   history: createHashHistory(),
   defaultPreload: false,
