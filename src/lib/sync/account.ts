@@ -87,6 +87,8 @@ export interface Spawning {
 /** How long a just-spawned session may take to appear (Pod scheduling,
  * image pull, clone). */
 const SPAWN_WAIT_MS = 5 * 60_000;
+/** Closed chats kept loaded (and socket-fed) for a quick return. */
+const WARM_CHATS = 3;
 
 const byActivity = (items: SessionItem[]) => items.sort((a, b) => activityAt(b) - activityAt(a));
 
@@ -109,6 +111,8 @@ export class Account {
   /** Data-key machines: the session folders' key is wrapped for each. */
   private machineCiphers = new Map<string, Cipher>();
   readonly folders: FolderSync;
+  /** Open chats, plus the last few closed ones (refs 0) kept warm: going
+   * back and in again (phones) would otherwise reload the newest PAGE records. */
   private chats = new Map<string, { store: ChatStore; refs: number }>();
   /** Server rows behind the session list (see listCache.ts). */
   private list: ListState = emptyList();
@@ -363,7 +367,7 @@ export class Account {
   // ---- unread ---------------------------------------------------------------
 
   /** An open chat in a visible tab is being read. */
-  private viewing = (id: string): boolean => this.chats.has(id) && document.visibilityState === "visible";
+  private viewing = (id: string): boolean => (this.chats.get(id)?.refs ?? 0) > 0 && document.visibilityState === "visible";
 
   private onOnline = (): void => this.realtime.nudge();
 
@@ -374,7 +378,7 @@ export class Account {
     }
     this.realtime.nudge();
     const list = this.qc.getQueryData<SessionItem[]>(sessionsKey) ?? [];
-    for (const s of list) if (this.chats.has(s.id)) this.unread.markSeen(s.id, s.lastSeq);
+    for (const s of list) if (this.viewing(s.id)) this.unread.markSeen(s.id, s.lastSeq);
   };
 
   private onStorage = (e: StorageEvent): void => {
@@ -581,18 +585,30 @@ export class Account {
     let entry = this.chats.get(session.id);
     if (!entry) {
       const cipher = (await this.knownCipher(session.id)) ?? (await this.cipherFor(session.id, dek));
-      entry = { store: new ChatStore(session.id, this.api, cipher), refs: 0 };
-      this.chats.set(session.id, entry);
-      void entry.store.open(session.lastSeq);
-      if (!session.agentStateLoaded) void this.loadAgentState(session.id);
+      // A concurrent open may have won the await; share its store.
+      entry = this.chats.get(session.id);
+      if (!entry) {
+        entry = { store: new ChatStore(session.id, this.api, cipher), refs: 0 };
+        this.chats.set(session.id, entry);
+        void entry.store.open(session.lastSeq);
+        if (!session.agentStateLoaded) void this.loadAgentState(session.id);
+      }
+    } else if (entry.refs === 0) {
+      // Warm: the socket kept it current; fetch only what a drop may have missed.
+      void entry.store.catchUp();
     }
+    // Most recently used last, so eviction drops the oldest closed chat.
+    this.chats.delete(session.id);
+    this.chats.set(session.id, entry);
     entry.refs++;
     if (this.viewing(session.id)) this.unread.markSeen(session.id, session.lastSeq);
     const e = entry;
     return {
       store: e.store,
       release: () => {
-        if (--e.refs <= 0) this.chats.delete(session.id);
+        if (--e.refs > 0) return;
+        const idle = [...this.chats].filter(([, c]) => c.refs <= 0);
+        for (const [id] of idle.slice(0, Math.max(0, idle.length - WARM_CHATS))) this.chats.delete(id);
       },
     };
   }

@@ -41,7 +41,8 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Wide screens: the sidebar resizes from its edge and folds to an icon rail (toggle or
   Cmd/Ctrl+B); per-browser in localStorage (`shell/sidebarLayout.ts`), ignored on phones.
 - Phones (<48em) use push navigation, not a drawer: `/` is the session list, a chat opens
-  full-screen with a back button. A sub-agent card opens its own read-only page
+  full-screen with a back button (the last 3 closed chats stay loaded, socket-fed, so going
+  back and in does not reload them). A sub-agent card opens its own read-only page
   (`/s/$sessionId/agent/$toolId`, built from the parent chat's store).
 - Pinned deps (`save-exact`), Renovate keeps them fresh.
 - Visual inspection is required after any UI change: `pnpm screenshots` (phone + desktop,
