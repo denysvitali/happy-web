@@ -135,7 +135,7 @@ describe("sending a switch", () => {
 });
 
 describe("permission modes", () => {
-  it("differs between Codex and the rest", () => {
+  it("keeps the per-agent catalogs and bypass as the default for every agent", () => {
     expect(agentKind("codex")).toBe("codex");
     expect(agentKind("prime-agent")).toBe("prime");
     expect(agentKind(undefined)).toBe("claude");
@@ -144,6 +144,8 @@ describe("permission modes", () => {
     expect(currentPermissionMode("codex", "yolo")).toBe("yolo");
     expect(currentPermissionMode("codex", "bypassPermissions")).toBe("yolo");
     expect(currentPermissionMode("claude", undefined)).toBe("bypassPermissions");
+    expect(currentPermissionMode("codex", undefined)).toBe("yolo");
+    expect(currentPermissionMode("opencode", undefined)).toBe("bypassPermissions");
   });
 });
 

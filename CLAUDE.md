@@ -76,6 +76,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   first; no confirm, Undo in the toast). Avatars are identicons (`SessionAvatar`): tint from the
   project, glyph from the session id; changing `hashString` or reordering `SESSION_GLYPHS`
   re-skins every session.
+- New session: right-click a project header (local dirs) → "New session in this directory…"
+  opens the modal preselected to that directory. MCP options live under Advanced (Kubernetes
+  mode); Bypass is the default permission mode for every agent (other modes are switchable).
 - Session folders: one E2E-encrypted KV doc shared with Flutter and agents
   (happy-cli-go `docs/operations/session-folders.md`). `src/lib/sync/folders.ts`
   holds the pure model, `folderSync.ts` the optimistic, version-checked sync,

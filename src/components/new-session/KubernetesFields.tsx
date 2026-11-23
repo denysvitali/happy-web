@@ -42,6 +42,8 @@ export function KubernetesFields(p: {
   extraRejected: string[];
   mcp: string[];
   onMcp: (v: string[]) => void;
+  /** Advanced is open: the MCP "Tools" section appears in the disclosure. */
+  advanced: boolean;
 }) {
   const uid = useId();
   const reply = p.lookup.reply;
@@ -177,28 +179,30 @@ export function KubernetesFields(p: {
           />
         </FormRow>
       </FormSection>
-      <FormSection title="Tools" footer={p.mcp.length ? "MCP servers started in the Pod. Switched-off servers are not started." : "The session starts without any default MCP server."}>
-        {MCP_SERVERS.map((s) => {
-          const { label, icon: Icon, tone } = MCP[s];
-          return (
-            <FormRow
-              key={s}
-              trailing
-              labelFor={`${uid}-mcp-${s}`}
-              label={
-                <>
-                  <span className={classes.toolIcon} data-tone={tone} aria-hidden>
-                    <Icon size={15} strokeWidth={2} />
-                  </span>
-                  {label}
-                </>
-              }
-            >
-              <Switch id={`${uid}-mcp-${s}`} checked={p.mcp.includes(s)} onChange={(e) => toggleMcp(s, e.currentTarget.checked)} />
-            </FormRow>
-          );
-        })}
-      </FormSection>
+      {p.advanced && (
+        <FormSection title="Tools" footer={p.mcp.length ? "MCP servers started in the Pod. Switched-off servers are not started." : "The session starts without any default MCP server."}>
+          {MCP_SERVERS.map((s) => {
+            const { label, icon: Icon, tone } = MCP[s];
+            return (
+              <FormRow
+                key={s}
+                trailing
+                labelFor={`${uid}-mcp-${s}`}
+                label={
+                  <>
+                    <span className={classes.toolIcon} data-tone={tone} aria-hidden>
+                      <Icon size={15} strokeWidth={2} />
+                    </span>
+                    {label}
+                  </>
+                }
+              >
+                <Switch id={`${uid}-mcp-${s}`} checked={p.mcp.includes(s)} onChange={(e) => toggleMcp(s, e.currentTarget.checked)} />
+              </FormRow>
+            );
+          })}
+        </FormSection>
+      )}
     </>
   );
 }

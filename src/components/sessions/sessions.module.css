@@ -47,6 +47,7 @@
 .errorBox { padding: 8px; }
 
 .groupHeader {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -55,6 +56,22 @@
 }
 /* The source list is already inset by .list's padding. */
 .groupHeader > div { padding: 0; }
+
+/* "New session in this directory…": hover-revealed trigger, like .rowActions.
+   Shifted left: touch hit-area ::after (6px past the button) must stay in
+   the list's padding — see the swipe spec. */
+.headerActions {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity var(--happy-dur-fast) var(--happy-ease-out);
+}
+.groupHeader:hover .headerActions,
+.groupHeader[data-menu] .headerActions {
+  opacity: 1;
+}
 
 /* ---- Row ---- */
 .row {

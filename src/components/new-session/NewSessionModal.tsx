@@ -81,6 +81,8 @@ export interface NewSessionOptions {
   machineId?: string | undefined;
   /** Preselect this account-level folder. */
   folderId?: string | undefined;
+  /** Preselect this local directory (e.g. a project header's "New session in this directory…"). */
+  directory?: string | undefined;
 }
 
 function initialMode(modes: SpawnBackend[], hint: MachineItem | undefined, remembered: SpawnBackend | undefined): SpawnBackend {
@@ -107,8 +109,12 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   const machine = mode === "local" ? (locals.find((m) => m.id === localId) ?? locals[0]) : (clusters.find((m) => m.id === clusterId) ?? clusters[0]);
 
   // Local
-  const [directory, setDirectory] = useState("");
-  const folders = useMemo(() => (mode === "local" && machine ? recentFolders(sessions, machine.id) : []), [mode, machine, sessions]);
+  const [directory, setDirectory] = useState(() => opts.directory ?? "");
+  const folders = useMemo(() => {
+    const list = mode === "local" && machine ? recentFolders(sessions, machine.id) : [];
+    if (!opts.directory) return list;
+    return list.includes(opts.directory) ? list : [opts.directory, ...list];
+  }, [mode, machine, sessions, opts.directory]);
 
   // Kubernetes
   const [repoInput, setRepoInput] = useState("");
@@ -325,6 +331,7 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
             extraRejected={extraRejected}
             mcp={mcp}
             onMcp={setMcp}
+            advanced={advanced}
           />
         ) : (
           <LocalFields machines={locals} machine={machine} onMachine={setLocalId} folders={folders} directory={directory} onDirectory={setDirectory} />

@@ -245,9 +245,10 @@ export function currentPermissionMode(kind: AgentKind, mode: string | undefined)
   return mode && permissionModes(kind).some((m) => m.value === mode) ? mode : defaultPermissionMode(kind);
 }
 
-/** Bypass (Codex: YOLO) is the house default; other agents keep `default`. */
+/** Bypass is the house default for every agent (Codex: YOLO). Other modes stay
+ * selectable in the New session modal and the session toolbar. */
 export function defaultPermissionMode(kind: string): string {
-  return kind === "codex" ? "yolo" : kind === "claude" ? "bypassPermissions" : "default";
+  return kind === "codex" ? "yolo" : "bypassPermissions";
 }
 
 // ---- send ---------------------------------------------------------------------

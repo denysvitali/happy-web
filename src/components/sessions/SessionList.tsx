@@ -1,13 +1,15 @@
 import { Button, Menu, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, CircleAlert, Command, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { Check, CircleAlert, Command, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, SquarePen, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
 import { useCompact } from "@/components/shell/nav";
+import { openSpawnModal } from "@/components/shell/spawn";
 import { ProjectSwatch } from "@/components/status";
 import { folderRows, hasFolders } from "@/lib/sync/folderList";
+import type { MachineItem } from "@/lib/sync/account";
 import type { Filing } from "@/lib/sync/folders";
 import { agentLabel, facets, flattenSections, groupViews, projectSections, statusSections, type Grouping, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
@@ -88,10 +90,15 @@ interface Props {
   onOpen: (id: string) => void;
   onPalette: () => void;
   onRetry?: (() => void) | undefined;
+  /** Online machines (the New session modal only offers these). */
+  machines?: MachineItem[] | undefined;
+  /** Called with the new session's id after "New session in this directory…" spawns. */
+  onSpawnInDir?: ((id: string) => void) | undefined;
 }
 
 /** Grouped, searchable, virtualized session list with keyboard navigation. */
-export function SessionList({ views, loading, error, activeId, onOpen, onPalette, onRetry }: Props) {
+export function SessionList({ views, loading, error, activeId, onOpen, onPalette, onRetry, machines = [], onSpawnInDir }: Props) {
+  const account = useAccount();
   const [query, setQuery] = useState("");
   const [agent, setAgent] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
@@ -106,7 +113,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const options = useMemo(() => facets(views), [views]);
   // Only badge avatars whose agent differs from the usual one.
   const usualAgent = options.agents.length > 1 ? options.agents[0] : undefined;
-  const folders = useStore(useAccount().folders.state);
+  const folders = useStore(account.folders.state);
   const folderActions = useFolderActions();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const toggleFolder = useCallback((id: string) => {
@@ -272,6 +279,16 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     const items = filings(selected);
     folderActions.move(items, items.map((it) => byId.get(it.id)!.title).join(", "), clearSelection);
   };
+  // "New session in this directory…": the New session modal with the project's
+  // directory preselected, on its machine when that's still online.
+  const newSessionIn = useCallback(
+    (project: string) => {
+      const machineId = views.find((v) => v.project === project)?.item.meta.machineId;
+      const onlineId = machineId && machines.some((m) => m.id === machineId) ? machineId : undefined;
+      openSpawnModal(account, machines, (id) => onSpawnInDir?.(id), onlineId);
+    },
+    [account, machines, views, onSpawnInDir],
+  );
 
   const compact = useCompact();
   const [rowH, headerH, folderH] = compact ? [ROW_HEIGHT_COMPACT, HEADER_HEIGHT_COMPACT, FOLDER_HEIGHT_COMPACT] : [ROW_HEIGHT, HEADER_HEIGHT, FOLDER_HEIGHT];
@@ -480,7 +497,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             const r = rows[vi.index]!;
             const rootKey = r.type === "folders" ? "r:" : r.type === "session" && foldered && folderAnchors.has(r.view.id) ? `r:${r.view.id}` : undefined;
             const content = r.type === "header" ? (
-              <GroupHeader row={r} searching={searching} onToggle={() => setArchivedOpen((o) => !o)} />
+              <GroupHeader row={r} searching={searching} onToggle={() => setArchivedOpen((o) => !o)} onNewSessionInDir={newSessionIn} />
             ) : r.type === "folders" ? (
               <div className={classes.groupHeader}>
                 <SectionHeader label="Folders" count={r.count} level={3} />
@@ -547,12 +564,24 @@ function FolderRoot({ children, dropKey, drop, target }: { children: ReactNode; 
   return <div className={classes.folderRoot} {...props}>{children}</div>;
 }
 
-function GroupHeader({ row, searching, onToggle }: { row: Extract<ListRow, { type: "header" }>; searching: boolean; onToggle: () => void }) {
+function GroupHeader({ row, searching, onToggle, onNewSessionInDir }: { row: Extract<ListRow, { type: "header" }>; searching: boolean; onToggle: () => void; onNewSessionInDir?: ((project: string) => void) | undefined }) {
+  const [menu, setMenu] = useState(false);
   const attention = row.group === "attention";
   const toggle = row.collapsible && !searching;
   const icon = attention ? <CircleAlert size={12} strokeWidth={2.5} /> : row.project !== undefined ? <ProjectSwatch project={row.project} /> : undefined;
+  // A local-directory project (vs. a repo slug) offers "New session in this directory…".
+  const dir = row.project && !searching && (row.project.startsWith("/") || row.project.startsWith("~")) ? row.project : undefined;
+  const canNewSessionInDir = dir !== undefined && onNewSessionInDir !== undefined;
   return (
-    <div className={classes.groupHeader} title={row.project || undefined}>
+    <div
+      className={classes.groupHeader}
+      title={row.project || undefined}
+      data-menu={menu || undefined}
+      onContextMenu={canNewSessionInDir ? (e) => {
+        e.preventDefault();
+        setMenu(true);
+      } : undefined}
+    >
       <SectionHeader
         label={row.label}
         count={row.count}
@@ -562,6 +591,24 @@ function GroupHeader({ row, searching, onToggle }: { row: Extract<ListRow, { typ
         open={toggle ? row.open : undefined}
         onToggle={toggle ? onToggle : undefined}
       />
+      {canNewSessionInDir && (
+        <Menu position="bottom-start" width={220} shadow="md" opened={menu} onChange={setMenu}>
+          <Menu.Target>
+            <IconButton className={classes.headerActions} label="New session in this directory" icon={<SquarePen size={14} strokeWidth={2} />} />
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              leftSection={<SquarePen size={14} strokeWidth={2} />}
+              onClick={() => {
+                setMenu(false);
+                onNewSessionInDir?.(row.project!);
+              }}
+            >
+              New session in this directory…
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      )}
     </div>
   );
 }

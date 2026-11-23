@@ -165,7 +165,7 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
         </Tooltip>
       </div>
 
-      <SessionList views={views} loading={sessions.isPending} error={sessions.error} activeId={params.sessionId} onOpen={open} onPalette={() => setPaletteOpen(true)} onRetry={() => void sessions.refetch()} />
+      <SessionList views={views} loading={sessions.isPending} error={sessions.error} activeId={params.sessionId} onOpen={open} onPalette={() => setPaletteOpen(true)} onRetry={() => void sessions.refetch()} machines={onlineMachines} onSpawnInDir={open} />
 
       {host}
 
