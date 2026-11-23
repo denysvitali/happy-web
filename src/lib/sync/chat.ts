@@ -235,7 +235,7 @@ export const blockTime = (b: Block): number | undefined =>
   b.type === "steps" || b.type === "work" ? (b.items[0] ? blockTime(b.items[0]) : undefined) : "at" in b ? b.at : undefined;
 
 /** Blocks a finished turn must not hide: they still wait for the user. */
-const needsUser = (b: Block): boolean =>
+export const needsUser = (b: Block): boolean =>
   b.type === "permission" || (b.type === "tool" && (b.permission?.status === "pending" || (ASKING_TOOLS.has(b.name) && !b.result)));
 
 /** Folds each finished agent turn: everything between the user's message and

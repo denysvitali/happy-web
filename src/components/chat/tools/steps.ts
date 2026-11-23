@@ -1,6 +1,6 @@
 // One-line descriptions of a run of steps ("Ran 3 commands, edited 2 files")
 // and of what a run or a sub-agent is doing right now.
-import { isAgent, type Block, type StepBlock, type ToolBlock } from "@/lib/sync/chat";
+import { isAgent, needsUser, type Block, type StepBlock, type ToolBlock } from "@/lib/sync/chat";
 import { agentStatus, field, firstLine } from "./format";
 import { titleOf, viewFor } from "./registry";
 
@@ -136,4 +136,64 @@ export function workSummary(items: readonly Block[]): { summary: string; failed:
   const parts = [stepsSummary(steps), agents && `${agents} ${agents === 1 ? "agent" : "agents"}`].filter(Boolean) as string[];
   const s = parts.join(", ");
   return { summary: s.charAt(0).toLowerCase() + s.slice(1), failed: failedSteps(steps) };
+}
+
+/** What the live turn is doing now, for the working row. */
+export interface LiveActivity {
+  kind: "tool" | "waiting" | "writing" | "thinking";
+  label: string;
+  /** When the running call started (kind "tool"). */
+  since?: number | undefined;
+  /** Newest timestamp seen in the turn: how fresh its progress is. */
+  lastAt?: number | undefined;
+  /** Calls and thoughts so far, sub-agents' own steps included. */
+  steps: number;
+  /** Sub-agents still at work. */
+  agents: number;
+  /** "ran 3 commands, read 2 files, 1 agent", for the row's tooltip. */
+  summary: string;
+}
+
+/** The live turn (everything after the last user message), read for the
+ * working row: a running call, else waiting on the user, else writing or
+ * thinking. Pure; call it once per blocks change. */
+export function liveActivity(blocks: readonly Block[]): LiveActivity {
+  const start = blocks.findLastIndex((b) => b.type === "user") + 1;
+  const turn = blocks.slice(start);
+  let steps = 0;
+  let agents = 0;
+  let lastAt: number | undefined;
+  let waiting = false;
+  const seen = (t: number | undefined) => {
+    if (t !== undefined && (lastAt === undefined || t > lastAt)) lastAt = t;
+  };
+  const walk = (bs: readonly Block[]) => {
+    for (const b of bs) {
+      if (needsUser(b)) waiting = true;
+      if (b.type === "steps") walk(b.items);
+      else if (b.type === "tool") {
+        seen(b.at);
+        seen(b.result?.at);
+        seen(b.task?.at);
+        if (isAgent(b)) {
+          if (agentStatus(b) === "running") agents++;
+          walk(b.children);
+        } else steps++;
+      } else if (b.type === "thinking") {
+        steps++;
+        seen(b.at);
+      } else if ("at" in b) seen(b.at);
+    }
+  };
+  walk(turn);
+  const base = { lastAt, steps, agents, summary: workSummary(turn).summary };
+  if (waiting) return { ...base, kind: "waiting", label: "Waiting for you" };
+  const running = runningIn(turn.filter((b) => !needsUser(b)));
+  if (running) {
+    const { title, summary } = stepLabel(running);
+    return { ...base, kind: "tool", label: summary ? `${title} · ${summary}` : title, since: running.at };
+  }
+  const last = turn.at(-1);
+  if (last?.type === "text" && last.streaming) return { ...base, kind: "writing", label: "Writing reply" };
+  return { ...base, kind: "thinking", label: "Thinking" };
 }

@@ -121,16 +121,24 @@
 .working {
   position: absolute;
   left: 0;
+  right: 0;
   bottom: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   height: 32px;
+  min-width: 0;
+  white-space: nowrap;
   font-size: var(--happy-text-footnote);
   color: var(--happy-label-3);
 }
-.workingTime { font-variant-numeric: tabular-nums; }
-.workingTime::before { content: "·"; margin-right: 8px; }
+/* What is happening now: the one part that may be cut. */
+.workingNow { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--happy-label-2); }
+.workingNow[data-kind="waiting"] { color: var(--happy-orange); }
+.workingTime, .workingMeta { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.workingTime::before, .workingMeta::before { content: "·"; margin-right: 8px; }
+/* Phones: keep the label and the running call's time; drop the counts. */
+@media (max-width: 48em) { .workingMeta:not(:last-child) { display: none; } }
 .dots { display: inline-flex; gap: 3px; }
 .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--happy-label-3); animation: dot 1.2s var(--happy-ease) infinite; }
 .dots i:nth-child(2) { animation-delay: 0.15s; }

@@ -25,7 +25,7 @@ import classes from "@/components/chat/chat.module.css";
 import type { ChatView, ToolBlock } from "@/lib/sync/chat";
 import type { ChatStore, OutgoingImage } from "@/lib/sync/chatStore";
 import { PlanChip } from "@/components/chat/plan";
-import { latestPlan } from "@/components/chat/tools/steps";
+import { latestPlan, liveActivity } from "@/components/chat/tools/steps";
 import { useLink } from "@/components/shell/connection";
 import { sessionTodos } from "@/lib/sync/todos";
 import { agentOf } from "@/lib/sync/sessionList";
@@ -227,6 +227,7 @@ function Messages({
     return u?.type === "user" ? u.at : undefined;
   }, [blocks]);
   const mountedAt = useRef(Date.now());
+  const activity = useMemo(() => (working ? liveActivity(blocks) : undefined), [working, blocks]);
   const failed = blocks.some((b) => b.type === "user" && b.pending === "failed");
   const showSkeleton = meta.loading && blocks.length === 0;
   return (
@@ -286,7 +287,7 @@ function Messages({
                 </div>
               );
             })}
-            {working && blocks.length > 0 && <WorkingRow since={since ?? mountedAt.current} />}
+            {working && blocks.length > 0 && <WorkingRow since={since ?? mountedAt.current} activity={activity} />}
           </div>
           {failed && (
             <div className={classes.center}>

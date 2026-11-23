@@ -54,6 +54,10 @@ Server wins over Flutter; record every discrepancy in README.md.
   sub-agents, unanswered questions and pending permissions stay out as cards. Finished turns
   fold their working into one `work` line above the final reply (`groupTurns`); the live
   turn and anything waiting for the user never fold.
+  The Working row under a live turn says what is happening now (`liveActivity` in
+  `tools/steps.ts`): the running call (a sub-agent's own, if deeper) and its time, else
+  "Waiting for you", "Writing reply" or "Thinking" (+ "quiet Ns" after 30s with no new step),
+  then the turn's step/agent counts and elapsed time; one line, never moves the transcript.
   A call with no result is closed as interrupted once a later `ready` ends its turn or the
   session is halted (`isHalted`); questions, pending permissions and background agents wait.
   A pending AskUserQuestion is answered in the card (no Allow/Deny bar): picks go back on the
