@@ -455,6 +455,39 @@ for (const vp of VIEWPORTS) {
       expect(violations).toEqual([]);
     });
 
+    // ---- devices: a terminal's web login, pasting a code, forgetting a machine ----
+    test("devices", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await page.goto(`/terminal/connect#key=${"A".repeat(42)}E`);
+      await expect(page.getByText("A terminal wants to join as a machine")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "d1-connect");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "d2-connect-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.goto("/#/");
+      await page.getByRole("button", { name: "Account and settings" }).click();
+      await page.getByRole("button", { name: /^Link a machine/ }).click();
+      const sheet = page.getByRole("dialog", { name: "Link a device" });
+      await sheet.getByLabel("Link code").fill(`happy:///account?${"A".repeat(42)}E`);
+      await expect(sheet.getByText("Another app wants full access")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "d3-link-account");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Account and settings" }).click();
+      await page.getByRole("button", { name: /^denys@laptop/ }).click();
+      await page.getByRole("dialog", { name: "denys@laptop" }).getByRole("button", { name: "Forget this machine…" }).click();
+      await expect(page.getByRole("dialog", { name: "Forget denys@laptop?" })).toBeVisible();
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(300);
+      await shot(page, "d4-forget-dark");
+      expect(violations).toEqual([]);
+    });
+
     // ---- providers: the profile list, the editor, a custom model ----
     test("providers", async ({ page }) => {
       const violations = watchCsp(page);

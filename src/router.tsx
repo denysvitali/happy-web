@@ -53,6 +53,12 @@ const inboxMessage = createRoute({
   path: "/inbox/$inboxSession/$inboxMessage",
   component: lazyRouteComponent(() => import("@/routes/inbox"), "InboxScreen"),
 });
+const connect = createRoute({
+  getParentRoute: () => authed,
+  path: "/terminal/connect",
+  validateSearch: (s: Record<string, unknown>): { key?: string } => (typeof s.key === "string" ? { key: s.key } : {}),
+  component: lazyRouteComponent(() => import("@/routes/connect"), "ConnectScreen"),
+});
 const demo = createRoute({
   getParentRoute: () => rootRoute,
   path: "/components-demo",
@@ -60,7 +66,7 @@ const demo = createRoute({
 });
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, files, review, inbox, inboxMessage]), demo]),
+  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, files, review, inbox, inboxMessage, connect]), demo]),
   defaultNotFoundComponent: NotFoundScreen,
   history: createHashHistory(),
   defaultPreload: false,

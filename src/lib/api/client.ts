@@ -76,6 +76,25 @@ export class ApiClient {
     return this.get(machinesResponse, "/v1/machines", { signal });
   }
 
+  /** Unlists a machine (its sessions stay). A running daemon registers it again. */
+  async deleteMachine(machineId: string): Promise<void> {
+    await requestJson(this.baseUrl, `/v1/machines/${encodeURIComponent(machineId)}`, { method: "DELETE", token: this.token });
+  }
+
+  /** Answers a device's link request (POST /v1/auth/response or
+   * /v1/auth/account/response, grpc-gateway). Lazy: keeps protobuf-es out of
+   * the initial bundle. */
+  async approveLink(kind: "terminal" | "account", publicKey: string, response: string): Promise<void> {
+    const [{ callGateway }, { AuthService }] = await Promise.all([import("./gateway"), import("@/gen/auth_pb")]);
+    const init = { publicKey, response };
+    const opts = { token: this.token };
+    const res =
+      kind === "terminal"
+        ? await callGateway(this.baseUrl, AuthService.method.approveTerminalAuth, init, opts)
+        : await callGateway(this.baseUrl, AuthService.method.approveAccountAuth, init, opts);
+    if (!res.success) throw new Error("The server did not accept the approval");
+  }
+
   /** The encrypted account settings blob (provider profiles live here). */
   getAccountSettings(signal?: AbortSignal) {
     return this.get(accountSettingsResponse, "/v1/account/settings", { signal });

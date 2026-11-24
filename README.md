@@ -63,6 +63,13 @@ Then open the Happy app → **Settings → Account → Link New Device** and sca
   Session and machine payloads use AES-256-GCM data keys (sealed to the account content
   key) or legacy NaCl secretbox. Both paths are tested against vectors produced by the Go
   code and by Flutter's own key derivation.
+- **Linking other devices** (Settings → Machines → Link a machine…, or the
+  `<webapp>/terminal/connect#key=…` page `happy auth login --method web` opens; set the
+  CLI's `HAPPY_WEBAPP_URL` to this app). A terminal (`happy://terminal?<key>`) gets the
+  data-key answer `box(0x00 ‖ contentPublicKey)`, never the master secret; another browser
+  or app (`happy:///account?<key>`) gets `box(masterSecret)`. Approving always takes a tap.
+  "Forget" only unlists a machine (`DELETE /v1/machines/:id`); the server cannot revoke its
+  token, and a running daemon registers it again.
 - **Storage.** The master secret and token live in IndexedDB only, never in URLs,
   `localStorage` or logs. The same database caches the session list as the server's
   ciphertext rows (never decrypted data). **Forget this device** deletes the database.

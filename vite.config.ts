@@ -39,9 +39,25 @@ function version(): Plugin {
   };
 }
 
+// Static hosts (GitHub Pages) have no SPA fallback, so the page a terminal's
+// `happy auth login --method web` opens (<base>terminal/connect) gets its own
+// copy of index.html; main.tsx moves the key into the hash route.
+function terminalConnect(): Plugin {
+  return {
+    name: "happy-terminal-connect",
+    enforce: "post",
+    apply: "build",
+    generateBundle(_, bundle) {
+      const index = bundle["index.html"];
+      if (index?.type !== "asset") throw new Error("index.html missing from the bundle");
+      this.emitFile({ type: "asset", fileName: "terminal/connect/index.html", source: index.source });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   base: process.env.HAPPY_WEB_BASE ?? "/",
-  plugins: [react(), csp(command === "serve"), version()],
+  plugins: [react(), csp(command === "serve"), version(), terminalConnect()],
   define: { __HAPPY_BUILD__: JSON.stringify(BUILD_ID) },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   build: { target: "es2022", sourcemap: false, assetsInlineLimit: 0 },

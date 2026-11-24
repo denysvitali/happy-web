@@ -11,6 +11,12 @@ import { narrowConnectSrc } from "./lib/csp";
 // Must run before any network access (module evaluation of App opens none).
 narrowConnectSrc(getServerUrl());
 
+// `happy auth login --method web` opens <webapp>/terminal/connect#key=…, but
+// routes live in the hash: move it to #/terminal/connect?key=… (routes/connect.tsx).
+if (/\/terminal\/connect\/?$/.test(location.pathname) && location.hash.startsWith("#key=")) {
+  history.replaceState(null, "", `${import.meta.env.BASE_URL}#/terminal/connect?${location.hash.slice(1)}`);
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

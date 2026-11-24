@@ -1,0 +1,2 @@
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.code { font-family: var(--happy-font-mono); font-size: var(--happy-text-footnote); word-break: break-all; }

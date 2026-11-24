@@ -1,4 +1,4 @@
-import { Outlet, useParams, useRouterState } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useRef, type CSSProperties } from "react";
 import { ConnectionBanner } from "./ConnectionBanner";
 import { useCompact } from "./nav";
@@ -17,10 +17,8 @@ import classes from "./shell.module.css";
  * list keeps its scroll position underneath.
  */
 export function Shell() {
-  const hasSession = !!useParams({ strict: false }).sessionId;
-  const inInbox = useRouterState({ select: (s) => s.location.pathname.startsWith("/inbox") });
-  // Phones push the Inbox like a session.
-  const inSession = hasSession || inInbox;
+  // Phones push every page but the list (a session, the Inbox, …).
+  const inSession = useRouterState({ select: (s) => s.location.pathname !== "/" });
   const compact = useCompact();
   const layout = useSidebarLayout();
   const rail = layout.collapsed && !compact;

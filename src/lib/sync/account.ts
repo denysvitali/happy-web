@@ -7,6 +7,7 @@ import { ApiClient } from "../api/client";
 import { HttpError } from "../api/http";
 import type { Ephemeral, MachineRow, SessionRow, UpdateBody } from "../api/schemas";
 import { encodeBase64 } from "../crypto/base64";
+import { sealLinkAnswer, type LinkTarget } from "../auth/approve";
 import { createCipher, type Cipher } from "../crypto/cipher";
 import type { AccountKeys } from "../crypto/keys";
 import { Realtime, RpcError, type RealtimeStatus } from "../realtime/socket";
@@ -426,6 +427,25 @@ export class Account {
   async fetchMachines(signal?: AbortSignal): Promise<MachineItem[]> {
     const rows = await this.api.listMachines(signal);
     return Promise.all(rows.map((r) => this.decodeMachine(r)));
+  }
+
+  /** Removes a machine from the account's list at once; the server's
+   * `machine-deleted` update tells the other tabs. */
+  async forgetMachine(machineId: string): Promise<void> {
+    try {
+      await this.api.deleteMachine(machineId);
+    } catch (e) {
+      if (!(e instanceof Error && "status" in e && e.status === 404)) throw e;
+    }
+    this.machineCiphers.delete(machineId);
+    this.qc.setQueryData<MachineItem[]>(machinesKey, (l) => l?.filter((m) => m.id !== machineId));
+  }
+
+  /** Lets the device behind `target` into this account (see lib/auth/approve.ts). */
+  async approveLink(target: LinkTarget): Promise<void> {
+    const answer = sealLinkAnswer(target, this.keys);
+    await this.api.approveLink(target.kind, encodeBase64(target.publicKey), encodeBase64(answer));
+    if (target.kind === "terminal") void this.qc.invalidateQueries({ queryKey: machinesKey });
   }
 
   private async decodeMachine(r: MachineRow): Promise<MachineItem> {

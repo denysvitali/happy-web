@@ -1,7 +1,7 @@
-// One machine: what it is, and updating the Happy daemon and the agent CLIs
-// it runs (src/lib/sync/machineUpdates.ts). Opened from Settings → Machines
+// One machine: what it is, updating the Happy daemon and the agent CLIs it
+// runs (src/lib/sync/machineUpdates.ts), and forgetting it. Opened from Settings → Machines
 // and from a session's menu (lazily, through ./open.ts).
-import { Button, Loader, Text } from "@mantine/core";
+import { Button, Code, Loader, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
@@ -199,7 +199,36 @@ function Software({ account, machine, online }: { account: Account; machine: Mac
   );
 }
 
-function MachineContent({ account, id }: { account: Account; id: string }) {
+/** Unlisting is all the server offers: the machine keeps its token, and a
+ * daemon that still runs registers it again on its next connect. */
+function Forget({ account, machine, online, close }: { account: Account; machine: MachineItem; online: boolean; close: () => void }) {
+  const forget = useMutation({ mutationFn: () => account.forgetMachine(machine.id), onSuccess: close });
+  const name = machineName(machine.meta, machine.id);
+  const confirm = () =>
+    modals.openConfirmModal({
+      title: `Forget ${name}?`,
+      children: (
+        <Text size="sm">
+          It leaves your machine list; its sessions stay. {online ? "Its daemon is running, so it will come back the next time it reconnects. " : ""}
+          To unlink it for good, run <Code>happy auth logout</Code> on it.
+        </Text>
+      ),
+      labels: { confirm: "Forget", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: () => forget.mutate(),
+    });
+  return (
+    <FormSection footer={forget.error ? `Couldn't forget it: ${errText(forget.error)}` : "Removes a machine you no longer use from this list."}>
+      <FormRow layout="bare">
+        <Button className={classes.danger} color="red" variant="subtle" fullWidth loading={forget.isPending} onClick={confirm}>
+          Forget this machine…
+        </Button>
+      </FormRow>
+    </FormSection>
+  );
+}
+
+function MachineContent({ account, id, close }: { account: Account; id: string; close: () => void }) {
   const now = useNow();
   const machines = useQuery<MachineItem[]>({ queryKey: machinesKey, queryFn: ({ signal }) => account.fetchMachines(signal), staleTime: 60_000 });
   const m = machines.data?.find((x) => x.id === id);
@@ -225,6 +254,7 @@ function MachineContent({ account, id }: { account: Account; id: string }) {
         )}
       </FormSection>
       <Software account={account} machine={m} online={online} />
+      <Forget account={account} machine={m} online={online} close={close} />
     </SheetBody>
   );
 }
@@ -236,5 +266,5 @@ function MachineTitle({ account, id }: { account: Account; id: string }) {
 }
 
 export function openMachine(account: Account, id: string): void {
-  openSheet({ title: <MachineTitle account={account} id={id} />, size: 480, children: () => <MachineContent account={account} id={id} /> });
+  openSheet({ title: <MachineTitle account={account} id={id} />, size: 480, children: (close) => <MachineContent account={account} id={id} close={close} /> });
 }

@@ -161,6 +161,8 @@ export function createMock() {
   const sent: { sessionId: string; localId: string; record: unknown }[] = [];
   const rpcCalls: { method: string; params: unknown }[] = [];
   const archives: { sessionId: string; archived: boolean }[] = [];
+  /** Device link approvals (POST /v1/auth/response, /v1/auth/account/response). */
+  const approvals: { path: string; publicKey: string; response: string }[] = [];
   let socketAuth: unknown = null;
   /** While false the socket server is unreachable: open links drop, new ones are refused. */
   let socketUp = true;
@@ -184,6 +186,16 @@ export function createMock() {
       }
       if (url.pathname === "/v2/sessions/active") return json({ sessions: sessions.filter((s) => s.active && !s.archived) });
       if (url.pathname === "/v1/machines") return json(machines);
+      const machineId = url.pathname.match(/^\/v1\/machines\/([^/]+)$/)?.[1];
+      if (machineId && req.method() === "DELETE") {
+        const i = machines.findIndex((m) => m.id === decodeURIComponent(machineId));
+        if (i >= 0) machines.splice(i, 1);
+        return json({ ok: true });
+      }
+      if ((url.pathname === "/v1/auth/response" || url.pathname === "/v1/auth/account/response") && req.method() === "POST") {
+        approvals.push({ path: url.pathname, ...(req.postDataJSON() as { publicKey: string; response: string }) });
+        return json({ success: true });
+      }
       const kvKey = url.pathname.match(/^\/v1\/kv\/(.+)$/);
       if (kvKey && req.method() === "GET") {
         const e = kv.get(decodeURIComponent(kvKey[1]!));
@@ -376,7 +388,7 @@ export function createMock() {
     if (!up) await Promise.all([...links].map((l) => l.close()));
   }
 
-  return { install, sent, rpcCalls, archives, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, secret, kv, settings };
+  return { install, sent, rpcCalls, archives, approvals, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, secret, kv, settings };
 }
 
 export function watchCsp(page: Page): string[] {

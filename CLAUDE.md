@@ -121,6 +121,11 @@ Server wins over Flutter; record every discrepancy in README.md.
   parsed in `src/lib/sync/machineUpdates.ts`. Updates are daemon-side jobs: start, then poll the
   cached status; any successful update restarts the daemon, so each one is confirmed first.
   Old daemons answer `method_unsupported`.
+- Linking devices (`account/LinkDevice.tsx`, `lib/auth/approve.ts`): Settings → Machines
+  → "Link a machine…" or `/terminal/connect` (what `happy auth login --method web` opens;
+  `main.tsx` moves `#key=` into the hash route, the build copies index.html there).
+  Terminals get the data-key answer, never the master secret; a link alone never approves.
+  Machine sheet "Forget" = `DELETE /v1/machines/:id` (unlist only; a live daemon re-registers).
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Session list fetch (`listCache.ts`): lite `/v2/sessions` (`omit=lastMessage,agentState`) +
