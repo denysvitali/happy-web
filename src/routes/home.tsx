@@ -6,7 +6,7 @@ import { useAccount } from "@/app/auth";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { openSpawnModal } from "@/components/shell/spawn";
 import { AttentionBadge, PodBadge, SessionAvatar } from "@/components/status";
-import { dominantAgent, groupViews, metaLine as meta, statusText, type SessionView } from "@/lib/sync/sessionList";
+import { byRank, dominantAgent, groupViews, metaLine as meta, statusText, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
 import { CardSkeleton, StatSkeleton } from "@/ui/Skeleton";
@@ -112,7 +112,7 @@ export function HomeScreen() {
     () =>
       [...g.recent, ...g.archived.slice(0, RECENT_LIMIT)]
         .map((e) => e.view)
-        .sort((a, b) => b.lastActivity - a.lastActivity)
+        .sort(byRank)
         .slice(0, RECENT_LIMIT),
     [g.recent, g.archived],
   );

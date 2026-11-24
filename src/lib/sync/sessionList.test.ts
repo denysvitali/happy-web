@@ -13,7 +13,9 @@ import {
   statusSections,
   formatAgo,
   groupViews,
+  ListOrder,
   metaLine,
+  SETTLE_QUIET_MS,
   podStateOf,
   projectOf,
   repoSlug,
@@ -307,5 +309,45 @@ describe("folder list grouped by project", () => {
     ]);
     expect(rows.find((r) => r.type === "session" && r.view.id === "b1")).toMatchObject({ inProject: true });
     expect(rows.find((r) => r.type === "session" && r.view.id === "a1")).toMatchObject({ inProject: false });
+  });
+});
+
+describe("ListOrder", () => {
+  const T = NOW - 60 * MIN;
+  it("ranks by the start of a burst, not the newest message", () => {
+    const o = new ListOrder();
+    expect(o.place("a", T, "active", true).rank).toBe(T);
+    expect(o.place("b", T + MIN, "active", true).rank).toBe(T + MIN);
+    // a keeps talking: it stays below b instead of leapfrogging it.
+    expect(o.place("a", T + 2 * MIN, "active", true).rank).toBe(T);
+    // A long tool call inside a turn is not a quiet spell.
+    expect(o.place("a", T + 30 * MIN, "active", false).rank).toBe(T);
+  });
+
+  it("moves a session up when it wakes from a quiet spell", () => {
+    const o = new ListOrder();
+    o.place("a", T, "recent", false);
+    const woke = T + SETTLE_QUIET_MS + 1;
+    expect(o.place("a", woke, "active", true).rank).toBe(woke);
+  });
+
+  it("holds rank and group while held, then lands the moves", () => {
+    const o = new ListOrder();
+    o.place("a", T, "recent", false);
+    o.held.set(true);
+    const later = T + 20 * MIN;
+    expect(o.place("a", later, "attention", true)).toMatchObject({ rank: T, group: "recent" });
+    // Newcomers still appear.
+    expect(o.place("n", later, "active", true).rank).toBe(later);
+    o.held.set(false);
+    expect(o.place("a", later, "attention", true)).toMatchObject({ rank: later, group: "attention" });
+  });
+
+  it("feeds deriveViews' rank and group", () => {
+    const o = new ListOrder();
+    const items = [mk("x", { path: "/x", machineId: "m1" }, { lastMessage: { seq: 1, at: T } })];
+    o.held.set(true);
+    const [v] = deriveViews(items, status, machines, NOW, undefined, o);
+    expect(v!.rank).toBe(T);
   });
 });

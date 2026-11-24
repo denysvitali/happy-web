@@ -8,12 +8,12 @@
 // Searching falls back to the flat groups (see SessionList).
 import { byFolderName, effectiveParent, folderOf, type FolderDoc } from "./folders";
 import { parseUnreadLabel, unreadLabel } from "./unread";
-import { byActivity, GROUP_LABEL, GROUP_ORDER, matches, projectName, type Grouping, type ListRow, type SessionFilter, type SessionGroup, type SessionView } from "./sessionList";
+import { byRank, GROUP_LABEL, GROUP_ORDER, matches, projectName, type Grouping, type ListRow, type SessionFilter, type SessionGroup, type SessionView } from "./sessionList";
 
 const URGENCY: Record<SessionGroup, number> = { attention: 3, active: 2, recent: 1, archived: 0 };
 
-/** Live sessions by activity, then archived ones. */
-const inFolderOrder = (a: SessionView, b: SessionView) => Number(a.group === "archived") - Number(b.group === "archived") || byActivity(a, b);
+/** Live sessions by rank, then archived ones. */
+const inFolderOrder = (a: SessionView, b: SessionView) => Number(a.group === "archived") - Number(b.group === "archived") || byRank(a, b);
 
 export function hasFolders(doc: FolderDoc): boolean {
   return Object.values(doc.folders).some((f) => f.anchor === null);
@@ -99,7 +99,7 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
     placed.add(v.id);
     out.push({ type: "session", view: v, depth, inProject });
     for (const fid of (anchored.get(v.id) ?? []).sort(cmpName)) emitFolder(fid, depth + 1);
-    for (const c of (underParent.get(v.id) ?? []).sort(byActivity)) emitSession(c, depth + 1, inProject);
+    for (const c of (underParent.get(v.id) ?? []).sort(byRank)) emitSession(c, depth + 1, inProject);
   };
   const emitted = new Set<string>();
   const emitFolder = (fid: string, depth: number) => {
@@ -133,14 +133,14 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
   if (opts.grouping === "project") {
     const byProject = new Map<string, SessionView[]>();
     for (const v of [...groups.active, ...groups.recent]) push(byProject, v.project, v);
-    const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byActivity) }));
-    projects.sort((a, b) => b.list[0]!.lastActivity - a.list[0]!.lastActivity || a.project.localeCompare(b.project));
+    const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byRank) }));
+    projects.sort((a, b) => b.list[0]!.rank - a.list[0]!.rank || a.project.localeCompare(b.project));
     sections.push(status("attention"), ...projects.map(({ project, list }) => ({ key: `p:${project}`, label: projectName(project), project, list })), status("archived"));
   } else {
     sections.push(...GROUP_ORDER.map(status));
   }
   for (const sec of sections) {
-    const list = sec.list.sort(byActivity);
+    const list = sec.list.sort(byRank);
     if (list.length === 0) continue;
     const collapsible = sec.group === "archived";
     const open = !collapsible || opts.archivedOpen;

@@ -24,6 +24,7 @@ import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, S
 import classes from "./sessions.module.css";
 import { useFolderDrop, type FolderDrop } from "./folderDrop";
 import { useTouchDrag, type TouchPress } from "./touchDrag";
+import { useOrderHold } from "./useOrderHold";
 
 const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
@@ -108,6 +109,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const [cursor, setCursor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const orderHold = useOrderHold();
 
   const searching = query.trim() !== "";
   const options = useMemo(() => facets(views), [views]);
@@ -464,7 +466,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
         </div>
       )}
 
-      <div ref={scrollRef} className={classes.list} onKeyDown={onListKey} role="navigation" aria-label="Sessions">
+      <div ref={scrollRef} className={classes.list} onKeyDown={onListKey} {...orderHold} role="navigation" aria-label="Sessions">
         {loading && <ListSkeleton rows={6} />}
         {error && (
           <div className={classes.errorBox}>
@@ -534,6 +536,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
               <div
                 key={vi.key}
                 data-index={vi.index}
+                className={classes.slot}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", height: vi.size, transform: `translateY(${vi.start}px)` }}
               >
                 {rootKey !== undefined && folderDrop ? (

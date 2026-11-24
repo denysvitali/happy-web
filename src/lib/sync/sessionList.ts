@@ -3,6 +3,7 @@
 // per change; per-session derivation is cached on the (immutable) SessionItem.
 import { activityAt, type MachineItem, type SessionItem } from "./account";
 import { MACHINE_PRESENCE_MS, displayPath, machineName, sessionTitle, type SessionMetadata, type SessionStatus } from "./decode";
+import { Store } from "./store";
 
 export type Runtime = "local" | "kubernetes";
 export type SessionGroup = "attention" | "active" | "recent" | "archived";
@@ -35,8 +36,10 @@ export interface SessionView {
   /** Unread agent replies badge ("3", "99+"), "" when all read. */
   unread: string;
   group: SessionGroup;
-  /** Newest message time (see activityAt): stable ordering, unlike heartbeats. */
+  /** Newest message time (see activityAt); heartbeats do not move it. */
   lastActivity: number;
+  /** Sort key: when the current burst of activity began (see ListOrder). */
+  rank: number;
   ago: string;
   /** Lower-cased haystack for search. */
   search: string;
@@ -182,6 +185,7 @@ export function deriveViews(
   machines: ReadonlyMap<string, MachineItem>,
   now: number,
   unread: ReadonlyMap<string, string> = NO_UNREAD,
+  order?: ListOrder,
 ): SessionView[] {
   const out = new Array<SessionView>(items.length);
   for (let i = 0; i < items.length; i++) {
@@ -191,16 +195,63 @@ export function deriveViews(
     const status = statusOf(s);
     const ago = status === "thinking" ? "now" : formatAgo(activityAt(s), now);
     const badge = unread.get(s.id) ?? "";
+    const activity = activityAt(s);
+    const group = groupOf(status, st.pending);
+    const placed = order ? order.place(s.id, activity, group, status === "thinking") : { rank: activity, group };
     const prev = viewCache.get(s);
-    if (prev && prev.status === status && prev.ago === ago && prev.machine === st.machine && prev.unread === badge) {
+    if (
+      prev &&
+      prev.status === status &&
+      prev.ago === ago &&
+      prev.machine === st.machine &&
+      prev.unread === badge &&
+      prev.rank === placed.rank &&
+      prev.group === placed.group
+    ) {
       out[i] = prev;
       continue;
     }
-    const v: SessionView = { id: s.id, item: s, ...st, status, group: groupOf(status, st.pending), lastActivity: activityAt(s), ago, unread: badge };
+    const v: SessionView = { id: s.id, item: s, ...st, status, group: placed.group, lastActivity: activity, rank: placed.rank, ago, unread: badge };
     viewCache.set(s, v);
     out[i] = v;
   }
   return out;
+}
+
+// ---- stable order ---------------------------------------------------------------
+
+/** A session quiet (and not mid-turn) this long moves up on its next message. */
+export const SETTLE_QUIET_MS = 10 * 60_000;
+
+interface Placed {
+  rank: number;
+  group: SessionGroup;
+  /** Activity and busy-ness when last placed. */
+  last: number;
+  busy: boolean;
+}
+
+/**
+ * Keeps the list from reshuffling on every message. A session ranks by when
+ * its current burst of activity began, not by its newest message, so sessions
+ * working side by side keep their places; one moves up only when it wakes from
+ * a quiet spell (or is new). While held (pointer over the list, finger on it)
+ * nothing already placed moves at all, rank or group; the moves land on release.
+ * Per tab, in memory: a reload ranks by plain recency again.
+ */
+export class ListOrder {
+  readonly held = new Store(false);
+  private placed = new Map<string, Placed>();
+
+  place(id: string, activity: number, group: SessionGroup, busy: boolean): Placed {
+    const e = this.placed.get(id);
+    if (e && this.held.get()) return e;
+    if (e && e.last === activity && e.group === group && e.busy === busy) return e;
+    const woke = !e || (activity - e.last > SETTLE_QUIET_MS && !e.busy);
+    const next: Placed = { rank: woke ? activity : e.rank, group, last: activity, busy };
+    this.placed.set(id, next);
+    return next;
+  }
 }
 
 // ---- filtering & grouping -----------------------------------------------------
@@ -230,7 +281,8 @@ export interface Entry {
 
 export type Grouped = Record<SessionGroup, Entry[]>;
 
-export const byActivity = (a: SessionView, b: SessionView) => b.lastActivity - a.lastActivity || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+/** List order: newest rank first (see ListOrder), id as tie-break. */
+export const byRank = (a: Pick<SessionView, "rank" | "id">, b: Pick<SessionView, "rank" | "id">) => b.rank - a.rank || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 const MAX_DEPTH = 3;
 
@@ -268,10 +320,10 @@ export function groupViews(views: readonly SessionView[], f: SessionFilter = {})
   const buckets: Record<SessionGroup, SessionView[]> = { attention: [], active: [], recent: [], archived: [] };
   for (const v of views) if (matches(v, tokens, f)) buckets[v.group].push(v);
   return {
-    attention: nest(buckets.attention.sort(byActivity)),
-    active: nest(buckets.active.sort(byActivity)),
-    recent: nest(buckets.recent.sort(byActivity)),
-    archived: nest(buckets.archived.sort(byActivity)),
+    attention: nest(buckets.attention.sort(byRank)),
+    active: nest(buckets.active.sort(byRank)),
+    recent: nest(buckets.recent.sort(byRank)),
+    archived: nest(buckets.archived.sort(byRank)),
   };
 }
 
@@ -328,8 +380,8 @@ export function projectSections(g: Grouped): Section[] {
     if (list) list.push(e.view);
     else byProject.set(e.view.project, [e.view]);
   }
-  const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byActivity) }));
-  projects.sort((a, b) => b.list[0]!.lastActivity - a.list[0]!.lastActivity || a.project.localeCompare(b.project));
+  const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byRank) }));
+  projects.sort((a, b) => b.list[0]!.rank - a.list[0]!.rank || a.project.localeCompare(b.project));
   return [
     statusSection(g, "attention"),
     ...projects.map(({ project, list }) => ({ key: `p:${project}`, label: projectName(project), project, entries: nest(list), collapsible: false })),

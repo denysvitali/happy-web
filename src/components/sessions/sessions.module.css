@@ -45,6 +45,8 @@
   outline: none;
 }
 .errorBox { padding: 8px; }
+/* Virtual row slot: reorders slide instead of teleporting (rows keep their key). */
+.slot { transition: transform var(--happy-dur) var(--happy-ease-out); }
 
 .groupHeader {
   position: relative;

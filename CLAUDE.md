@@ -79,7 +79,10 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
 - Session list: grouped by project by default (approvals pinned on top, archive collapsed;
-  "Group by" in the filter menu). Touch: swipe a row left to archive it (stops a live session
+  "Group by" in the filter menu). Order is sticky (`ListOrder`): rows rank by when their
+  current burst of activity began, so busy sessions don't leapfrog; one moves up only after
+  10 quiet minutes. Nothing moves under a hovering mouse or a finger (`useOrderHold`);
+  held moves land on release and slide. Touch: swipe a row left to archive it (stops a live session
   first; no confirm, Undo in the toast). Avatars are identicons (`SessionAvatar`): tint from the
   project, glyph from the session id; changing `hashString` or reordering `SESSION_GLYPHS`
   re-skins every session.
