@@ -1,10 +1,11 @@
 import { Combobox, Loader, Stack, Text, useCombobox } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { Check, ChevronDown, Server } from "lucide-react";
+import { Check, ChevronDown, Server, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useAccountSettings } from "@/app/hooks";
+import { openProviders } from "@/components/account/open";
 import type { SessionItem } from "@/lib/sync/account";
 import {
   DEFAULT_PROVIDER_LABEL,
@@ -25,6 +26,8 @@ import { isKubernetesSession } from "@/lib/sync/spawn";
 import { Callout } from "@/ui/Callout";
 import type { SessionSwitch } from "./hooks";
 import classes from "./session.module.css";
+
+const MANAGE = "\u0000manage";
 
 const MODEL_KNOB = /^(ANTHROPIC_(DEFAULT_(\w+_)?)?MODEL|ANTHROPIC_SMALL_FAST_MODEL|CLAUDE_CODE_SUBAGENT_MODEL|OPENAI_MODEL)$/;
 
@@ -84,6 +87,7 @@ export function ProviderPicker({ session, sw }: { session: SessionItem; sw: Sess
 
   const choose = (id: string) => {
     combobox.closeDropdown();
+    if (id === MANAGE) return openProviders(account);
     if (id === currentKey) return;
     const target = id === NO_PROFILE ? undefined : findProfile(custom, id);
     let provider: ProviderSpawn;
@@ -165,6 +169,12 @@ export function ProviderPicker({ session, sw }: { session: SessionItem; sw: Sess
               Your own profiles couldn't be loaded; built-ins only.
             </Text>
           )}
+          <Combobox.Option value={MANAGE} className={classes.footerOption}>
+            <div className={classes.option}>
+              <Settings2 size={14} className={classes.checkSlot} />
+              <span className={classes.optionLabel}>Manage providers…</span>
+            </div>
+          </Combobox.Option>
         </Combobox.Options>
       </Combobox.Dropdown>
     </Combobox>

@@ -1,0 +1,35 @@
+.mono { font-family: var(--happy-font-mono); font-size: var(--happy-text-subhead); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
+
+/* name | value | remove */
+.envRow, .modelRow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+}
+.modelRow { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto; }
+.envRow > :last-child, .modelRow > :last-child { margin-top: 4px; }
+/* Phones: name and remove on one line, the value full width below. */
+@media (max-width: 30em) {
+  .envRow, .modelRow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "a x" "b b"; }
+  .envRow > :nth-child(1), .modelRow > :nth-child(1) { grid-area: a; }
+  .envRow > :nth-child(2), .modelRow > :nth-child(2) { grid-area: b; }
+  .envRow > :nth-child(3), .modelRow > :nth-child(3) { grid-area: x; }
+}
+
+.codexCard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  padding: 10px 16px 12px;
+}
+.wide { grid-column: 1 / -1; }
+@media (max-width: 30em) {
+  .codexCard { grid-template-columns: minmax(0, 1fr); }
+}
+
+.addRow { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }

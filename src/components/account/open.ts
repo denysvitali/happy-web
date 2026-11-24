@@ -1,4 +1,4 @@
-// Lazy entry points: the settings and machine sheets load on first open.
+// Lazy entry points: the settings, machine and provider sheets load on first open.
 import type { Account } from "@/lib/sync/account";
 import type { SettingsContext } from "./SettingsSheet";
 
@@ -10,4 +10,8 @@ export function openSettings(ctx: SettingsContext): void {
 
 export function openMachine(account: Account, machineId: string): void {
   void import("./MachineSheet").then((m) => m.openMachine(account, machineId));
+}
+
+export function openProviders(account: Account): void {
+  void import("./ProvidersSheet").then((m) => m.openProviders(account));
 }

@@ -105,6 +105,13 @@ Server wins over Flutter; record every discrepancy in README.md.
   names need a Replace confirm, directories are never replaced.
   "New directory" (`mkdir`) and the row menu's Delete (`rm -rf`, confirmed) also go over
   `bash` with the path on stdin; `removePath` refuses `/` and relative paths.
+- Providers (Settings → Providers, or the provider chip's "Manage providers…"; lazy,
+  `account/ProvidersSheet.tsx` + `ProfileEditor.tsx`): edits Flutter's profiles in the
+  account settings blob. `Account.updateAccountSettings(edit)` is the only writer: a pure
+  edit from `lib/sync/profileEdit.ts`, version-checked, re-run on `version-mismatch`;
+  unknown keys and profile fields pass through, and every profile written must decode with
+  Flutter's `AIBackendProfile.fromJson` (one bad one breaks Flutter's whole settings).
+  The model picker's "Custom model…" (Claude/Codex) remembers ids in `customModelModes`.
 - Machine sheet (Settings → Machines, or a session's menu "Machine…"; `account/MachineSheet.tsx`,
   lazy via `account/open.ts`): the Happy daemon
   (`get-daemon-version`/`update-daemon`) and agent CLIs (`get-provider-versions`/`update-provider`),

@@ -82,7 +82,7 @@ src/lib/crypto     base64, secretbox / AES-GCM / box primitives, key derivation,
 src/lib/api        fetch client: protobuf-es for grpc-gateway routes, zod for compat routes
 src/lib/realtime   socket.io (user-scoped), typed events, encrypted RPC
 src/lib/sync       account orchestrator, session/machine decoding, chat reducer, spawn helpers,
-                   provider profiles (read from the app's synced account settings)
+                   provider profiles (the app's synced account settings, edited in place)
 src/components     Mantine UI (shell, sessions, chat, new-session, session toolbar)
 src/routes         link, overview, chat, /components-demo
 e2e/               Playwright mocks (HTTP + socket.io), smoke test, screenshot capture
@@ -179,3 +179,12 @@ The server wins wherever they disagree. Found while building this client:
     Claude switch forwards the request env as sent (`kube_inpod_switch.go`). Built-in
     profiles store references, so a Kubernetes switch to one appears to hand Claude the
     literal reference. Server-side; clients cannot expand the daemon's variables.
+17. **Settings write ack.** `POST /v1/account/settings` answers `{success, version}`;
+    Flutter reads `settingsVersion` from it, finds nothing and keeps its old version, so
+    its next write conflicts once and rebases. This client reads `version`, and on a
+    `version-mismatch` re-applies only its own edit (one profile, one custom model) to
+    `currentSettings`, never the whole `profiles` list.
+18. **Profile default from a reference.** Flutter's editor derives `defaultModelMode`
+    from the raw env value, so a built-in edited there can store
+    `${Z_AI_OPUS_MODEL:-glm-5.1}` as its default model. This client stores the fallback
+    (`glm-5.1`).

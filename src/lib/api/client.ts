@@ -10,6 +10,7 @@ import {
   sessionResponse,
   sessionsV2Response,
   successResponse,
+  updateAccountSettingsResponse,
   type SessionRow,
 } from "./schemas";
 
@@ -78,6 +79,11 @@ export class ApiClient {
   /** The encrypted account settings blob (provider profiles live here). */
   getAccountSettings(signal?: AbortSignal) {
     return this.get(accountSettingsResponse, "/v1/account/settings", { signal });
+  }
+
+  /** Replaces the blob if it is still at `expectedVersion`. */
+  updateAccountSettings(settings: string, expectedVersion: number) {
+    return this.get(updateAccountSettingsResponse, "/v1/account/settings", { method: "POST", body: { settings, expectedVersion } });
   }
 
   /** GET /v3 messages strictly after `afterSeq` (server caps limit at 500). */

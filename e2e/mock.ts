@@ -143,7 +143,11 @@ export function createMock() {
     lastUsedProfilesByAgent: { claude: "anthropic" },
     favoriteModelsByProfile: {},
     codexFastMode: false,
+    // A key this client does not know: edits must keep it.
+    viewInline: true,
   };
+  // The blob behind GET/POST /v1/account/settings (compare-and-swap).
+  const settings = { doc: accountSettings as Record<string, unknown>, version: 7 };
 
   // Account KV (session folders live here); values are base64.
   const kv = new Map<string, { value: string; version: number }>();
@@ -196,7 +200,14 @@ export function createMock() {
         });
         return json({ success: true, results });
       }
-      if (url.pathname === "/v1/account/settings" && req.method() === "GET") return json({ settings: enc(accountSettings), settingsVersion: 7 });
+      if (url.pathname === "/v1/account/settings" && req.method() === "GET") return json({ settings: enc(settings.doc), settingsVersion: settings.version });
+      if (url.pathname === "/v1/account/settings" && req.method() === "POST") {
+        const body = req.postDataJSON() as { settings: string; expectedVersion: number };
+        if (body.expectedVersion !== settings.version) return json({ success: false, error: "version-mismatch", currentVersion: settings.version, currentSettings: enc(settings.doc) });
+        settings.doc = dec(body.settings) as Record<string, unknown>;
+        settings.version++;
+        return json({ success: true, version: settings.version });
+      }
       const m = url.pathname.match(/^\/v3\/sessions\/([^/]+)\/messages$/);
       if (m && req.method() === "GET") {
         const after = Number(url.searchParams.get("after_seq") ?? 0);
@@ -365,7 +376,7 @@ export function createMock() {
     if (!up) await Promise.all([...links].map((l) => l.close()));
   }
 
-  return { install, sent, rpcCalls, archives, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, secret, kv };
+  return { install, sent, rpcCalls, archives, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, secret, kv, settings };
 }
 
 export function watchCsp(page: Page): string[] {

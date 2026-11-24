@@ -1,7 +1,7 @@
 import { SegmentedControl, Button, useMantineColorScheme } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { Keyboard, LayoutGrid } from "lucide-react";
-import { useNow } from "@/app/hooks";
+import { Keyboard, LayoutGrid, Server } from "lucide-react";
+import { useAccountSettingsOf, useNow } from "@/app/hooks";
 import { useLink } from "@/components/shell/connection";
 import { getServerUrl } from "@/lib/config";
 import {
@@ -16,6 +16,7 @@ import { ListRow } from "@/ui/List";
 import { openSheet, SheetBody } from "@/ui/Sheet";
 import { PresenceDot } from "@/ui/Status";
 import { openMachine } from "./MachineSheet";
+import { openProviders } from "./open";
 import classes from "./settings.module.css";
 
 /** The sheet renders under ModalsProvider, outside the auth context: everything it needs comes in here. */
@@ -76,6 +77,25 @@ function Machines({ account, close }: { account: Account; close: () => void }) {
   );
 }
 
+function Providers({ account, close }: { account: Account; close: () => void }) {
+  const q = useAccountSettingsOf(account);
+  const n = q.data?.profiles.length;
+  return (
+    <FormSection title="Agents">
+      <ListRow
+        title="Providers"
+        subtitle={q.isError ? "Couldn't load your profiles" : n ? `${n} profile${n === 1 ? "" : "s"} of your own` : "Built-ins, and your own gateways and keys"}
+        leading={<Server size={16} />}
+        chevron
+        onClick={() => {
+          close();
+          openProviders(account);
+        }}
+      />
+    </FormSection>
+  );
+}
+
 function SettingsContent({
   ctx,
   close,
@@ -125,6 +145,8 @@ function SettingsContent({
       </FormSection>
 
       <Machines account={ctx.account} close={close} />
+
+      <Providers account={ctx.account} close={close} />
 
       <FormSection title="More">
           <ListRow

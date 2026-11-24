@@ -449,12 +449,38 @@ export class Account {
 
   /** Provider profiles and per-agent choices from the account settings
    * (Flutter's synced Settings blob, legacy secretbox under the master
-   * secret). Read-only here: this client never writes the blob. */
+   * secret). */
   async fetchAccountSettings(signal?: AbortSignal): Promise<AccountSettings> {
     const res = await this.api.getAccountSettings(signal);
     if (!res.settings) return EMPTY_SETTINGS;
     const cipher = await createCipher(this.keys, null);
     return decodeAccountSettings(await cipher.decrypt(res.settings));
+  }
+
+  /** Applies `edit` (a pure function of the decrypted blob, see
+   * profileEdit.ts) with a version-checked write; on a conflict it re-runs on
+   * the newer blob. Keys this client does not know pass through untouched,
+   * and a blob it cannot decrypt is never overwritten. */
+  async updateAccountSettings(edit: (raw: Record<string, unknown>) => Record<string, unknown>): Promise<AccountSettings> {
+    const cipher = await createCipher(this.keys, null);
+    const res = await this.api.getAccountSettings();
+    let blob = res.settings;
+    let version = res.settingsVersion;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const raw: unknown = blob ? await cipher.decrypt(blob) : {};
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error("The account settings could not be read, so they were left unchanged");
+      const next = edit(structuredClone(raw as Record<string, unknown>));
+      const r = await this.api.updateAccountSettings(await cipher.encrypt(next), version);
+      if (r.success) {
+        const decoded = decodeAccountSettings(next);
+        this.qc.setQueryData(accountSettingsKey, decoded);
+        return decoded;
+      }
+      if (r.error !== "version-mismatch") throw new Error(r.error || "The server did not save the settings");
+      blob = r.currentSettings;
+      version = r.currentVersion ?? version;
+    }
+    throw new Error("The settings kept changing on another device; try again");
   }
 
   // ---- socket ---------------------------------------------------------------
@@ -513,6 +539,9 @@ export class Account {
         });
         return;
       }
+      case "update-account":
+        if (b.settings) void this.qc.invalidateQueries({ queryKey: accountSettingsKey });
+        return;
       case "new-session":
       case "new-machine":
       case "machine-deleted":

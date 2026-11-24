@@ -1,17 +1,29 @@
 import { Combobox, Loader, Text, useCombobox } from "@mantine/core";
-import { Check, ChevronDown, Sparkles } from "lucide-react";
-import { chipLabel, DEFAULT_MODEL, effortLabel, parseSelection } from "@/lib/sync/models";
+import { Check, ChevronDown, PencilLine, Sparkles } from "lucide-react";
+import { useAccount } from "@/app/auth";
+import { useAccountSettings } from "@/app/hooks";
+import { chipLabel, DEFAULT_MODEL, effortLabel, findChoice, parseSelection } from "@/lib/sync/models";
+import { allowsCustomModel, openCustomModel } from "./CustomModel";
 import type { SessionSwitch } from "./hooks";
 import classes from "./session.module.css";
 
 const EFFORT_PREFIX = "effort\u0000";
+const CUSTOM = "\u0000custom";
 
 /** Model picker grouped by model, with effort variants as chips under each
  * model. The pick rides on the next user message. `running`: the model that
  * answered last (`chipLabel`). */
 export function ModelPicker({ sw, running }: { sw: SessionSwitch; running?: string | undefined }) {
   const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() });
+  const account = useAccount();
+  const settings = useAccountSettings();
   const { catalog } = sw;
+  const custom = allowsCustomModel(sw.kind);
+  const listed = (m: string) => !!findChoice(catalog, m) || catalog.groups.some((g) => g.id === parseSelection(m).base);
+  const allRecent = custom ? (settings.data?.customModelModes ?? []) : [];
+  // Recent typed-in ids the catalog does not offer anyway, plus the current
+  // pick when it is one of those (so it shows checked).
+  const recent = [...new Set([...(custom && sw.model !== DEFAULT_MODEL && !listed(sw.model) ? [sw.model] : []), ...allRecent.filter((m) => !listed(m))])].slice(0, 5);
   const label = chipLabel(catalog, sw.model, sw.pending ? undefined : running);
   const efforts = catalog.efforts ?? [];
   const effortText = sw.kind === "prime" && sw.effort ? (efforts.find((e) => e.value === sw.effort)?.label ?? sw.effort) : undefined;
@@ -20,7 +32,7 @@ export function ModelPicker({ sw, running }: { sw: SessionSwitch; running?: stri
   // active (the agent keeps its model); only a respawn resets it.
   const defaultLocked = sw.activeModel !== DEFAULT_MODEL;
 
-  if (catalog.groups.length === 0 && !sw.catalogLoading) {
+  if (catalog.groups.length === 0 && !sw.catalogLoading && !custom) {
     if (sw.model === DEFAULT_MODEL) return null;
     return (
       <span className={classes.chip} style={{ cursor: "default" }} title="This agent does not advertise a model list">
@@ -39,9 +51,10 @@ export function ModelPicker({ sw, running }: { sw: SessionSwitch; running?: stri
       shadow="md"
       radius="md"
       onOptionSubmit={(v) => {
-        if (v.startsWith(EFFORT_PREFIX)) sw.setEffort(v.slice(EFFORT_PREFIX.length));
-        else sw.setModel(v);
         combobox.closeDropdown();
+        if (v === CUSTOM) openCustomModel({ account, kind: sw.kind, recent: allRecent, onPick: sw.setModel });
+        else if (v.startsWith(EFFORT_PREFIX)) sw.setEffort(v.slice(EFFORT_PREFIX.length));
+        else sw.setModel(v);
       }}
     >
       <Combobox.Target targetType="button">
@@ -102,6 +115,27 @@ export function ModelPicker({ sw, running }: { sw: SessionSwitch; running?: stri
               </div>
             );
           })}
+          {recent.length > 0 && (
+            <Text size="xs" c="dimmed" fw={600} px="sm" pt="xs">
+              Custom
+            </Text>
+          )}
+          {recent.map((m) => (
+            <Combobox.Option key={m} value={m} active={sw.model === m}>
+              <div className={classes.option}>
+                {sw.model === m ? <Check size={14} className={classes.check} /> : <span className={classes.checkSlot} />}
+                <span className={`${classes.optionLabel} ${classes.modelInput}`}>{m}</span>
+              </div>
+            </Combobox.Option>
+          ))}
+          {custom && (
+            <Combobox.Option value={CUSTOM} className={classes.footerOption}>
+              <div className={classes.option}>
+                <PencilLine size={14} className={classes.checkSlot} />
+                <span className={classes.optionLabel}>Custom model…</span>
+              </div>
+            </Combobox.Option>
+          )}
           {efforts.length > 0 && (
             <>
               <Text size="xs" c="dimmed" fw={600} px="sm" pt="xs">

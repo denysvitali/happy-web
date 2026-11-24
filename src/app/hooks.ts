@@ -28,7 +28,7 @@ export function useMachines() {
   });
 }
 
-/** Provider profiles and choices synced by the Happy app (read-only). */
+/** Provider profiles and choices synced with the Happy app; write through `Account.updateAccountSettings`. */
 export function useAccountSettings() {
   return useAccountSettingsOf(useAccount());
 }

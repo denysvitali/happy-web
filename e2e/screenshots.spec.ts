@@ -454,6 +454,41 @@ for (const vp of VIEWPORTS) {
       await shot(page, "p6-shortcuts");
       expect(violations).toEqual([]);
     });
+
+    // ---- providers: the profile list, the editor, a custom model ----
+    test("providers", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await page.getByRole("button", { name: "Account and settings" }).click();
+      await page.getByRole("button", { name: /^Providers/ }).click();
+      const list = page.getByRole("dialog", { name: "Providers" });
+      await expect(list.getByText("Z.AI GLM (work)")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "v1-providers");
+      await list.getByRole("button", { name: /^Z\.AI GLM \(work\) api/ }).click();
+      const editor = page.getByRole("dialog", { name: "Edit provider" });
+      await expect(editor.getByLabel("Name", { exact: true })).toHaveValue("Z.AI GLM (work)");
+      await page.waitForTimeout(300);
+      await shot(page, "v2-provider-editor");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "v3-provider-editor-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await editor.getByRole("button", { name: "Cancel" }).click();
+      await page.keyboard.press("Escape");
+      await page.goto("/#/s/s1");
+      await page.getByRole("button", { name: /^Model:/ }).click();
+      await expect(page.getByRole("option", { name: "Custom model…" })).toBeVisible();
+      await page.waitForTimeout(200);
+      await shot(page, "v4-model-picker-custom");
+      await page.getByRole("option", { name: "Custom model…" }).click();
+      await page.getByRole("dialog", { name: "Custom model" }).getByLabel("Model id").fill("vendor/kimi-k3");
+      await page.waitForTimeout(300);
+      await shot(page, "v5-custom-model");
+      expect(violations).toEqual([]);
+    });
   });
 }
 

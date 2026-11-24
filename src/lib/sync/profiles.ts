@@ -10,7 +10,7 @@
 // authority on what it accepts).
 //
 // Profiles live in the account settings blob (GET /v1/account/settings,
-// legacy secretbox under the master secret). Env values may be literals or
+// legacy secretbox under the master secret; edits: ./profileEdit.ts). Env values may be literals or
 // `${VAR:-default}` references that the daemon expands from its own
 // environment, which is how built-ins keep API keys on the daemon. Flutter
 // keeps `openaiConfig/azureOpenAIConfig/togetherAIConfig.apiKey` on the device
@@ -65,9 +65,11 @@ export interface AccountSettings {
   /** Profile id (or `anthropic`/`openai` for no profile) → favourite model. */
   favoriteModelsByProfile: Record<string, string>;
   codexFastMode: boolean;
+  /** Model ids typed into a picker, newest first (Flutter `customModelModes`). */
+  customModelModes: string[];
 }
 
-export const EMPTY_SETTINGS: AccountSettings = { profiles: [], lastUsedProfilesByAgent: {}, favoriteModelsByProfile: {}, codexFastMode: false };
+export const EMPTY_SETTINGS: AccountSettings = { profiles: [], lastUsedProfilesByAgent: {}, favoriteModelsByProfile: {}, codexFastMode: false, customModelModes: [] };
 
 /** Wire marker for "no profile": the agent's own account login. */
 export const NO_PROFILE = "default";
@@ -121,6 +123,7 @@ const rawSettings = z.object({
   lastUsedProfilesByAgent: strRecord,
   favoriteModelsByProfile: strRecord,
   codexFastMode: z.catch(z.boolean(), false),
+  customModelModes: z.catch(z.array(z.unknown()), []),
 });
 
 const nonNull = <T>(v: T | null | undefined): T | undefined => v ?? undefined;
@@ -176,6 +179,7 @@ export function decodeAccountSettings(raw: unknown): AccountSettings {
     lastUsedProfilesByAgent: byAgent,
     favoriteModelsByProfile: stringsOf(r.data.favoriteModelsByProfile),
     codexFastMode: r.data.codexFastMode,
+    customModelModes: r.data.customModelModes.filter((m): m is string => typeof m === "string" && m.trim() !== ""),
   };
 }
 

@@ -431,7 +431,7 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
                 <Autocomplete
                   id={`${uid}-model`}
                   placeholder={profileModel === "default" ? (profile ? "Provider default" : "Account default") : profileModel}
-                  data={gatewayModels(profile) ?? (profile ? [] : (MODEL_SUGGESTIONS[agent] ?? []))}
+                  data={[...new Set([...(gatewayModels(profile) ?? (profile ? [] : (MODEL_SUGGESTIONS[agent] ?? []))), ...(usesProfiles ? settings.customModelModes : [])])]}
                   value={model}
                   onChange={setModel}
                   autoComplete="off"

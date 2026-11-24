@@ -131,6 +131,8 @@
 .optionHint { font-size: var(--happy-text-caption); color: var(--happy-label-3); }
 .check { flex-shrink: 0; color: var(--happy-accent); }
 .checkSlot { width: 14px; flex-shrink: 0; }
+/* "Manage providers…", "Custom model…": set apart from the choices. */
+.footerOption { margin-top: 4px; box-shadow: 0 -0.5px 0 var(--happy-separator); border-radius: 0; color: var(--happy-label-2); }
 
 .efforts { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 8px 30px; }
 .effort {
@@ -176,3 +178,29 @@
      mode is icon-only (red when risky) so the model name keeps its room. */
   .chevron, .wideOnly { display: none; }
 }
+
+/* Custom model dialog. */
+.modelInput { font-family: var(--happy-font-mono); font-size: var(--happy-text-subhead); }
+.recents { display: flex; flex-wrap: wrap; gap: 6px; }
+.recent {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: var(--happy-radius-pill);
+  background: var(--happy-fill-3);
+}
+.recentPick {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 2px 4px 10px;
+  border: 0;
+  background: none;
+  color: var(--happy-label);
+  font-family: var(--happy-font-mono);
+  font-size: var(--happy-text-caption);
+  cursor: pointer;
+}
+.recentPick:hover { color: var(--happy-accent); }
+.formActions { display: flex; justify-content: flex-end; gap: 8px; }
