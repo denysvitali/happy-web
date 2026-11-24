@@ -2,7 +2,7 @@
 // Events are not trusted to be gapless: every (re)connect triggers an HTTP
 // catch-up from the last seen seq, done by the caller in onConnect.
 import { io, type Socket } from "socket.io-client";
-import { ephemeral, rpcAck, updateBody, updateEnvelope, type Ephemeral, type UpdateBody } from "../api/schemas";
+import { ephemeral, metadataAck, rpcAck, updateBody, updateEnvelope, type Ephemeral, type MetadataAck, type UpdateBody } from "../api/schemas";
 
 export interface RealtimeHandlers {
   onUpdate(body: UpdateBody): void;
@@ -153,6 +153,22 @@ export class Realtime {
 
   get connected(): boolean {
     return this.socket?.connected ?? false;
+  }
+
+  /** machine-update-metadata: compare-and-swap on the machine's encrypted
+   * metadata. A mismatch carries the current ciphertext and version. */
+  async updateMachineMetadata(machineId: string, metadata: string, expectedVersion: number): Promise<MetadataAck> {
+    const socket = this.socket;
+    if (!socket?.connected) throw new RpcError("not connected", "offline");
+    let raw: unknown;
+    try {
+      raw = await socket.timeout(10_000).emitWithAck("machine-update-metadata", { machineId, metadata, expectedVersion });
+    } catch {
+      throw new RpcError("timed out", "timeout");
+    }
+    const ack = metadataAck.safeParse(raw);
+    if (!ack.success) throw new RpcError("malformed acknowledgment");
+    return ack.data;
   }
 
   /** rpc-call: `method` is `<sessionId|machineId>:<name>`, params encrypted. */

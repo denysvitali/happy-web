@@ -126,6 +126,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   `main.tsx` moves `#key=` into the hash route, the build copies index.html there).
   Terminals get the data-key answer, never the master secret; a link alone never approves.
   Machine sheet "Forget" = `DELETE /v1/machines/:id` (unlist only; a live daemon re-registers).
+  "Rename" writes `displayName` + `displayNameByUser: true` over the socket
+  (`machine-update-metadata`, CAS); daemons since happy-cli-go `ee42d9e` keep it, older ones
+  overwrite it on reconnect. "Reset" drops both and the daemon republishes its name.
 - Deploys: the build writes `version.json`; open tabs poll it and offer a reload
   (`src/app/version.ts`). connect-src therefore includes `'self'`.
 - Session list fetch (`listCache.ts`): lite `/v2/sessions` (`omit=lastMessage,agentState`) +

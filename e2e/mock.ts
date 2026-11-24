@@ -264,6 +264,14 @@ export function createMock() {
         if (!ev) return;
         const [name, data] = JSON.parse(ev[2]!) as [string, { method: string; params: string }];
         if (name === "ping") return ws.send(`43${ev[1]}[{}]`);
+        if (name === "machine-update-metadata") {
+          const u = data as unknown as { machineId: string; metadata: string; expectedVersion: number };
+          const m = machines.find((x) => x.id === u.machineId);
+          if (!m) return ws.send(`43${ev[1]}${JSON.stringify([{ result: "error", message: "machine not found" }])}`);
+          if (m.metadataVersion !== u.expectedVersion) return ws.send(`43${ev[1]}${JSON.stringify([{ result: "version-mismatch", version: m.metadataVersion, metadata: m.metadata }])}`);
+          Object.assign(m, { metadata: u.metadata, metadataVersion: m.metadataVersion + 1 });
+          return ws.send(`43${ev[1]}${JSON.stringify([{ result: "success", version: m.metadataVersion, metadata: m.metadata }])}`);
+        }
         if (name !== "rpc-call") return;
         const params = dec(data.params);
         rpcCalls.push({ method: data.method, params });

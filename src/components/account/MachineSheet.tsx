@@ -1,11 +1,13 @@
 // One machine: what it is, updating the Happy daemon and the agent CLIs it
-// runs (src/lib/sync/machineUpdates.ts), and forgetting it. Opened from Settings → Machines
+// runs (src/lib/sync/machineUpdates.ts), renaming and forgetting it. Opened from Settings → Machines
 // and from a session's menu (lazily, through ./open.ts).
 import { Button, Code, Loader, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNow } from "@/app/hooks";
+import { RenameForm } from "@/components/sessions/RenameForm";
 import { machinesKey, type Account, type MachineItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
 import {
@@ -228,6 +230,48 @@ function Forget({ account, machine, online, close }: { account: Account; machine
   );
 }
 
+/** The name every app shows. A rename sticks on daemons that know
+ * `displayNameByUser`; older ones overwrite it when they next reconnect. */
+function NameRow({ account, machine }: { account: Account; machine: MachineItem }) {
+  const rename = useMutation({
+    mutationFn: (name: string | null) => account.renameMachine(machine.id, name),
+    onError: (e) => notifications.show({ color: "red", title: "Couldn't rename the machine", message: errText(e) }),
+  });
+  const name = machineName(machine.meta, machine.id);
+  const open = () => {
+    const modalId = `rename-machine-${machine.id}`;
+    modals.open({
+      modalId,
+      title: "Rename machine",
+      children: (
+        <RenameForm
+          initial={name}
+          maxLength={80}
+          onCancel={() => modals.close(modalId)}
+          onSubmit={(next) => {
+            modals.close(modalId);
+            rename.mutate(next);
+          }}
+        />
+      ),
+    });
+  };
+  return (
+    <FormRow label={name} hint={machine.meta.displayNameByUser ? "Named by you" : "Name from the machine"} trailing>
+      <span className={classes.actions}>
+        {machine.meta.displayNameByUser && (
+          <Button size="compact-sm" variant="subtle" color="gray" disabled={rename.isPending} onClick={() => rename.mutate(null)}>
+            Reset
+          </Button>
+        )}
+        <Button size="compact-sm" variant="light" loading={rename.isPending} onClick={open}>
+          Rename
+        </Button>
+      </span>
+    </FormRow>
+  );
+}
+
 function MachineContent({ account, id, close }: { account: Account; id: string; close: () => void }) {
   const now = useNow();
   const machines = useQuery<MachineItem[]>({ queryKey: machinesKey, queryFn: ({ signal }) => account.fetchMachines(signal), staleTime: 60_000 });
@@ -237,6 +281,7 @@ function MachineContent({ account, id, close }: { account: Account; id: string; 
   return (
     <SheetBody>
       <FormSection>
+        <NameRow account={account} machine={m} />
         <FormRow label="Status" trailing>
           <span className={classes.value}>
             <PresenceDot online={online} label={online ? "online" : "offline"} /> {online ? "Online" : "Offline"}

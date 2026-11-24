@@ -107,3 +107,29 @@ test("machine: settings pastes another browser's code; forget drops a machine", 
   await page.getByRole("button", { name: "Account and settings" }).click();
   await expect(page.getByRole("button", { name: /^denys@laptop/ })).toHaveCount(0);
 });
+
+test("machine: rename sticks as the user's name; reset hands it back", async ({ page }) => {
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  // A write this tab never saw (the daemon's): the rename edits fresh metadata, so it survives.
+  const laptop = mock.machines.find((m) => m.id === "m-laptop")!;
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  await page.getByRole("button", { name: /^denys@laptop/ }).click();
+  const sheet = page.getByRole("dialog", { name: "denys@laptop" });
+  await expect(sheet.getByText("Name from the machine")).toBeVisible();
+  laptop.metadata = mock.enc({ ...(mock.dec(laptop.metadata) as object), sandboxEnabled: true });
+  laptop.metadataVersion = 5;
+  await sheet.getByRole("button", { name: "Rename", exact: true }).click();
+  const form = page.getByRole("dialog", { name: "Rename machine" });
+  await form.getByLabel("Name").fill("Work laptop");
+  await form.getByRole("button", { name: "Rename" }).click();
+  const renamed = page.getByRole("dialog", { name: "Work laptop" });
+  await expect(renamed.getByText("Named by you")).toBeVisible();
+  expect(mock.dec(laptop.metadata)).toMatchObject({ displayName: "Work laptop", displayNameByUser: true, sandboxEnabled: true, host: "laptop" });
+  expect(laptop.metadataVersion).toBe(6);
+
+  await renamed.getByRole("button", { name: "Reset" }).click();
+  await expect(page.getByRole("dialog", { name: "laptop" }).getByText("Name from the machine")).toBeVisible();
+  expect(mock.dec(laptop.metadata)).not.toHaveProperty("displayName");
+});

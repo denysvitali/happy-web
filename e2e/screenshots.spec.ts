@@ -480,8 +480,14 @@ for (const vp of VIEWPORTS) {
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Account and settings" }).click();
       await page.getByRole("button", { name: /^denys@laptop/ }).click();
-      await page.getByRole("dialog", { name: "denys@laptop" }).getByRole("button", { name: "Forget this machine…" }).click();
-      await expect(page.getByRole("dialog", { name: "Forget denys@laptop?" })).toBeVisible();
+      await page.getByRole("dialog", { name: "denys@laptop" }).getByRole("button", { name: "Rename", exact: true }).click();
+      await page.getByRole("dialog", { name: "Rename machine" }).getByLabel("Name").fill("Work laptop");
+      await page.getByRole("dialog", { name: "Rename machine" }).getByRole("button", { name: "Rename" }).click();
+      await expect(page.getByRole("dialog", { name: "Work laptop" }).getByText("Named by you")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "d5-machine-renamed");
+      await page.getByRole("dialog", { name: "Work laptop" }).getByRole("button", { name: "Forget this machine…" }).click();
+      await expect(page.getByRole("dialog", { name: "Forget Work laptop?" })).toBeVisible();
       await page.emulateMedia({ colorScheme: "dark" });
       await page.waitForTimeout(300);
       await shot(page, "d4-forget-dark");

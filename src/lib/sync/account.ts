@@ -8,6 +8,7 @@ import { HttpError } from "../api/http";
 import type { Ephemeral, MachineRow, SessionRow, UpdateBody } from "../api/schemas";
 import { encodeBase64 } from "../crypto/base64";
 import { sealLinkAnswer, type LinkTarget } from "../auth/approve";
+import { renameMachineMeta } from "./machineRename";
 import { createCipher, type Cipher } from "../crypto/cipher";
 import type { AccountKeys } from "../crypto/keys";
 import { Realtime, RpcError, type RealtimeStatus } from "../realtime/socket";
@@ -439,6 +440,30 @@ export class Account {
     }
     this.machineCiphers.delete(machineId);
     this.qc.setQueryData<MachineItem[]>(machinesKey, (l) => l?.filter((m) => m.id !== machineId));
+  }
+
+  /** Renames a machine (`null` gives the name back to its daemon); see
+   * machineRename.ts. A version mismatch retries on the ack's metadata. */
+  async renameMachine(machineId: string, name: string | null): Promise<void> {
+    const row = (await this.api.listMachines()).find((m) => m.id === machineId);
+    if (!row) throw new Error("machine not found");
+    const cipher = await this.cipherFor(row.id, row.dataEncryptionKey);
+    let current = { metadata: row.metadata, version: row.metadataVersion };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const raw: unknown = await cipher.decrypt(current.metadata);
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("machine metadata is unreadable");
+      const next = renameMachineMeta(raw as Record<string, unknown>, name);
+      const ack = await this.realtime.updateMachineMetadata(machineId, await cipher.encrypt(next), current.version);
+      if (ack.result === "success") {
+        const meta = machineMetadata.parse(next);
+        const version = ack.version ?? current.version + 1;
+        this.qc.setQueryData<MachineItem[]>(machinesKey, (l) => l?.map((m) => (m.id === machineId && version >= m.metadataVersion ? { ...m, meta, metadataVersion: version } : m)));
+        return;
+      }
+      if (ack.result !== "version-mismatch" || !ack.metadata || ack.version === undefined) throw new Error(ack.message ?? `rename failed: ${ack.result}`);
+      current = { metadata: ack.metadata, version: ack.version };
+    }
+    throw new Error("machine metadata kept changing; try again");
   }
 
   /** Lets the device behind `target` into this account (see lib/auth/approve.ts). */

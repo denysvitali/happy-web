@@ -164,6 +164,15 @@ export const ephemeral = z.discriminatedUnion("type", [
 ]);
 export type Ephemeral = z.infer<typeof ephemeral>;
 
+/** Ack of machine-update-metadata (socket, compare-and-swap). */
+export const metadataAck = z.looseObject({
+  result: z.string(),
+  version: z.optional(int),
+  metadata: z.optional(z.nullable(z.string())),
+  message: z.optional(z.string()),
+});
+export type MetadataAck = z.infer<typeof metadataAck>;
+
 export const rpcAck = z.looseObject({
   ok: z.optional(z.boolean()),
   result: z.optional(z.unknown()),

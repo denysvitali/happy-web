@@ -75,6 +75,8 @@ export const machineMetadata = z.catch(
   z.object({
     host: str,
     displayName: str,
+    /** The user renamed it (lib/sync/machineRename.ts). */
+    displayNameByUser: z.catch(z.optional(z.boolean()), undefined),
     platform: str,
     homeDir: str,
     happyCliVersion: str,
