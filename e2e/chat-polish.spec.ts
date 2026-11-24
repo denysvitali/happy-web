@@ -170,7 +170,8 @@ for (const vp of VIEWPORTS) {
       const scr = scroller(page);
       await scr.evaluate((el) => (el.scrollTop = el.scrollHeight));
       await page.waitForTimeout(400);
-      await expect(page.getByRole("status").filter({ hasText: "Working" })).toBeVisible();
+      // The chat has pending approvals, and waiting on the user outranks the running agent.
+      await expect(page.getByRole("status").filter({ hasText: "Waiting for you" })).toBeVisible();
       await page.waitForTimeout(2200);
       await page.mouse.move(0, 0);
       await both(page, "working");

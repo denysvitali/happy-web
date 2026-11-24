@@ -55,8 +55,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   fold their working into one `work` line above the final reply (`groupTurns`); the live
   turn and anything waiting for the user never fold.
   The Working row under a live turn says what is happening now (`liveActivity` in
-  `tools/steps.ts`): the running call (a sub-agent's own, if deeper) and its time, else
-  "Waiting for you", "Writing reply" or "Thinking" (+ "quiet Ns" after 30s with no new step),
+  `tools/steps.ts`): "Waiting for you" if anything waits on the user, else the running call
+  (a sub-agent's own, if deeper) and its time, else "Writing reply" or "Thinking" (+ "quiet Ns" after 30s with no new step),
   then the turn's step/agent counts and elapsed time; one line, never moves the transcript.
   Background shell jobs (Bash `run_in_background`: receipt → `async`, ended by `local_bash`
   task rows / `<task-notification>`) spin with a "background" chip and keep that row up after

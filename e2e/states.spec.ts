@@ -66,7 +66,8 @@ for (const vp of VIEWPORTS) {
     test("loading, empty and error home", async ({ page }) => {
       const violations = watchCsp(page);
       const mock = createMock();
-      await mock.install(page);
+      // A fresh account: no folders either (a phone lists empty folders, not the empty state).
+      await mock.install(page, { folders: null });
       let mode: "hang" | "empty" | "error" | "ok" = "hang";
       let release: () => void = () => undefined;
       const gate = new Promise<void>((r) => (release = r));
