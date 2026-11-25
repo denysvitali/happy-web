@@ -273,12 +273,16 @@ export const AGENTS = [
   { value: "claude", label: "Claude Code" },
   { value: "codex", label: "Codex" },
   { value: "opencode", label: "OpenCode" },
+  { value: "agy", label: "Antigravity" },
   { value: "har", label: "Har" },
 ] as const;
 
-/** Har is not allowed on Kubernetes. */
+/** Local only: Har is not allowed on Kubernetes, and session images ship no
+ * Antigravity CLI or Google login (its auth is a cached interactive sign-in). */
+const LOCAL_ONLY = new Set<string>(["har", "agy"]);
+
 export function agentsFor(mode: SpawnBackend): { value: string; label: string }[] {
-  return AGENTS.filter((a) => mode === "local" || a.value !== "har");
+  return AGENTS.filter((a) => mode === "local" || !LOCAL_ONLY.has(a.value));
 }
 
 export const PERMISSION_MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;

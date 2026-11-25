@@ -350,7 +350,7 @@ function Messages({
 }
 
 /** Agents whose input is text only (happy_flutter refuses images for them). */
-const TEXT_ONLY = new Set(["har", "opencode"]);
+const TEXT_ONLY = new Set(["har", "opencode", "agy"]);
 
 /** Composer plus the model/permission/context toolbar; the switch rides on
  * the next message. */

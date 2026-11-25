@@ -202,7 +202,7 @@ describe("branches", () => {
 
 describe("agents and MCP", () => {
   it("keeps Har off Kubernetes and picks permission modes per agent", () => {
-    expect(agentsFor("local").map((a) => a.value)).toContain("har");
+    expect(agentsFor("local").map((a) => a.value)).toEqual(expect.arrayContaining(["har", "agy"]));
     expect(agentsFor("kubernetes").map((a) => a.value)).toEqual(["claude", "codex", "opencode"]);
     expect(permissionModesFor("codex")).toEqual(["default", "read-only", "safe-yolo", "yolo"]);
     expect(permissionModesFor("claude")).toEqual(["default", "acceptEdits", "plan", "bypassPermissions"]);

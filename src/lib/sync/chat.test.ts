@@ -158,6 +158,11 @@ describe("normalizeRecord", () => {
     ]);
     expect(buildView(s, {}).blocks).toMatchObject([{ type: "tool", id: "b1", children: [] }]);
   });
+  it("renders Antigravity's whole-turn text reply with its model", () => {
+    const n = normalizeRecord({ role: "agent", content: { type: "output", data: { type: "text", text: "Done." } }, meta: { model: "gemini-3-pro" } });
+    expect(n.items).toEqual([{ kind: "text", role: "agent", text: "Done." }]);
+    expect(n.model).toBe("gemini-3-pro");
+  });
   it("uses displayText for user messages", () => {
     expect(normalizeRecord({ role: "user", content: { type: "text", text: "raw" }, meta: { displayText: "shown" } }).items).toEqual([
       { kind: "text", role: "user", text: "shown" },

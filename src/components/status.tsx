@@ -53,7 +53,7 @@ const AGENT_ICON: Record<string, LucideIcon> = {
   codex: Braces,
   opencode: SquareTerminal,
   grok: Zap,
-  antigravity: Orbit,
+  agy: Orbit,
   gemini: Orbit,
   deepseek: Telescope,
   har: Workflow,

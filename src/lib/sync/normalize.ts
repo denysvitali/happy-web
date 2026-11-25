@@ -220,6 +220,8 @@ function claudeOutput(data: Obj): Placed[] {
       if (task) items.push(task);
       break;
     }
+    // `text`: Antigravity's whole-turn reply (happy-cli-go remote/agy).
+    case "text":
     case "message": {
       const text = s(data.message) ?? s(data.text);
       if (text) items.push({ kind: "text", role: "agent", text });
@@ -386,7 +388,7 @@ function modelOf(record: Obj, content: Obj, data: Obj): string | undefined {
   const meta = isObj(record.meta) ? record.meta : {};
   if (content.type === "output") {
     if (data.type === "assistant") return realModel(isObj(data.message) ? data.message.model : undefined);
-    return data.type === "message" ? realModel(meta.model) : undefined;
+    return data.type === "message" || data.type === "text" ? realModel(meta.model) : undefined;
   }
   if (content.type === "event") return undefined;
   return realModel(data.model) ?? realModel(meta.model);

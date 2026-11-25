@@ -58,8 +58,8 @@ import { openSheet, SheetBody, SheetFooter } from "@/ui/Sheet";
 
 const within = { withinPortal: false } as const;
 
-const AGENT_SHORT: Record<string, string> = { claude: "Claude", codex: "Codex", opencode: "OpenCode", har: "Har" };
-const AGENT_LONG: Record<string, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", har: "Har" };
+const AGENT_SHORT: Record<string, string> = { claude: "Claude", codex: "Codex", opencode: "OpenCode", agy: "Antigravity", har: "Har" };
+const AGENT_LONG: Record<string, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", agy: "Antigravity", har: "Har" };
 const MODE_LABELS: Record<string, string> = {
   default: "Ask for permissions",
   acceptEdits: "Accept edits",

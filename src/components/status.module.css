@@ -113,7 +113,7 @@
 .agentBadge[data-agent="claude"] { --tint: var(--happy-orange); }
 .agentBadge[data-agent="codex"] { --tint: var(--happy-green); }
 .agentBadge[data-agent="opencode"] { --tint: var(--happy-blue); }
-.agentBadge[data-agent="antigravity"],
+.agentBadge[data-agent="agy"],
 .agentBadge[data-agent="gemini"] { --tint: var(--happy-purple); }
 .agentBadge[data-agent="deepseek"] { --tint: var(--happy-indigo); }
 .agentBadge[data-agent="prime-agent"] { --tint: var(--happy-red); }

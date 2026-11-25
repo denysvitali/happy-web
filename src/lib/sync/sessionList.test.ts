@@ -55,6 +55,7 @@ describe("session list helpers", () => {
     expect(agentOf(undefined)).toBe("claude");
     expect(agentOf("Codex")).toBe("codex");
     expect(agentOf("grok-build")).toBe("grok");
+    expect(agentOf("antigravity")).toBe("agy");
     expect(runtimeOf({ runtimeType: "kubernetes" })).toBe("kubernetes");
     expect(runtimeOf({ podName: "hs-1" })).toBe("kubernetes");
     expect(runtimeOf({})).toBe("local");

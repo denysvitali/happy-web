@@ -53,6 +53,7 @@ const AGENT_ALIASES: Record<string, string> = {
   prime: "prime-agent",
   primeagent: "prime-agent",
   openai: "codex",
+  antigravity: "agy",
 };
 
 export const AGENT_LABEL: Record<string, string> = {
@@ -60,7 +61,7 @@ export const AGENT_LABEL: Record<string, string> = {
   codex: "Codex",
   opencode: "OpenCode",
   grok: "Grok",
-  antigravity: "Antigravity",
+  agy: "Antigravity",
   deepseek: "DeepSeek",
   har: "Har",
   "prime-agent": "Prime",
