@@ -117,6 +117,9 @@ export const SESSION_STALE_MS = 10 * 60_000;
 export const MACHINE_PRESENCE_MS = 120_000;
 
 export type SessionStatus = "thinking" | "active" | "idle" | "archived";
+/** "active" only means the agent process is online; say what that means for
+ * the user (it is waiting for them), so it never reads as "busy". */
+export const STATUS_LABEL: Record<SessionStatus, string> = { thinking: "Working", active: "Ready", idle: "Offline", archived: "Archived" };
 
 export function sessionStatus(
   s: { active: boolean; activeAt: number; archived: boolean; thinking?: boolean },

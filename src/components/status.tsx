@@ -5,8 +5,8 @@ import {
   Leaf, Lightbulb, Moon, Mountain, Music, Orbit, Origami, Palette, Panda, PawPrint, Puzzle, Rabbit, Rocket, Sailboat, Shell, Snail, Snowflake, Sprout,
   SquareTerminal, Squirrel, Star, Sun, Telescope, Tent, TreePine, Turtle, Umbrella, Waves, Workflow, Zap, type LucideIcon,
 } from "lucide-react";
-import type { SessionStatus } from "@/lib/sync/decode";
-import { STATUS_LABEL, agentLabel, hashString, type PodState, type SessionView } from "@/lib/sync/sessionList";
+import { STATUS_LABEL, type SessionStatus } from "@/lib/sync/decode";
+import { agentLabel, hashString, type PodState, type SessionView } from "@/lib/sync/sessionList";
 import classes from "./status.module.css";
 
 type DotState = SessionStatus | "attention" | "online" | "offline" | "connecting";

@@ -147,6 +147,10 @@ describe("normalizeRecord", () => {
     ]);
     expect(normalizeRecord(null).items[0]?.kind).toBe("unknown");
   });
+  it("keeps turn-end bookkeeping events out of the transcript", () => {
+    for (const type of ["thinking", "thinking_done", "usage_report"])
+      expect(normalizeRecord({ role: "agent", content: { type: "event", data: { type } } }).items).toEqual([]);
+  });
   it("drops Claude progress ticks instead of anchoring them under the tool", () => {
     const s = addMessages(emptyChat, [
       msg(use("b1", "Bash", { command: "sleep 9" })),

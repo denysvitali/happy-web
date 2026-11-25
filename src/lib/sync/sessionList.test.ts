@@ -77,7 +77,7 @@ describe("session list helpers", () => {
     expect(metaLine({ project: "~/src/app", runtime: "local", machine: "laptop" })).toBe("~/src/app · laptop");
     expect(metaLine({ project: "acme/web", runtime: "kubernetes", machine: "happy-daemon" })).toBe("acme/web · K8s");
     expect(metaLine({ project: "", runtime: "local", machine: "" })).toBe("");
-    expect(statusText({ status: "thinking", pending: 0 })).toBe("Thinking");
+    expect(statusText({ status: "thinking", pending: 0 })).toBe("Working");
     expect(statusText({ status: "thinking", pending: 2 })).toBe("Needs approval");
     expect(statusText({ status: "archived", pending: 1 })).toBe("Archived");
   });

@@ -203,7 +203,7 @@ export function HomeScreen() {
               tone="green"
               label="Active"
               value={<Tick value={g.active.length} />}
-              detail={thinking > 0 ? `${thinking} thinking` : "None thinking"}
+              detail={thinking > 0 ? `${thinking} working` : "None working"}
             />
             <StatCard
               icon={<CircleAlert size={14} strokeWidth={2.25} />}
@@ -211,7 +211,7 @@ export function HomeScreen() {
               label={g.attention.length === 1 ? "Needs approval" : "Need approval"}
               value={<Tick value={g.attention.length} />}
             />
-            <StatCard icon={<History size={14} strokeWidth={2.25} />} tone="gray" label="Idle" value={<Tick value={g.recent.length} />} />
+            <StatCard icon={<History size={14} strokeWidth={2.25} />} tone="gray" label="Offline" value={<Tick value={g.recent.length} />} />
             <StatCard
               icon={<Laptop size={14} strokeWidth={2.25} />}
               tone="accent"

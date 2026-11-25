@@ -330,7 +330,9 @@ function codexLike(data: Obj): Placed[] {
 
 // ---- events / session protocol --------------------------------------------
 
-const SILENT_EVENTS = new Set(["thinking", "usage_report", "tool-execution-update"]);
+// Bookkeeping, not transcript: `thinking_done` precedes every turn-end
+// `ready` (happy-cli-go forwardResult) and read as "still busy".
+const SILENT_EVENTS = new Set(["thinking", "thinking_done", "usage_report", "tool-execution-update"]);
 
 function agentEvent(data: Obj): Placed[] {
   const t = String(data.type);

@@ -1,7 +1,8 @@
+import { STATUS_LABEL } from "@/lib/sync/decode";
 import { Archive, Check } from "lucide-react";
 import { memo, useState } from "react";
 import { AttentionBadge, PodBadge, SessionAvatar, UnreadBadge } from "@/components/status";
-import { STATUS_LABEL, metaLine, type SessionView } from "@/lib/sync/sessionList";
+import { metaLine, type SessionView } from "@/lib/sync/sessionList";
 import { SwipeAction } from "@/ui/SwipeAction";
 import { useSessionActions } from "./actions";
 import { SessionMenu } from "./SessionMenu";

@@ -1,7 +1,5 @@
-import type { SessionStatus } from "@/lib/sync/decode";
+import { STATUS_LABEL as LABEL, type SessionStatus } from "@/lib/sync/decode";
 import classes from "./Status.module.css";
-
-const LABEL: Record<SessionStatus, string> = { thinking: "Thinking", active: "Active", idle: "Idle", archived: "Archived" };
 
 /**
  * Session status: a coloured dot plus label; "thinking" breathes.

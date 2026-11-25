@@ -2,7 +2,7 @@
 // attention / active / recent / archived), filtering and sorting. One pass
 // per change; per-session derivation is cached on the (immutable) SessionItem.
 import { activityAt, type MachineItem, type SessionItem } from "./account";
-import { MACHINE_PRESENCE_MS, displayPath, machineName, sessionTitle, type SessionMetadata, type SessionStatus } from "./decode";
+import { MACHINE_PRESENCE_MS, STATUS_LABEL, displayPath, machineName, sessionTitle, type SessionMetadata, type SessionStatus } from "./decode";
 import { Store } from "./store";
 
 export type Runtime = "local" | "kubernetes";
@@ -439,7 +439,6 @@ export function isMachineOnline(m: MachineItem, now: number): boolean {
   return m.active && now - m.activeAt < MACHINE_PRESENCE_MS;
 }
 
-export const STATUS_LABEL: Record<SessionStatus, string> = { thinking: "Thinking", active: "Active", idle: "Idle", archived: "Archived" };
 
 /** Status words for a session; a pending approval blocks the agent, so it outranks "thinking". */
 export function statusText(v: Pick<SessionView, "status" | "pending">): string {
