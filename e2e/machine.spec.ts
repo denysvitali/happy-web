@@ -133,3 +133,24 @@ test("machine: rename sticks as the user's name; reset hands it back", async ({ 
   await expect(page.getByRole("dialog", { name: "laptop" }).getByText("Name from the machine")).toBeVisible();
   expect(mock.dec(laptop.metadata)).not.toHaveProperty("displayName");
 });
+
+test("machine: a session continues after restart with a message", async ({ page }) => {
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  await page.goto("/#/s/s1");
+  const menu = page.locator("header").getByRole("button", { name: "Session actions" });
+  await menu.click();
+  await page.getByRole("menuitem", { name: "After restart…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Continue after restart" });
+  await dialog.getByRole("switch").check({ force: true });
+  await dialog.getByRole("textbox", { name: "Message" }).fill("  run the test suite  ");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Will continue after restart")).toBeVisible();
+  expect(mock.rpcCalls.find((c) => c.method === "m-laptop:session-startup-resume-set")?.params).toEqual({ sessionId: "s1", enabled: true, message: "run the test suite" });
+  // The menu shows it is on, and the form reopens with the saved message.
+  await menu.click();
+  await expect(page.getByRole("menuitem", { name: /After restart… On/ })).toBeVisible();
+  await page.getByRole("menuitem", { name: /After restart…/ }).click();
+  await expect(dialog.getByRole("textbox", { name: "Message" })).toHaveValue("run the test suite");
+});

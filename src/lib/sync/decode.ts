@@ -46,6 +46,9 @@ export const sessionMetadata = z.catch(
     // Agent Inbox messages (inbox_send), parsed in inbox.ts.
     inbox: z.catch(z.optional(z.array(z.unknown())), undefined),
     summary: z.catch(z.optional(z.object({ text: z.string(), updatedAt: num })), undefined),
+    // "Continue after restart" opt-in, see startupResume.ts.
+    resumeOnDaemonStart: z.catch(z.optional(z.boolean()), undefined),
+    resumeOnDaemonStartMessage: str,
   }),
   {},
 );

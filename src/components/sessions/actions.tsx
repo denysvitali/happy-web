@@ -12,7 +12,9 @@ import { sessionsKey, type Account, type SessionItem } from "@/lib/sync/account"
 import { sessionTitle } from "@/lib/sync/decode";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
 import { showUndo } from "@/ui/undoToast";
+import { startupResume } from "@/lib/sync/startupResume";
 import { RenameForm } from "./RenameForm";
+import { StartupResumeForm } from "./StartupResumeForm";
 
 function patchRow(qc: QueryClient, id: string, fn: (s: SessionItem) => SessionItem): void {
   qc.setQueryData<SessionItem[]>(sessionsKey, (l) => l?.map((s) => (s.id === id ? fn(s) : s)));
@@ -47,6 +49,8 @@ async function each(list: SessionItem[], one: (s: SessionItem) => Promise<boolea
 
 export interface SessionActions {
   rename(s: SessionItem): void;
+  /** "Continue after restart" opt-in (startupResume.ts); needs the session's machine. */
+  startupResume(s: SessionItem): void;
   stop(s: SessionItem): void;
   archive(s: SessionItem): void;
   /** Swipe-to-archive: no confirm (the gesture is deliberate), Undo in the toast instead. */
@@ -119,6 +123,29 @@ function createActions(account: Account, qc: QueryClient, isViewing: (id: string
                 (x) => ({ ...x, meta: prevMeta }),
                 () => account.rename(s.id, name),
                 "Couldn't rename session",
+              );
+            }}
+          />
+        ),
+      });
+    },
+
+    startupResume(s) {
+      const machineId = s.meta.machineId;
+      if (!machineId) return;
+      const id = `startup-resume-${s.id}`;
+      modals.open({
+        modalId: id,
+        title: "Continue after restart",
+        children: (
+          <StartupResumeForm
+            initial={startupResume(s.meta)}
+            onCancel={() => modals.close(id)}
+            onSubmit={({ enabled, message }) => {
+              modals.close(id);
+              void account.setStartupResume(machineId, s.id, enabled, message).then(
+                () => notifications.show({ message: enabled ? "Will continue after restart" : "Won't continue after restart", autoClose: 2000 }),
+                (e: unknown) => fail("Couldn't change restart behaviour", e),
               );
             }}
           />

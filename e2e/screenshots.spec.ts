@@ -136,6 +136,13 @@ for (const vp of VIEWPORTS) {
       await shot(page, "04d2-move-to-folder");
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toHaveCount(0);
+      await page.getByRole("main").getByRole("button", { name: "Session actions" }).click();
+      await page.getByRole("menuitem", { name: "After restart…" }).click();
+      await page.getByRole("dialog").getByRole("switch").check({ force: true });
+      await page.waitForTimeout(300);
+      await shot(page, "04d3-after-restart");
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       // Top of the transcript: user bubbles, thinking, tool groups.
       for (let i = 0; i < 3; i++) {
         await page.locator("main [data-index]").first().evaluate((el) => {

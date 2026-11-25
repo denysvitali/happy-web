@@ -142,5 +142,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   synced across browsers by `readSync.ts` (KV `read-state`, merge-only; format in README).
   A fresh browser counts only after that doc loads, or its "all seen" baseline would clear
   every other browser's badges.
+- Session menu "After restart…" (`lib/sync/startupResume.ts`): the per-session opt-in to be
+  respawned with a message after a daemon restart/reboot. The owning daemon writes it
+  (machine RPC `session-startup-resume-set`), never the client; the daemon's legacy todo marker reads as off.
 - Image attachments follow happy_flutter: user content becomes a block array with base64
   `image` blocks (≤1568px, ≤3.4 MB base64); Har/OpenCode are text-only.

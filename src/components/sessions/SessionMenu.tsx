@@ -1,5 +1,5 @@
-import { Menu } from "@mantine/core";
-import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, FolderTree, Pencil, Server, Square, Trash2 } from "lucide-react";
+import { Menu, Text } from "@mantine/core";
+import { Archive, ArchiveRestore, CircleCheck, Copy, Ellipsis, FolderInput, FolderOpen, FolderTree, Pencil, RotateCw, Server, Square, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactElement } from "react";
 import { useAccount } from "@/app/auth";
@@ -9,6 +9,7 @@ import type { SessionItem } from "@/lib/sync/account";
 import { sessionTitle } from "@/lib/sync/decode";
 import { canBrowseFiles } from "@/lib/sync/files";
 import { isLiveSession as isLive } from "@/lib/sync/sessionList";
+import { startupResume } from "@/lib/sync/startupResume";
 import { IconButton } from "@/ui/IconButton";
 import { useSessionActions } from "./actions";
 import { filing, useFolderActions } from "./folderActions";
@@ -51,6 +52,15 @@ export function SessionMenu({ session: s, opened, onChange, target, onSelect }: 
         {canBrowseFiles(s) && (
           <Menu.Item leftSection={<FolderTree size={14} />} onClick={() => void navigate({ to: "/s/$sessionId/files", params: { sessionId: s.id }, search: { path: "" } })}>
             Browse files
+          </Menu.Item>
+        )}
+        {s.meta.machineId && !s.undecryptable && (
+          <Menu.Item
+            leftSection={<RotateCw size={14} />}
+            rightSection={startupResume(s.meta).enabled ? <Text size="xs" c="dimmed">On</Text> : undefined}
+            onClick={() => a.startupResume(s)}
+          >
+            After restart…
           </Menu.Item>
         )}
         {s.meta.machineId && (

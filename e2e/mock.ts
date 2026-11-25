@@ -307,6 +307,10 @@ export function createMock() {
     abort: () => ({ success: true, message: "aborted" }),
     permission: () => ({ success: true }),
     "stop-session": () => ({ message: "stopped" }),
+    "session-startup-resume-set": (p) => {
+      const { enabled, message } = p as { enabled: boolean; message: string };
+      return { ok: true, enabled, message: enabled ? message.trim() || "continue" : "", metadataVersion: 1 };
+    },
     "spawn-happy-session": (p) => {
       const req = p as { sessionId?: string; directory?: string; isRestore?: boolean; profileId?: string; model?: string };
       // A restore replaces the process; the daemon records the new routing.

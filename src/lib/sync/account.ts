@@ -23,6 +23,7 @@ import {
 } from "./decode";
 import { normalizeRecord } from "./normalize";
 import { parseDaemon, parseProviderUpdate, parseVersions } from "./machineUpdates";
+import { parseStartupResumeReply } from "./startupResume";
 import { FolderSync } from "./folderSync";
 import { FOLDERS_KV_KEY, forgetSession } from "./folders";
 import { fileType, type FileEntry } from "./files";
@@ -933,6 +934,18 @@ export class Account {
   /** Sets `name` and `summary` (titles prefer the summary) on the full
    * decrypted metadata, so fields this client does not model survive.
    * Retries version mismatches against a fresh read. */
+  /** "Continue after restart" (startupResume.ts): the daemon owning the
+   * session rewrites its metadata; the socket update follows. */
+  async setStartupResume(machineId: string, sessionId: string, enabled: boolean, message: string): Promise<void> {
+    const r = parseStartupResumeReply(await this.rpcJson(machineId, "session-startup-resume-set", { sessionId, enabled, message }, 20_000));
+    const version = r.metadataVersion;
+    this.patchSession(sessionId, (s) =>
+      version !== undefined && version < s.metadataVersion
+        ? s
+        : { ...s, meta: { ...s.meta, resumeOnDaemonStart: enabled || undefined, resumeOnDaemonStartMessage: enabled ? r.message : undefined } },
+    );
+  }
+
   async rename(sessionId: string, name: string): Promise<void> {
     const text = name.trim();
     if (!text) throw new Error("name is empty");
