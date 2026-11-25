@@ -26,7 +26,7 @@ interface Props {
   /** Position within its group, for the phone's rounded group card. */
   first?: boolean;
   last?: boolean;
-  /** Multi-selection (see SessionList); omitted when sessions can't be filed. */
+  /** Multi-selection and filing (see SessionList). */
   select?: RowSelect | undefined;
   selecting?: boolean;
   selected?: boolean;
@@ -36,12 +36,14 @@ interface Props {
 export interface RowSelect {
   /** "range" extends from the last toggled row (Shift-click). */
   toggle(id: string, how: "toggle" | "range"): void;
-  /** Touch long-press: drags onto folders, or opens the menu if let go without moving. */
+  /** Touch long-press: selects the row; dragging on moves the selection onto a folder. */
   press: TouchPress;
   /** Undefined without a fine pointer (touch uses `press`). */
   dragStart?: ((id: string, e: React.DragEvent) => void) | undefined;
   dragEnd(): void;
 }
+
+const noop = () => {};
 
 /** Memoized: re-renders only when its view object (see deriveViews) or flags change. */
 export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, badgeAgent, active, cursor, first, last, select, selecting, selected }: Props) {
@@ -82,7 +84,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
             e.preventDefault();
             select.toggle(v.id, e.shiftKey ? "range" : "toggle");
           }}
-          onPointerDown={select ? (e) => select.press(v.id, e, () => !selecting && setMenu(true)) : undefined}
+          onPointerDown={select ? (e) => select.press(v.id, e, noop) : undefined}
           draggable={select?.dragStart ? true : undefined}
           onDragStart={select?.dragStart ? (e) => select.dragStart!(v.id, e) : undefined}
           onDragEnd={select?.dragStart ? select.dragEnd : undefined}

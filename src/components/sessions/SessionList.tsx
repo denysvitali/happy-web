@@ -1,7 +1,7 @@
 import { Button, Menu, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, CircleAlert, Command, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, SquarePen, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, CircleAlert, CircleCheckBig, Command, Ellipsis, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, Square, SquarePen, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
@@ -11,13 +11,14 @@ import { ProjectSwatch } from "@/components/status";
 import { folderRows, hasFolders } from "@/lib/sync/folderList";
 import type { MachineItem } from "@/lib/sync/account";
 import type { Filing } from "@/lib/sync/folders";
-import { agentLabel, facets, flattenSections, groupViews, projectSections, statusSections, type Grouping, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
+import { agentLabel, facets, flattenSections, groupViews, isLiveSession, projectSections, statusSections, type Grouping, type ListRow, type Runtime, type SessionView } from "@/lib/sync/sessionList";
 import { Callout } from "@/ui/Callout";
 import { EmptyState } from "@/ui/EmptyState";
 import { IconButton } from "@/ui/IconButton";
 import { ListSkeleton } from "@/ui/List";
 import { SearchField } from "@/ui/SearchField";
 import { SectionHeader } from "@/ui/SectionHeader";
+import { useSessionActions } from "./actions";
 import { filing, useFolderActions } from "./folderActions";
 import { FOLDER_HEIGHT, FOLDER_HEIGHT_COMPACT, FolderRow } from "./FolderRow";
 import { HEADER_HEIGHT, HEADER_HEIGHT_COMPACT, ROW_HEIGHT, ROW_HEIGHT_COMPACT, SessionRow, type RowSelect } from "./SessionRow";
@@ -166,11 +167,16 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     return { ids, at };
   }, [rows]);
 
-  // Multi-selection for filing sessions in bulk; selecting = anything selected.
+  // Multi-selection for bulk actions and filing; selecting = anything selected.
   const [selected, setSelected] = useState(NONE);
   const selecting = selected.size > 0;
   const clearSelection = useCallback(() => setSelected(NONE), []);
   const byId = useMemo(() => new Map(views.map((v) => [v.id, v])), [views]);
+  // Sessions deleted elsewhere drop out of the selection.
+  useEffect(() => {
+    setSelected((prev) => (prev.size === 0 || [...prev].every((id) => byId.has(id)) ? prev : new Set([...prev].filter((id) => byId.has(id)))));
+  }, [byId]);
+  const sessionActions = useSessionActions();
   const filings = (ids: Iterable<string>): Filing[] => [...ids].flatMap((id) => (byId.has(id) ? [filing(byId.get(id)!.item)] : []));
   // Row callbacks stay stable (rows are memoized), so they read the latest state through a ref.
   const live = useRef({ ids: sessionIndex.ids, selected, filings });
@@ -226,13 +232,21 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     scrollRef,
     ghostRef,
     begin({ kind, id }) {
-      if (!foldered) return null;
       if (kind === "folder") {
         const folder = folders.doc.folders[id];
-        if (!folder) return null;
+        if (!foldered || !folder) return null;
         dragging.current = { kind, id };
         return folder.name;
       }
+      // Holding a session selects it; dragging on moves the whole selection.
+      const sel = live.current.selected;
+      if (!sel.has(id)) {
+        const next = new Set(sel).add(id);
+        live.current.selected = next;
+        lastToggled.current = id;
+        setSelected(next);
+      }
+      if (!foldered || !canEditFolders) return null;
       const items = pickUp(id);
       return items.length > 1 ? `${items.length} sessions` : (byId.get(id)?.title ?? "1 session");
     },
@@ -241,15 +255,14 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     drop: (key) => folderDrop?.drop(key),
     end: endDrag,
   });
-  const sessionPress = useCallback<TouchPress>((id, e, openMenu) => touchPress({ kind: "session", id }, e, openMenu), [touchPress]);
+  const sessionPress = useCallback<TouchPress>((id, e, onHold) => touchPress({ kind: "session", id }, e, onHold), [touchPress]);
   const folderPress = useCallback<TouchPress>((id, e, openMenu) => touchPress({ kind: "folder", id }, e, openMenu), [touchPress]);
   const dragFolder = useCallback((id: string, e: React.DragEvent) => {
     dragging.current = { kind: "folder", id };
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("application/x-happy-folder", id);
   }, []);
-  const rowSelect = useMemo<RowSelect | undefined>(() => {
-    if (!canEditFolders) return undefined;
+  const rowSelect = useMemo<RowSelect>(() => {
     return {
       toggle(id, how) {
         const from = lastToggled.current;
@@ -264,7 +277,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
         });
       },
       press: sessionPress,
-      dragStart: finePointer
+      dragStart: finePointer && canEditFolders
         ? (id, e) => {
             const items = pickUp(id);
             if (items.length > 1 && ghostRef.current) {
@@ -281,6 +294,10 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     const items = filings(selected);
     folderActions.move(items, items.map((it) => byId.get(it.id)!.title).join(", "), clearSelection);
   };
+  const selectedItems = [...selected].flatMap((id) => byId.get(id)?.item ?? []);
+  const anyLive = selectedItems.some(isLiveSession);
+  const anyArchived = selectedItems.some((s) => s.archived);
+  const anyUnarchived = selectedItems.some((s) => !s.archived);
   // "New session in this directory…": the New session modal with the project's
   // directory preselected, on its machine when that's still online.
   const newSessionIn = useCallback(
@@ -551,9 +568,52 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
         <div className={classes.selectionBar} role="toolbar" aria-label="Selected sessions">
           <IconButton size="sm" label="Clear selection" icon={<X size={16} strokeWidth={2} />} onClick={clearSelection} />
           <span className={classes.selectionCount}>{selected.size} selected</span>
-          <Button size="xs" leftSection={<FolderInput size={14} />} onClick={moveSelected}>
-            Move to…
-          </Button>
+          {canEditFolders && (
+            <Button size="xs" leftSection={<FolderInput size={14} />} onClick={moveSelected}>
+              Move to…
+            </Button>
+          )}
+          {anyUnarchived && (
+            <IconButton
+              size="sm"
+              label={anyLive ? "Stop and archive" : "Archive"}
+              icon={<Archive size={16} strokeWidth={2} />}
+              onClick={() => {
+                sessionActions.archiveMany(selectedItems);
+                clearSelection();
+              }}
+            />
+          )}
+          <Menu position="top-end" width={200} shadow="md">
+            <Menu.Target>
+              <IconButton size="sm" label="More actions" icon={<Ellipsis size={16} strokeWidth={2} />} />
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item leftSection={<CircleCheckBig size={14} />} onClick={() => setSelected(new Set(sessionIndex.ids))}>
+                Select all
+              </Menu.Item>
+              {anyLive && (
+                <Menu.Item leftSection={<Square size={14} />} onClick={() => sessionActions.stopMany(selectedItems, clearSelection)}>
+                  Stop
+                </Menu.Item>
+              )}
+              {anyArchived && (
+                <Menu.Item
+                  leftSection={<ArchiveRestore size={14} />}
+                  onClick={() => {
+                    sessionActions.unarchiveMany(selectedItems);
+                    clearSelection();
+                  }}
+                >
+                  Unarchive
+                </Menu.Item>
+              )}
+              <Menu.Divider />
+              <Menu.Item color="red" leftSection={<Trash2 size={14} />} onClick={() => sessionActions.removeMany(selectedItems, clearSelection)}>
+                Delete…
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </div>
       )}
       {/* Drag image for several sessions (rendered to be snapshotted); follows the finger on touch. */}

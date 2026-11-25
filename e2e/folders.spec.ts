@@ -106,6 +106,35 @@ test("folders: select several sessions and move them together", async ({ page })
   expect(violations).toEqual([]);
 });
 
+test("sessions: bulk archive with undo, bulk delete", async ({ page }) => {
+  const violations = watchCsp(page);
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  const row = (text: string) => list(page).locator("[data-status]").filter({ hasText: text });
+  const bar = page.getByRole("toolbar", { name: "Selected sessions" });
+
+  await row("Port nvim config").getByRole("link").click({ modifiers: ["ControlOrMeta"] });
+  await row("Investigate why the daemon").getByRole("link").click({ modifiers: ["ControlOrMeta"] });
+  await expect(bar).toContainText("2 selected");
+  await bar.getByRole("button", { name: /archive/i }).click();
+  await expect(bar).toHaveCount(0);
+  await expect(page.getByText(/archived 2 sessions/i)).toBeVisible();
+  await expect.poll(() => mock.archives.filter((a) => a.archived).map((a) => a.sessionId).sort()).toEqual(["r4", "r6"]);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect.poll(() => mock.archives.filter((a) => !a.archived).map((a) => a.sessionId).sort()).toEqual(["r4", "r6"]);
+
+  await row("Port nvim config").getByRole("link").click({ modifiers: ["ControlOrMeta"] });
+  await row("Investigate why the daemon").getByRole("link").click({ modifiers: ["ControlOrMeta"] });
+  await bar.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete…" }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(bar).toHaveCount(0);
+  await expect(row("Port nvim config")).toHaveCount(0);
+  await expect(row("Investigate why the daemon")).toHaveCount(0);
+  expect(violations).toEqual([]);
+});
+
 test("folders: drag a session onto a folder", async ({ page }) => {
   // Source and target both on screen: a mid-drag scroll would move other rows under the mouse.
   await page.setViewportSize({ width: 1280, height: 1400 });
@@ -226,18 +255,23 @@ test.describe("touch", () => {
     const web = list(page).getByRole("button", { name: /Web client/ });
     await expect(row("Port nvim config")).toBeVisible();
 
-    // A quick move is a scroll, not a drag: nothing gets filed.
+    const bar = page.getByRole("toolbar", { name: "Selected sessions" });
+    // A quick move is a scroll, not a drag: nothing gets filed or selected.
     await longPress(page, row("Port nvim config"), web, 50);
-    // Held and let go in place: the row menu, as before.
+    await expect(bar).toHaveCount(0);
+    // Held and let go in place: selects it (and the release doesn't toggle it back).
     await longPress(page, row("Port nvim config"));
-    await expect(page.getByRole("menuitem", { name: "Move to folder…" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("menuitem", { name: "Move to folder…" })).toBeHidden();
-    expect((await stored(mock)).doc.sessions.r6).toBeUndefined();
-
-    // Held, then dragged onto a folder: filed there, without opening the chat.
+    await expect(bar).toContainText("1 selected");
+    await expect(row("Port nvim config")).toHaveAttribute("data-selected");
+    // A tap adds another; holding and dragging any row moves the whole selection.
+    await row("Investigate why the daemon").getByRole("link").tap();
+    await expect(bar).toContainText("2 selected");
     await longPress(page, row("Port nvim config"), web);
-    await expect.poll(async () => (await stored(mock)).doc.sessions.r6).toBe("fweb");
+    await expect.poll(async () => {
+      const { doc } = await stored(mock);
+      return [doc.sessions.r4, doc.sessions.r6];
+    }).toEqual(["fweb", "fweb"]);
+    await expect(bar).toHaveCount(0);
     await expect(page).not.toHaveURL(/#\/s\//);
     expect(violations).toEqual([]);
   });

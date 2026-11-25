@@ -12,7 +12,7 @@ export interface TouchDragOptions<Source> {
   scrollRef: RefObject<HTMLElement | null>;
   /** Follows the finger (`--x`/`--y`, `data-touch`); must not take pointer events. */
   ghostRef: RefObject<HTMLElement | null>;
-  /** Picks a row up and returns the ghost's label, or null when there is nowhere to drop it. */
+  /** Picks a row up and returns the ghost's label, or null when it can't be dragged (the hold still counts). */
   begin(source: Source): string | null;
   accepts(target: string): boolean;
   /** The accepting drop target under the finger, or null. */
@@ -21,15 +21,15 @@ export interface TouchDragOptions<Source> {
   end(): void;
 }
 
-/** Starts a press; `openMenu` runs when it is held and let go without moving (or can't drag). */
-export type TouchPress<Source = string> = (source: Source, e: React.PointerEvent<HTMLElement>, openMenu: () => void) => void;
+/** Starts a press; `onHold` runs when it is held and let go without dragging. */
+export type TouchPress<Source = string> = (source: Source, e: React.PointerEvent<HTMLElement>, onHold: () => void) => void;
 
 /**
  * Touch drag-and-drop of sessions and folders (`data-folder-drop`).
  * HTML5 drag-and-drop doesn't do touch, so this is pointer events: a long
  * press lifts the row, moving drags it (scrolling the list near its edges),
- * letting go over a target drops it; letting go without moving opens the menu,
- * like a long press always did. Once lifted the gesture owns the pointer: the
+ * letting go over a target drops it; letting go without dragging runs `onHold`
+ * (the row menu, for folders). Once lifted the gesture owns the pointer: the
  * list doesn't scroll and nothing else (the row's swipe, the link) sees it.
  * Window listeners, not the row's: a dragged row may scroll out and unmount.
  */
@@ -64,13 +64,14 @@ export function useTouchDrag<Source>(opts: TouchDragOptions<Source>): TouchPress
     };
   }, [opts.scrollRef]);
 
-  return useCallback<TouchPress<Source>>((source, e, openMenu) => {
+  return useCallback<TouchPress<Source>>((source, e, onHold) => {
     if (e.pointerType !== "touch" || !e.isPrimary || cleanup.current) return;
     const row = e.currentTarget;
     const pointerId = e.pointerId;
     const [x0, y0] = [e.clientX, e.clientY];
     let [x, y] = [x0, y0];
-    let phase: "pending" | "lifted" | "dragging" = "pending";
+    // held = lifted with nothing to drag: still ours until the finger lifts.
+    let phase: "pending" | "held" | "lifted" | "dragging" = "pending";
     let over: string | null = null;
     let raf = 0;
     const moved = () => Math.hypot(x - x0, y - y0) > SLOP;
@@ -99,16 +100,16 @@ export function useTouchDrag<Source>(opts: TouchDragOptions<Source>): TouchPress
     };
     const lift = () => {
       const label = o.current.begin(source);
+      owned.current = true;
+      navigator.vibrate?.(10);
       if (label === null) {
-        finish();
-        return openMenu();
+        phase = "held";
+        return;
       }
       phase = "lifted";
-      owned.current = true;
       row.setAttribute("data-lifted", "");
       const ghost = o.current.ghostRef.current;
       if (ghost) ghost.textContent = label;
-      navigator.vibrate?.(10);
     };
     const timer = setTimeout(lift, LIFT_MS);
 
@@ -120,6 +121,7 @@ export function useTouchDrag<Source>(opts: TouchDragOptions<Source>): TouchPress
         return;
       }
       ev.stopPropagation();
+      if (phase === "held") return;
       if (phase === "lifted") {
         if (!moved()) return;
         phase = "dragging";
@@ -134,7 +136,7 @@ export function useTouchDrag<Source>(opts: TouchDragOptions<Source>): TouchPress
       if (was !== "pending") ev.stopPropagation();
       if (was === "dragging" && over !== null) o.current.drop(over);
       finish();
-      if (was === "lifted") openMenu();
+      if (was === "lifted" || was === "held") onHold();
     };
     const onCancel = (ev: PointerEvent) => {
       if (ev.pointerId === pointerId) finish();
@@ -162,7 +164,7 @@ export function useTouchDrag<Source>(opts: TouchDragOptions<Source>): TouchPress
       for (const [type, fn] of listeners) window.removeEventListener(type, fn as EventListener, true);
       row.removeAttribute("data-lifted");
       o.current.ghostRef.current?.removeAttribute("data-touch");
-      if (phase !== "pending") {
+      if (phase === "lifted" || phase === "dragging") {
         if (over !== null) o.current.hover(null);
         o.current.end();
       }

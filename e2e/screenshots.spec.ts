@@ -78,13 +78,17 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(400);
       await shot(page, "02-home");
 
-      // Multi-selection for filing sessions in bulk.
+      // Multi-selection for bulk actions and filing.
       const nav = page.getByRole("navigation", { name: "Sessions" });
       await nav.locator("[data-status]").filter({ hasText: "Port nvim config" }).click({ button: "right" });
       await page.getByRole("menuitem", { name: "Select" }).click();
       await nav.locator("[data-status]").filter({ hasText: "pmos-galaxy" }).getByRole("link").click();
       await page.waitForTimeout(200);
       await shot(page, "02c-select");
+      await page.getByRole("toolbar", { name: "Selected sessions" }).getByRole("button", { name: "More actions" }).click();
+      await page.waitForTimeout(200);
+      await shot(page, "02d-select-actions");
+      await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Clear selection" }).click();
 
       await page.getByText("Fix flaky login test").first().click();
