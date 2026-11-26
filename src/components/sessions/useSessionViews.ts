@@ -20,7 +20,6 @@ export function useSessionViews() {
   const account = useAccount();
   const presence = useStore(account.presence);
   const unread = useStore(account.unread.labels);
-  const inboxStates = useStore(account.inbox.states);
   const held = useStore(sessionOrder.held);
   const now = useNow();
   const sessions = useSessions();
@@ -29,10 +28,10 @@ export function useSessionViews() {
   const machineMap = useMemo(() => new Map(machineList.map((m) => [m.id, m])), [machineList]);
   const list = sessions.data ?? NO_SESSIONS;
   const views = useMemo(
-    () => deriveViews(list, (s) => statusOf(s, presence, now), machineMap, now, unread, sessionOrder, inboxStates),
+    () => deriveViews(list, (s) => statusOf(s, presence, now), machineMap, now, unread, sessionOrder),
     // `held` re-derives on release so the deferred moves land.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [list, presence, machineMap, now, unread, inboxStates, held],
+    [list, presence, machineMap, now, unread, held],
   );
   const onlineMachines = useMemo(() => machineList.filter((m) => isMachineOnline(m, now)), [machineList, now]);
   return { views, sessions, machines: machineList, machinesLoaded: machines.isSuccess, onlineMachines, now };

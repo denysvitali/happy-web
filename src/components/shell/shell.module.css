@@ -272,7 +272,7 @@
     .main, .sidebar { transition-duration: var(--happy-dur), var(--happy-dur), var(--happy-dur), 0s; }
   }
 
-  .sidebar { border-right: 0; background: var(--happy-bg); }
+  .sidebar { border-right: 0; background: var(--happy-bg-grouped); }
 
   .bar { height: 52px; padding: 0 8px 0 20px; padding-top: env(safe-area-inset-top); box-sizing: content-box; }
   .brand { display: none; }

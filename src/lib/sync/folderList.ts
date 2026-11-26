@@ -130,7 +130,7 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
   // the archive stay pinned when grouping by project.
   const sections: { key: string; label: string; group?: SessionGroup; project?: string; list: SessionView[] }[] = [];
   const status = (g: SessionGroup) => ({ key: g, label: GROUP_LABEL[g], group: g, list: groups[g] });
-  if (opts.grouping === "project" || opts.grouping === "folders") {
+  if (opts.grouping === "project") {
     const byProject = new Map<string, SessionView[]>();
     for (const v of [...groups.active, ...groups.recent]) push(byProject, v.project, v);
     const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byRank) }));

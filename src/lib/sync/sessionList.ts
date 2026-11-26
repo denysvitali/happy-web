@@ -3,9 +3,7 @@
 // per change; per-session derivation is cached on the (immutable) SessionItem.
 import { activityAt, type MachineItem, type SessionItem } from "./account";
 import { MACHINE_PRESENCE_MS, STATUS_LABEL, displayPath, machineName, sessionTitle, type SessionMetadata, type SessionStatus } from "./decode";
-import { awaitsUser, inboxKey, parseInboxMessage, type InboxEntryState } from "./inbox";
 import { Store } from "./store";
-import { sessionTodos } from "./todos";
 
 export type Runtime = "local" | "kubernetes";
 export type SessionGroup = "attention" | "active" | "recent" | "archived";
@@ -35,10 +33,6 @@ export interface SessionView {
   status: SessionStatus;
   /** Pending permission requests. */
   pending: number;
-  /** Needs human attention: a pending approval or an unresolved Inbox item. */
-  needsYou: boolean;
-  /** One plain-English line describing where this session currently stands (empty → fall back to metaLine). */
-  statusLine: string;
   /** Unread agent replies badge ("3", "99+"), "" when all read. */
   unread: string;
   group: SessionGroup;
@@ -123,87 +117,6 @@ export function pendingRequests(s: SessionItem): number {
   return r ? Object.keys(r).length : 0;
 }
 
-const NO_INBOX: ReadonlyMap<string, InboxEntryState> = new Map();
-
-function compactText(text: string, max = 96): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
-}
-
-function requestSummary(s: SessionItem, pending: number): string {
-  const reqs = s.agentState.requests;
-  if (!reqs) return "";
-  for (const k in reqs) {
-    const req = reqs[k]!;
-    const args = req.arguments && typeof req.arguments === "object" ? (req.arguments as Record<string, unknown>) : undefined;
-    if (req.tool === "AskUserQuestion" && Array.isArray(args?.questions)) {
-      const first = args.questions[0] as Record<string, unknown> | undefined;
-      if (typeof first?.question === "string" && first.question.trim()) {
-        return `Waiting on you: ${compactText(first.question)}`;
-      }
-    }
-    if ((req.tool === "Bash" || req.tool === "bash") && typeof args?.command === "string" && args.command.trim()) {
-      return `Needs OK: ${compactText(args.command, 72)}`;
-    }
-    const more = pending > 1 ? ` (+${pending - 1} more)` : "";
-    return `Needs OK to use ${req.tool}${more}`;
-  }
-  return "";
-}
-
-/**
- * Plain-English current status for a session row: pending approval/question,
- * unresolved Inbox message, lifecycle/pod trouble, or active ToDo. Returns ""
- * when none apply so the caller falls back to the branch/machine meta line.
- */
-export function deriveStatusLine(
-  s: SessionItem,
-  pod: PodState | undefined,
-  pending: number,
-  inboxStates: ReadonlyMap<string, InboxEntryState> = NO_INBOX,
-): { statusLine: string; needsYou: boolean } {
-  if (s.archived) {
-    const todos = sessionTodos(s.meta.todos);
-    if (todos && todos.total > 0 && todos.done === todos.total) {
-      return { statusLine: `All ${todos.total} tasks completed`, needsYou: false };
-    }
-    return { statusLine: "", needsYou: false };
-  }
-
-  if (pending > 0) {
-    return { statusLine: requestSummary(s, pending) || "Needs approval", needsYou: true };
-  }
-
-  if (Array.isArray(s.meta.inbox) && s.meta.inbox.length > 0) {
-    // Newest last in metadata.inbox: scan backwards for the latest unresolved item.
-    for (let i = s.meta.inbox.length - 1; i >= 0; i--) {
-      const msg = parseInboxMessage(s.meta.inbox[i], s.id);
-      if (!msg) continue;
-      const st = inboxStates.get(inboxKey(s.id, msg.id));
-      if (st?.done) continue;
-      if (awaitsUser(msg.kind) && st?.repliedAt) continue;
-      if (msg.kind === "blocked") return { statusLine: `Blocked: ${compactText(msg.subject)}`, needsYou: true };
-      if (msg.kind === "question") return { statusLine: `Waiting on you: ${compactText(msg.subject)}`, needsYou: true };
-      return { statusLine: `Done — ${compactText(msg.subject)}`, needsYou: true };
-    }
-  }
-
-  if (s.meta.lifecycleStateError?.trim()) {
-    return { statusLine: `Error: ${compactText(s.meta.lifecycleStateError)}`, needsYou: true };
-  }
-  if (pod === "failed") return { statusLine: "Pod failed", needsYou: true };
-  if (pod === "scheduling") return { statusLine: "Starting pod…", needsYou: false };
-  if (pod === "paused") return { statusLine: "Pod paused", needsYou: false };
-
-  const todos = sessionTodos(s.meta.todos);
-  if (todos?.current) return { statusLine: compactText(todos.current), needsYou: false };
-  if (todos && todos.total > 0 && todos.done === todos.total) {
-    return { statusLine: `All ${todos.total} tasks completed`, needsYou: false };
-  }
-
-  return { statusLine: "", needsYou: false };
-}
-
 // ---- time ---------------------------------------------------------------------
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -274,7 +187,6 @@ export function deriveViews(
   now: number,
   unread: ReadonlyMap<string, string> = NO_UNREAD,
   order?: ListOrder,
-  inboxStates: ReadonlyMap<string, InboxEntryState> = NO_INBOX,
 ): SessionView[] {
   const out = new Array<SessionView>(items.length);
   for (let i = 0; i < items.length; i++) {
@@ -287,7 +199,6 @@ export function deriveViews(
     const activity = activityAt(s);
     const group = groupOf(status, st.pending);
     const placed = order ? order.place(s.id, activity, group, status === "thinking") : { rank: activity, group };
-    const { statusLine, needsYou } = deriveStatusLine(s, st.pod, st.pending, inboxStates);
     const prev = viewCache.get(s);
     if (
       prev &&
@@ -296,26 +207,12 @@ export function deriveViews(
       prev.machine === st.machine &&
       prev.unread === badge &&
       prev.rank === placed.rank &&
-      prev.group === placed.group &&
-      prev.statusLine === statusLine &&
-      prev.needsYou === needsYou
+      prev.group === placed.group
     ) {
       out[i] = prev;
       continue;
     }
-    const v: SessionView = {
-      id: s.id,
-      item: s,
-      ...st,
-      status,
-      needsYou,
-      statusLine,
-      group: placed.group,
-      lastActivity: activity,
-      rank: placed.rank,
-      ago,
-      unread: badge,
-    };
+    const v: SessionView = { id: s.id, item: s, ...st, status, group: placed.group, lastActivity: activity, rank: placed.rank, ago, unread: badge };
     viewCache.set(s, v);
     out[i] = v;
   }
@@ -447,7 +344,7 @@ export function facets(views: readonly SessionView[]): { agents: string[]; runti
 
 // ---- sections (sidebar organisation) -------------------------------------------
 
-export type Grouping = "project" | "folders" | "status";
+export type Grouping = "status" | "project";
 
 export interface Section {
   key: string;
@@ -473,26 +370,21 @@ export function statusSections(g: Grouped): Section[] {
 }
 
 /**
- * All live sessions (including ones needing attention) grouped cleanly by
- * project, newest project first, with the archive folded into one collapsed
- * section at the bottom. Within a project, sessions needing your input sit
- * first so orange dots surface naturally without splitting a project apart.
+ * Live sessions (active + idle) split per project, busiest project first.
+ * Approvals stay pinned on top and the archive stays one collapsed pile:
+ * neither should hide inside a project.
  */
 export function projectSections(g: Grouped): Section[] {
   const byProject = new Map<string, SessionView[]>();
-  for (const e of [...g.attention, ...g.active, ...g.recent]) {
+  for (const e of [...g.active, ...g.recent]) {
     const list = byProject.get(e.view.project);
     if (list) list.push(e.view);
     else byProject.set(e.view.project, [e.view]);
   }
-  const byUrgencyThenRank = (a: SessionView, b: SessionView) => Number(b.needsYou) - Number(a.needsYou) || byRank(a, b);
-  const projects = [...byProject.entries()].map(([project, list]) => {
-    const sorted = list.sort(byUrgencyThenRank);
-    const topRank = list.reduce((m, v) => Math.max(m, v.rank), 0);
-    return { project, list: sorted, topRank };
-  });
-  projects.sort((a, b) => b.topRank - a.topRank || a.project.localeCompare(b.project));
+  const projects = [...byProject.entries()].map(([project, list]) => ({ project, list: list.sort(byRank) }));
+  projects.sort((a, b) => b.list[0]!.rank - a.list[0]!.rank || a.project.localeCompare(b.project));
   return [
+    statusSection(g, "attention"),
     ...projects.map(({ project, list }) => ({ key: `p:${project}`, label: projectName(project), project, entries: nest(list), collapsible: false })),
     statusSection(g, "archived"),
   ];

@@ -1,6 +1,7 @@
 import { STATUS_LABEL } from "@/lib/sync/decode";
 import { Archive, Check } from "lucide-react";
 import { memo, useState } from "react";
+import { AttentionBadge, PodBadge, SessionAvatar, UnreadBadge } from "@/components/status";
 import { metaLine, type SessionView } from "@/lib/sync/sessionList";
 import { SwipeAction } from "@/ui/SwipeAction";
 import { useSessionActions } from "./actions";
@@ -8,20 +9,22 @@ import { SessionMenu } from "./SessionMenu";
 import classes from "./sessions.module.css";
 import type { TouchPress } from "./touchDrag";
 
-/** Virtualizer slot heights (px); compact 2-line rows on both desktop and phone. */
+/** Virtualizer slot heights (px); phones get taller, inset-grouped rows. */
 export const ROW_HEIGHT = 56;
-export const HEADER_HEIGHT = 32;
-export const ROW_HEIGHT_COMPACT = 62;
-export const HEADER_HEIGHT_COMPACT = 36;
+export const HEADER_HEIGHT = 34;
+export const ROW_HEIGHT_COMPACT = 60;
+export const HEADER_HEIGHT_COMPACT = 40;
 
 interface Props {
   view: SessionView;
   depth: number;
-  /** Listed under its project's header: the meta fallback shows the branch instead. */
+  /** Listed under its project's header: the meta line shows the branch instead. */
   inProject?: boolean;
+  /** Badge the agent on the avatar (it differs from the usual one). */
+  badgeAgent?: boolean;
   active: boolean;
   cursor: boolean;
-  /** Position within its group, for hairline dividers. */
+  /** Position within its group, for the phone's rounded group card. */
   first?: boolean;
   last?: boolean;
   /** Multi-selection and filing (see SessionList). */
@@ -43,16 +46,13 @@ export interface RowSelect {
 
 const noop = () => {};
 
-/** Memoized 2-line status row: one dot, title + time, plain-English current state. */
-export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, active, cursor, first, last, select, selecting, selected }: Props) {
+/** Memoized: re-renders only when its view object (see deriveViews) or flags change. */
+export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, badgeAgent, active, cursor, first, last, select, selecting, selected }: Props) {
   const [menu, setMenu] = useState(false);
   const actions = useSessionActions();
   const meta = metaLine(v, { inProject });
-  // Blocked on attention is not "working", whatever the ephemeral says.
-  const thinking = v.status === "thinking" && !v.needsYou;
-  const dot = v.needsYou ? "attention" : thinking ? "working" : "paused";
-  const line = v.statusLine || (thinking ? (v.gitBranch ? `Working on ${v.gitBranch}` : "Working…") : meta) || " ";
-
+  // Blocked on an approval is not "thinking", whatever the ephemeral says.
+  const thinking = v.status === "thinking" && v.pending === 0;
   return (
     <div
       className={classes.row}
@@ -60,7 +60,6 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
       data-cursor={cursor || undefined}
       data-menu={menu || undefined}
       data-status={v.status}
-      data-attention={v.needsYou || undefined}
       data-child={depth > 0 || undefined}
       data-first={first || undefined}
       data-last={last || undefined}
@@ -79,7 +78,7 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
           className={classes.rowLink}
           href={`#/s/${encodeURIComponent(v.id)}`}
           aria-current={active ? "page" : undefined}
-          aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : v.needsYou ? ", needs attention" : ""}${v.unread ? `, ${v.unread} unread` : ""}${selected ? ", selected" : ""}`}
+          aria-label={`${v.title}, ${STATUS_LABEL[v.status]}${v.pending ? ", needs approval" : ""}${v.unread ? `, ${v.unread} unread` : ""}${selected ? ", selected" : ""}`}
           // Cmd/Ctrl-click selects (like a file manager); Shift-click selects a range.
           onClick={(e) => {
             if (!select || !(selecting || e.metaKey || e.ctrlKey || e.shiftKey)) return;
@@ -93,20 +92,23 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
         >
           {selecting ? (
             <span className={classes.check} data-checked={selected || undefined} aria-hidden>
-              {selected && <Check size={14} strokeWidth={3} />}
+              {selected && <Check size={15} strokeWidth={3} />}
             </span>
           ) : (
-            <span className={classes.dot} data-dot={dot} aria-hidden />
+            <SessionAvatar view={v} agent={badgeAgent ? v.agent : undefined} />
           )}
           <span className={classes.rowBody}>
             <span className={classes.rowTop}>
               <span className={classes.rowTitle}>{v.title}</span>
               <span className={classes.rowAgo} data-live={thinking || undefined}>
-                {v.ago}
+                {thinking ? "thinking" : v.ago}
               </span>
             </span>
             <span className={classes.rowBottom}>
-              <span className={classes.rowMeta}>{line}</span>
+              <span className={classes.rowMeta}>{meta || " "}</span>
+              <AttentionBadge count={v.pending} />
+              <PodBadge pod={v.pod} />
+              <UnreadBadge label={v.unread} />
             </span>
           </span>
         </a>
