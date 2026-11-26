@@ -11,8 +11,8 @@ import { forgetCustomModel, rememberCustomModel } from "@/lib/sync/profileEdit";
 import { IconButton } from "@/ui/IconButton";
 import classes from "./session.module.css";
 
-/** Only Claude and Codex take an arbitrary model id on a message; Prime Agent
- * and OpenCode pick from what they advertise (`sendOptions`). */
+/** Only Claude and Codex take an arbitrary model id on a message; Prime Agent,
+ * OpenCode and Antigravity pick from what they advertise (`sendOptions`). */
 export const allowsCustomModel = (kind: AgentKind) => kind === "claude" || kind === "codex";
 
 const HINT: Record<string, string> = {

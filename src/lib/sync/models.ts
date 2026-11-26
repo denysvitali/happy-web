@@ -9,7 +9,7 @@ type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() !== "" ? v.trim() : undefined);
 
-export type AgentKind = "claude" | "codex" | "prime" | "opencode" | "other";
+export type AgentKind = "claude" | "codex" | "prime" | "opencode" | "agy" | "other";
 
 export function agentKind(flavor: string | undefined): AgentKind {
   switch (flavor) {
@@ -23,6 +23,9 @@ export function agentKind(flavor: string | undefined): AgentKind {
       return "prime";
     case "opencode":
       return "opencode";
+    case "agy":
+    case "antigravity":
+      return "agy";
     default:
       return "other";
   }
@@ -66,7 +69,7 @@ export function withEffort(id: string, effort: string): string {
 }
 
 export interface ModelChoice {
-  /** Selection string (Claude/Codex) or model id (Prime, OpenCode). */
+  /** Selection string (Claude/Codex) or model id (Prime, OpenCode, Antigravity). */
   value: string;
   label: string;
 }
@@ -175,7 +178,9 @@ export function primeCatalog(models: unknown[] | undefined, efforts: unknown[] |
   };
 }
 
-export function opencodeCatalog(models: unknown[] | undefined): Catalog {
+/** OpenCode (`metadata.opencodeModels`) and Antigravity (`agyModels`): the
+ * `{id, name}` list the agent advertises over ACP. */
+export function listedCatalog(models: unknown[] | undefined): Catalog {
   return { groups: idNameList(models).map((c) => ({ id: c.value, label: c.label, choices: [c] })) };
 }
 
@@ -272,7 +277,7 @@ export interface SendOptions {
  * take become `model: null` ("no change"). */
 export function sendOptions(kind: AgentKind, catalog: Catalog, sw: Switch): SendOptions {
   let model: string | null = sw.model && sw.model !== DEFAULT_MODEL ? sw.model : null;
-  if (model && (kind === "opencode" || kind === "prime") && !findChoice(catalog, model)) model = null;
+  if (model && (kind === "opencode" || kind === "agy" || kind === "prime") && !findChoice(catalog, model)) model = null;
   if (kind === "other") model = null;
   const out: SendOptions = { model, permissionMode: sw.permissionMode };
   if (kind === "prime" && sw.reasoningEffort && catalog.efforts?.some((e) => e.value === sw.reasoningEffort)) {

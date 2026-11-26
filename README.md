@@ -195,3 +195,6 @@ The server wins wherever they disagree. Found while building this client:
     from the raw env value, so a built-in edited there can store
     `${Z_AI_OPUS_MODEL:-glm-5.1}` as its default model. This client stores the fallback
     (`glm-5.1`).
+19. **Antigravity images and models.** Since happy-cli-go `17e3bad` agy runs over ACP: it
+    takes `image` blocks and publishes `metadata.agyModels` (`{id, name}`). Flutter still
+    refuses images for agy and shows no picker; this client offers both.

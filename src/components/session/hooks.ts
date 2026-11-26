@@ -9,7 +9,7 @@ import {
   codexCatalog,
   currentPermissionMode,
   DEFAULT_MODEL,
-  opencodeCatalog,
+  listedCatalog,
   primeCatalog,
   sendOptions,
   type AgentKind,
@@ -71,11 +71,13 @@ export function useCatalog(session: SessionItem, kind: AgentKind): { catalog: Ca
       case "prime":
         return primeCatalog(m.primeagentModels, m.primeagentEfforts);
       case "opencode":
-        return opencodeCatalog(m.opencodeModels);
+        return listedCatalog(m.opencodeModels);
+      case "agy":
+        return listedCatalog(m.agyModels);
       default:
         return EMPTY;
     }
-  }, [kind, codex.data, gateway, m.claudeModels, m.primeagentModels, m.primeagentEfforts, m.opencodeModels]);
+  }, [kind, codex.data, gateway, m.claudeModels, m.primeagentModels, m.primeagentEfforts, m.opencodeModels, m.agyModels]);
   return { catalog, loading: kind === "codex" && codex.isPending && codex.fetchStatus !== "idle" };
 }
 

@@ -5,7 +5,7 @@ import {
   claudeCatalog,
   codexCatalog,
   currentPermissionMode,
-  opencodeCatalog,
+  listedCatalog,
   parseSelection,
   permissionModes,
   modelLabel,
@@ -96,7 +96,7 @@ describe("catalogs", () => {
     const p = primeCatalog([{ id: "anthropic/opus", name: "Opus" }, { id: "anthropic/opus" }, { bad: 1 }], [{ id: "high", name: "High" }]);
     expect(p.groups.map((g) => g.id)).toEqual(["anthropic/opus"]);
     expect(p.efforts).toEqual([{ value: "high", label: "High" }]);
-    expect(opencodeCatalog([{ id: "x/y" }]).groups[0]!.label).toBe("x/y");
+    expect(listedCatalog([{ id: "x/y" }]).groups[0]!.label).toBe("x/y");
   });
 });
 
@@ -110,9 +110,12 @@ describe("sending a switch", () => {
   });
 
   it("sends OpenCode and Prime models only when listed, Prime effort separately", () => {
-    const oc = opencodeCatalog([{ id: "a/b" }]);
+    const oc = listedCatalog([{ id: "a/b" }]);
     expect(sendOptions("opencode", oc, { model: "a/b", permissionMode: "default" }).model).toBe("a/b");
     expect(sendOptions("opencode", oc, { model: "c/d", permissionMode: "default" }).model).toBeNull();
+    const agy = listedCatalog([{ id: "gemini-3-pro", name: "Gemini 3 Pro" }]);
+    expect(sendOptions("agy", agy, { model: "gemini-3-pro", permissionMode: "default" }).model).toBe("gemini-3-pro");
+    expect(sendOptions("agy", agy, { model: "opus", permissionMode: "default" }).model).toBeNull();
     const p = primeCatalog([{ id: "p:m" }], [{ id: "high" }]);
     expect(sendOptions("prime", p, { model: "p:m", reasoningEffort: "high", permissionMode: "default" })).toEqual({ model: "p:m", reasoningEffort: "high", permissionMode: "default" });
     expect(sendOptions("prime", p, { reasoningEffort: "ultra", permissionMode: "default" }).reasoningEffort).toBeUndefined();
@@ -138,6 +141,7 @@ describe("permission modes", () => {
   it("keeps the per-agent catalogs and bypass as the default for every agent", () => {
     expect(agentKind("codex")).toBe("codex");
     expect(agentKind("prime-agent")).toBe("prime");
+    expect(agentKind("agy")).toBe("agy");
     expect(agentKind(undefined)).toBe("claude");
     expect(permissionModes("codex").map((m) => m.value)).toEqual(["default", "read-only", "safe-yolo", "yolo"]);
     expect(permissionModes("claude").map((m) => m.value)).toEqual(["default", "acceptEdits", "plan", "bypassPermissions"]);

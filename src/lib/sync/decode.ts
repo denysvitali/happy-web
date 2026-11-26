@@ -21,6 +21,7 @@ export const sessionMetadata = z.catch(
     primeagentModels: z.catch(z.optional(z.array(z.unknown())), undefined),
     primeagentEfforts: z.catch(z.optional(z.array(z.unknown())), undefined),
     opencodeModels: z.catch(z.optional(z.array(z.unknown())), undefined),
+    agyModels: z.catch(z.optional(z.array(z.unknown())), undefined),
     permissionMode: str,
     reasoningEffort: str,
     lifecycleState: str,

@@ -349,8 +349,9 @@ function Messages({
   );
 }
 
-/** Agents whose input is text only (happy_flutter refuses images for them). */
-const TEXT_ONLY = new Set(["har", "opencode", "agy"]);
+/** Agents whose input is text only (happy_flutter refuses images for them;
+ * Antigravity takes them over ACP since happy-cli-go 17e3bad). */
+const TEXT_ONLY = new Set(["har", "opencode"]);
 
 /** Composer plus the model/permission/context toolbar; the switch rides on
  * the next message. */
