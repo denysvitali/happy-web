@@ -3,6 +3,7 @@
 // renders: Claude `output`, `codex`, `acp`/`opencode`/`grok`, `event`, the
 // `session` protocol and user text. Anything else becomes an `unknown` item
 // (shown collapsed) rather than being dropped silently.
+import { acpTool } from "./acpTools";
 
 /** Child-thread settings reported by the agent (model, role, effort…). A
  * present map replaces the previous snapshot; `{}` clears it. Never filled
@@ -270,6 +271,9 @@ function toolEvent(data: Obj): Item | undefined {
       name: first(src, "name", "toolName", "title") ?? "tool",
       input: toolInput(src.input ?? src.args ?? src.arguments ?? src.rawInput),
     };
+    const kind = s(src.kind);
+    const acp = kind ? acpTool(kind, item.name, item.input) : undefined;
+    if (acp) Object.assign(item, acp);
     const input = isObj(item.input) ? item.input : undefined;
     const agentId = input && s(input.agentId);
     if (item.name === "Agent" && agentId) item.agentId = agentId;

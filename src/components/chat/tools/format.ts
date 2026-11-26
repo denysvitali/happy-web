@@ -101,6 +101,11 @@ function blockPart(b: unknown): ResultPart | undefined {
       const url = mime.startsWith("image/") && data && /^[A-Za-z0-9+/=\s]+$/.test(data) ? `data:${mime};base64,${data.replace(/\s+/g, "")}` : undefined;
       return url ? { kind: "image", mime, url } : { kind: "image", mime };
     }
+    case "content":
+      // ACP ToolCallContent wrapper.
+      return blockPart(b.content);
+    case "diff":
+      return { kind: "text", text: `Changed ${str(b.path) ?? "file"}` };
     case "resource":
     case "resource_link": {
       const r = isObj(b.resource) ? b.resource : b;
@@ -328,6 +333,18 @@ export function duration(ms: number): string {
 export function editRows(input: unknown): DiffRow[] {
   const i = isObj(input) ? input : {};
   return lineDiff(str(i.old_string) ?? "", str(i.new_string) ?? "");
+}
+
+/** An edit's change: its `old_string`/`new_string`, else the ACP diff blocks
+ * (`{type: "diff", path, oldText, newText}`) its result carries (agy). */
+export function editDiffs(b: Pick<ToolBlock, "input" | "result">): { path?: string | undefined; rows: DiffRow[] }[] {
+  const i = isObj(b.input) ? b.input : {};
+  if (typeof i.old_string === "string" || typeof i.new_string === "string") return [{ rows: editRows(i) }];
+  const out = b.result?.output;
+  if (!Array.isArray(out)) return [];
+  return out
+    .filter((d): d is Obj => isObj(d) && d.type === "diff")
+    .map((d) => ({ path: str(d.path), rows: lineDiff(typeof d.oldText === "string" ? d.oldText : "", typeof d.newText === "string" ? d.newText : "") }));
 }
 
 export interface Todo {

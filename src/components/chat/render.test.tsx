@@ -106,3 +106,37 @@ describe("demo transcript", () => {
     }
   });
 });
+
+// Antigravity over ACP, as happy-cli-go forwards it: titles as names, the ACP
+// `kind`, PascalCase rawInput, edits as diff blocks in the result.
+describe("ACP tools (Antigravity)", () => {
+  const acp = (data: object) => ({ role: "agent", content: { type: "acp", data } });
+  const records = [
+    acp({ type: "tool-call", callId: "x1", name: "grep -rn S4_PORT drivers/", kind: "execute", input: { CommandLine: "grep -rn S4_PORT drivers/", Cwd: "/root/linux", command: "grep -rn S4_PORT drivers/" } }),
+    acp({ type: "tool-result", callId: "x1", result: "drivers/hi6402.c:12:#define S4_PORT 0x20", status: "completed" }),
+    acp({ type: "tool-call", callId: "r1", name: "File ../tone-thd", kind: "read", input: { Path: "/root/stage2/tone-thd" } }),
+    acp({ type: "tool-result", callId: "r1", result: "#!/bin/sh\nexec tone 1000", status: "completed" }),
+    acp({ type: "tool-call", callId: "e1", name: "File ../stereo-tone", kind: "edit", input: { Path: "/root/stage2/stereo-tone" } }),
+    acp({ type: "tool-result", callId: "e1", result: [{ type: "diff", path: "/root/stage2/stereo-tone", oldText: "vol=50\n", newText: "vol=80\n" }], status: "completed" }),
+  ];
+  const all = () => {
+    const msgs = records.map((r, i) => ({ id: `a${i}`, seq: i + 1, createdAt: i, norm: normalizeRecord(r) }));
+    return tools(buildView(addMessages(emptyChat, msgs), { requests: {}, completedRequests: {} }).blocks);
+  };
+  const body = (t: ToolBlock) => {
+    const { Body } = viewFor(t.name);
+    return renderToString(<MantineProvider><Body b={t} /></MantineProvider>);
+  };
+
+  it("shows commands with output, file reads and file diffs", () => {
+    const [sh, rd, ed] = all();
+    expect([sh!.name, rd!.name, ed!.name]).toEqual(["Bash", "Read", "Edit"]);
+    expect(body(sh!)).toContain("S4_PORT 0x20");
+    expect(body(sh!)).toContain("/root/linux");
+    expect(body(rd!)).toContain("exec tone 1000");
+    const diff = body(ed!);
+    expect(diff).toContain("vol=50");
+    expect(diff).toContain("vol=80");
+    expect(viewFor(ed!.name).badge?.(ed!)).toBe("+1 −1");
+  });
+});

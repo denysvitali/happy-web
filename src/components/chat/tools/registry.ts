@@ -24,7 +24,7 @@ import {
   baseName,
   commandOf,
   diffStats,
-  editRows,
+  editDiffs,
   field,
   firstLine,
   humanize,
@@ -108,7 +108,7 @@ const read: ToolView = {
 };
 
 const diffBadge = (b: ToolBlock) => {
-  const { added, removed } = diffStats(editRows(b.input));
+  const { added, removed } = diffStats(editDiffs(b).flatMap((d) => d.rows));
   return added || removed ? `+${added} −${removed}` : undefined;
 };
 

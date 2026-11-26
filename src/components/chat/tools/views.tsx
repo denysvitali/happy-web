@@ -2,13 +2,13 @@
 // title, one-line summary, badge) lives in ./registry.ts.
 import { Anchor, Button, TextInput, UnstyledButton } from "@mantine/core";
 import { CheckCircle2, Circle, CircleDot, MessageCircleQuestion } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
 import type { PermissionHandler } from "../permission";
 import { lineCount, lines, numberRows } from "../text";
 import { Clip, CopyIcon, KeyValues, ResultView, Section } from "../primitives";
-import { asText, commandOf, editRows, field, isObj, numberedLines, questionAnswers, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj, type Question } from "./format";
+import { asText, commandOf, editDiffs, editRows, field, isObj, numberedLines, questionAnswers, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj, type Question } from "./format";
 import classes from "../chat.module.css";
 
 export interface ToolViewProps {
@@ -142,10 +142,18 @@ function ErrorOnly({ b }: ToolViewProps) {
 }
 
 export function EditBody({ b }: ToolViewProps) {
+  const diffs = editDiffs(b);
+  const path = field(inputOf(b), "file_path", "path");
   return (
     <>
       <FileHead b={b} />
-      <Diff rows={editRows(b.input)} />
+      {diffs.length === 0 && (b.result ? <Result b={b} /> : <span className={classes.dim}>No changes yet</span>)}
+      {diffs.map((d, k) => (
+        <Fragment key={k}>
+          {d.path && d.path !== path && <code className={classes.path}>{d.path}</code>}
+          <Diff rows={d.rows} />
+        </Fragment>
+      ))}
       {inputOf(b).replace_all === true && <span className={classes.dim}>All occurrences replaced</span>}
       <ErrorOnly b={b} />
     </>
