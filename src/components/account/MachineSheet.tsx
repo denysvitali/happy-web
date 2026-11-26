@@ -1,5 +1,6 @@
 // One machine: what it is, updating the Happy daemon and the agent CLIs it
-// runs (src/lib/sync/machineUpdates.ts), renaming and forgetting it. Opened from Settings → Machines
+// runs (src/lib/sync/machineUpdates.ts), agent sign-ins (./AgySignIn.tsx),
+// renaming and forgetting it. Opened from Settings → Machines
 // and from a session's menu (lazily, through ./open.ts).
 import { Button, Code, Loader, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
@@ -8,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNow } from "@/app/hooks";
 import { RenameForm } from "@/components/sessions/RenameForm";
+import { AgySignIn } from "./AgySignIn";
 import { machinesKey, type Account, type MachineItem } from "@/lib/sync/account";
 import { machineName } from "@/lib/sync/decode";
 import {
@@ -299,6 +301,7 @@ function MachineContent({ account, id, close }: { account: Account; id: string; 
         )}
       </FormSection>
       <Software account={account} machine={m} online={online} />
+      <AgySignIn account={account} machine={m} online={online} />
       <Forget account={account} machine={m} online={online} close={close} />
     </SheetBody>
   );

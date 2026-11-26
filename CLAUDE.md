@@ -122,6 +122,9 @@ Server wins over Flutter; record every discrepancy in README.md.
   parsed in `src/lib/sync/machineUpdates.ts`. Updates are daemon-side jobs: start, then poll the
   cached status; any successful update restarts the daemon, so each one is confirmed first.
   Old daemons answer `method_unsupported`.
+  Kubernetes daemons also offer an Antigravity sign-in (`AgySignIn.tsx`, `lib/sync/agyAuth.ts`,
+  `agy-auth-*` RPCs): the daemon runs agy's own Google login, the app opens Google's link
+  (accounts.google.com only) and relays the pasted code; one login serves every agy session.
 - Linking devices (`account/LinkDevice.tsx`, `lib/auth/approve.ts`): Settings → Machines
   → "Link a machine…" or `/terminal/connect` (what `happy auth login --method web` opens;
   `main.tsx` moves `#key=` into the hash route, the build copies index.html there).

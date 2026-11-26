@@ -296,7 +296,18 @@ export function createMock() {
     { provider: "codex", installed: true, version: "0.61.0", latestVersion: "0.61.0", updateAvailable: false, canUpdate: true, installMethod: "npm", updateStatus: "idle" },
     { provider: "claude", installed: true, version: "2.1.3", latestVersion: "2.1.7", updateAvailable: true, canUpdate: true, installMethod: "native", updateStatus: "idle" },
   ];
+  // Antigravity sign-in on a Kubernetes daemon: the code "4/0Agood" works.
+  let agySignedIn = false;
+  const agyStatus = (status: string, error = "") => ({ flowId: "", status, success: !error, authenticated: status === "authenticated", error });
   const defaultRpc: Record<string, RpcHandler> = {
+    "agy-auth-status": () => agyStatus(agySignedIn ? "authenticated" : "signed_out"),
+    "agy-auth-begin": () => ({ flowId: "agy-flow", authorizationUrl: "https://accounts.google.com/o/oauth2/auth?client_id=demo&state=s", expiresAt: "0", status: "waiting_for_response" }),
+    "agy-auth-complete": (p) => {
+      if ((p as { authResponse?: string }).authResponse !== "4/0Agood") return agyStatus("failed", "Google rejected the authorization code; start the sign-in again");
+      agySignedIn = true;
+      return agyStatus("authenticated");
+    },
+    "agy-auth-cancel": () => agyStatus("cancelled"),
     "get-daemon-version": () => ({ success: true, daemon }),
     "update-daemon": () => ({ success: true, daemon: Object.assign(daemon, { updateStatus: "running" }) }),
     "get-provider-versions": () => ({ success: true, providers }),

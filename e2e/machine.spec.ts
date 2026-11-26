@@ -30,6 +30,43 @@ test("machine: check versions, update an agent CLI and the daemon", async ({ pag
   expect(violations).toEqual([]);
 });
 
+test("machine: sign in to Antigravity by pasting Google's code", async ({ page }) => {
+  const violations = watchCsp(page);
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  await page.getByRole("button", { name: /^denys@laptop/ }).click();
+  const sheet = page.getByRole("dialog", { name: "denys@laptop" });
+  await expect(sheet.getByText("Not signed in")).toBeVisible();
+
+  await sheet.getByRole("button", { name: "Sign in", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Sign in to Antigravity" });
+  await expect(dialog.getByRole("link", { name: "Open Google sign-in" })).toHaveAttribute("href", /^https:\/\/accounts\.google\.com\//);
+  await dialog.getByLabel("2. Paste the code Google shows").fill("4/0Abad");
+  await dialog.getByRole("button", { name: "Sign in" }).click();
+  await expect(dialog.getByText(/Google rejected the authorization code/)).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Start again" }).click();
+  await dialog.getByLabel("2. Paste the code Google shows").fill("4/0Agood");
+  await dialog.getByRole("button", { name: "Sign in" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(sheet.getByText(/^Signed in · shared by every Antigravity session/)).toBeVisible();
+  expect(mock.rpcCalls.filter((c) => c.method === "m-laptop:agy-auth-complete").map((c) => c.params)).toContainEqual({ flowId: "agy-flow", authResponse: "4/0Agood" });
+  expect(violations).toEqual([]);
+});
+
+test("machine: no Antigravity sign-in where the daemon has none", async ({ page }) => {
+  const mock = createMock();
+  await mock.install(page, { unregistered: ["agy-auth-status"] });
+  await linkAndOpen(page, mock);
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  await page.getByRole("button", { name: /^denys@laptop/ }).click();
+  const sheet = page.getByRole("dialog", { name: "denys@laptop" });
+  await expect(sheet.getByText("v2.1.3 · 2.1.7 available")).toBeVisible();
+  await expect(sheet.getByText("Antigravity")).toHaveCount(0);
+});
+
 test("machine: a session's menu opens its machine", async ({ page }) => {
   const mock = createMock();
   await mock.install(page);

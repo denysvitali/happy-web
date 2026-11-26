@@ -445,6 +445,11 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByText("v2.1.3 · 2.1.7 available")).toBeVisible();
       await page.waitForTimeout(300);
       await shot(page, "p7-machine");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Sign in to Antigravity" }).getByRole("link", { name: "Open Google sign-in" })).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p7c-machine-agy-sign-in");
+      await page.getByRole("dialog", { name: "Sign in to Antigravity" }).getByRole("button", { name: "Cancel" }).click();
       await page.getByRole("button", { name: "Update Claude Code" }).click();
       const confirm = page.getByRole("dialog", { name: "Update Claude Code on denys@laptop?" });
       await expect(confirm).toBeVisible();

@@ -12,6 +12,7 @@ import { renameMachineMeta } from "./machineRename";
 import { createCipher, type Cipher } from "../crypto/cipher";
 import type { AccountKeys } from "../crypto/keys";
 import { Realtime, RpcError, type RealtimeStatus } from "../realtime/socket";
+import { parseAgyBegin, parseAgyStatus } from "./agyAuth";
 import { ChatStore, userRecord } from "./chatStore";
 import {
   agentState as agentStateSchema,
@@ -756,6 +757,25 @@ export class Account {
 
   async updateDaemon(machineId: string) {
     return parseDaemon(await this.rpcJson(machineId, "update-daemon", {}, 20_000));
+  }
+
+  // Antigravity sign-in (agyAuth.ts): the daemon runs agy's Google login.
+  async agyAuthStatus(machineId: string, flowId = "") {
+    return parseAgyStatus(await this.rpcJson(machineId, "agy-auth-status", { flowId }, 15_000));
+  }
+
+  async agyAuthBegin(machineId: string) {
+    return parseAgyBegin(await this.rpcJson(machineId, "agy-auth-begin", { force: true }, 30_000));
+  }
+
+  /** Waits up to ~20 s for the exchange; a slower one reports "completing"
+   * and is polled through agyAuthStatus. */
+  async agyAuthComplete(machineId: string, flowId: string, code: string) {
+    return parseAgyStatus(await this.rpcJson(machineId, "agy-auth-complete", { flowId, authResponse: code }, 30_000));
+  }
+
+  async agyAuthCancel(machineId: string, flowId: string) {
+    return parseAgyStatus(await this.rpcJson(machineId, "agy-auth-cancel", { flowId }, 15_000));
   }
 
   abort(sessionId: string) {
