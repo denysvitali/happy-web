@@ -47,6 +47,7 @@ export function userRecord(text: string, opts?: SendOptions, images: readonly Ou
     meta.permissionMode = opts.permissionMode;
     meta.model = opts.model;
     meta.fallbackModel = null;
+    if (opts.codexCyberAccessProgram) meta.codexCyberAccessProgram = opts.codexCyberAccessProgram;
     if (opts.reasoningEffort) meta.reasoning_effort = opts.reasoningEffort;
   }
   if (images.length === 0) return { role: "user", content: { type: "text", text }, meta };

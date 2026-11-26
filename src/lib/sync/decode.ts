@@ -39,6 +39,13 @@ export const sessionMetadata = z.catch(
     repoCommit: str,
     // Provider profile the app chose ("default" = account login), see profiles.ts.
     clientProfileId: str,
+    codexCyberAccess: z.catch(z.optional(z.object({
+      requested: str,
+      source: str,
+      machine: str,
+      state: str,
+      detail: str,
+    })), undefined),
     codexFastMode: z.catch(z.optional(z.boolean()), undefined),
     gitRemoteUrl: str,
     gitBranch: str,

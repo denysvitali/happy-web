@@ -120,3 +120,32 @@ test("new session sends the chosen provider", async ({ page }) => {
   await expect(page.getByText("Starting session…")).toBeVisible();
   await expect(page.getByText("Session not found")).toHaveCount(0);
 });
+
+test("Daybreak changes ride on the next Codex message only", async ({ page }) => {
+  const mock = createMock();
+  await mock.install(page);
+  await linkAndOpen(page, mock);
+  await page.goto("/#/s/s2");
+
+  const daybreak = page.getByRole("button", { name: /^Daybreak access/ });
+  await daybreak.click();
+  await expect(page.getByRole("menuitemradio", { name: /^Machine default/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("menuitemradio", { name: "Daybreak Blue" }).click();
+  await expect(daybreak).toHaveAccessibleName("Daybreak access: Daybreak Blue, applies on next message");
+  expect(mock.sent).toHaveLength(0);
+
+  const message = page.getByLabel("Message", { exact: true });
+  await message.fill("Check the status");
+  await message.press("Enter");
+  await expect.poll(() => mock.sent.length).toBe(1);
+  expect(mock.sent[0]).toMatchObject({ sessionId: "s2", record: { meta: { codexCyberAccessProgram: "daybreak_blue" } } });
+
+  await message.fill("Continue");
+  await message.press("Enter");
+  await expect.poll(() => mock.sent.length).toBe(2);
+  expect(mock.sent[1]?.record).not.toHaveProperty("meta.codexCyberAccessProgram");
+
+  await page.goto("/#/s/s1");
+  await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
+  await expect(daybreak).toHaveCount(0);
+});

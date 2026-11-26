@@ -204,3 +204,8 @@
 }
 .recentPick:hover { color: var(--happy-accent); }
 .formActions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.daybreakDetail {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

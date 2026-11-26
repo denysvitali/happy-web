@@ -6,6 +6,7 @@ import type { ChatStore } from "@/lib/sync/chatStore";
 import { contextWindowFor, findProfile, sessionProfileId } from "@/lib/sync/profiles";
 import { canSwitchProvider } from "@/lib/sync/spawn";
 import { ContextMeter } from "./ContextMeter";
+import { DaybreakPicker } from "./DaybreakPicker";
 import type { SessionSwitch } from "./hooks";
 import { ModelPicker } from "./ModelPicker";
 import { PermissionPicker } from "./PermissionPicker";
@@ -34,6 +35,7 @@ export function SessionToolbar({ session, sw, store, children }: { session: Sess
       <PermissionPicker sw={sw} />
       {canSwitchProvider(session) && <ProviderPicker session={session} sw={sw} />}
       {store ? <Model sw={sw} store={store} /> : <ModelPicker sw={sw} />}
+      {sw.kind === "codex" && session.meta.codexCyberAccess && <DaybreakPicker status={session.meta.codexCyberAccess} sw={sw} />}
       <span className={classes.spacer} />
       {children}
       {store && sw.kind !== "opencode" && <Context session={session} store={store} model={sw.activeModel} />}

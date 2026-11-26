@@ -266,7 +266,22 @@ export function defaultPermissionMode(kind: string): string {
 
 // ---- send ---------------------------------------------------------------------
 
+export const CODEX_CYBER_PROGRAMS = {
+  machine: "Machine default",
+  auto: "Automatic (Daybreak off)",
+  standard: "Standard",
+  daybreak_blue: "Daybreak Blue",
+  daybreak_red: "Daybreak Red",
+} as const;
+
+export type CodexCyberProgram = keyof typeof CODEX_CYBER_PROGRAMS;
+
+export function codexCyberProgram(value: string | undefined): CodexCyberProgram | undefined {
+  return value !== undefined && Object.hasOwn(CODEX_CYBER_PROGRAMS, value) ? value as CodexCyberProgram : undefined;
+}
+
 export interface Switch {
+  codexCyberAccessProgram?: CodexCyberProgram | undefined;
   /** Pending model selection, if the user picked one. */
   model?: string | undefined;
   /** Prime Agent reasoning effort, if the user picked one. */
@@ -276,6 +291,7 @@ export interface Switch {
 
 /** What `ChatStore.send` puts on the user message. `model: null` = no change. */
 export interface SendOptions {
+  codexCyberAccessProgram?: CodexCyberProgram | undefined;
   model: string | null;
   permissionMode: string;
   reasoningEffort?: string | undefined;
@@ -288,6 +304,7 @@ export function sendOptions(kind: AgentKind, catalog: Catalog, sw: Switch): Send
   if (model && (kind === "opencode" || kind === "agy" || kind === "prime") && !findChoice(catalog, model)) model = null;
   if (kind === "other") model = null;
   const out: SendOptions = { model, permissionMode: sw.permissionMode };
+  if (kind === "codex" && sw.codexCyberAccessProgram) out.codexCyberAccessProgram = sw.codexCyberAccessProgram;
   if (kind === "prime" && sw.reasoningEffort && catalog.efforts?.some((e) => e.value === sw.reasoningEffort)) {
     out.reasoningEffort = sw.reasoningEffort;
   }

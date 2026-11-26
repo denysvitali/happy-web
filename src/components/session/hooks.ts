@@ -15,6 +15,7 @@ import {
   sendOptions,
   type AgentKind,
   type Catalog,
+  type CodexCyberProgram,
   type SendOptions,
 } from "@/lib/sync/models";
 import { findProfile, gatewayModels, sessionProfileId, usesAccountLogin } from "@/lib/sync/profiles";
@@ -115,6 +116,7 @@ interface Local {
   sentEffort?: string | undefined;
   sentOver?: string | undefined;
   mode?: string | undefined;
+  cyberProgram?: { value: CodexCyberProgram } | undefined;
 }
 
 export interface SessionSwitch {
@@ -132,6 +134,8 @@ export interface SessionSwitch {
   setModel(v: string): void;
   setEffort(v: string): void;
   setPermissionMode(v: string): void;
+  cyberProgram: CodexCyberProgram | undefined;
+  setCyberProgram(value: CodexCyberProgram): void;
   /** Forgets model/effort picks, e.g. after a provider switch restarted the
    * agent on a model of its own. */
   clearModel(): void;
@@ -169,8 +173,15 @@ export function useSessionSwitch(session: SessionItem): SessionSwitch {
     setModel: (v) => update({ model: v === activeModel ? undefined : v }),
     setEffort: (v) => update({ effort: v === activeEffort ? undefined : v }),
     setPermissionMode: (v) => update({ mode: v }),
-    clearModel: () => update({ model: undefined, effort: undefined, sentModel: undefined, sentEffort: undefined, sentOver: undefined }),
-    options: () => sendOptions(kind, catalog, { model: local.model, reasoningEffort: local.effort, permissionMode }),
+    cyberProgram: local.cyberProgram?.value,
+    setCyberProgram: (value) => update({ cyberProgram: { value } }),
+    clearModel: () => update({ model: undefined, effort: undefined, sentModel: undefined, sentEffort: undefined, sentOver: undefined, cyberProgram: undefined }),
+    options: () => sendOptions(kind, catalog, {
+      model: local.model,
+      reasoningEffort: local.effort,
+      permissionMode,
+      codexCyberAccessProgram: session.meta.codexCyberAccess && local.cyberProgram?.value,
+    }),
     markSent: (o) =>
       setLocal((p) => {
         if (p.sessionId !== session.id) return p;
@@ -178,6 +189,7 @@ export function useSessionSwitch(session: SessionItem): SessionSwitch {
         const next: Local = { ...p };
         if (p.model === local.model) next.model = undefined;
         if (p.effort === local.effort) next.effort = undefined;
+        if (o.codexCyberAccessProgram && p.cyberProgram === local.cyberProgram) next.cyberProgram = undefined;
         if (o.model || o.reasoningEffort) {
           next.sentModel = o.model ?? p.sentModel;
           next.sentEffort = o.reasoningEffort ?? p.sentEffort;

@@ -15,6 +15,22 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
     const shot = (page: Page, name: string) => page.screenshot({ path: `screenshots/${vp.name}-${name}.png` });
 
+    test("Daybreak access", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await page.goto("/#/s/s2");
+      const daybreak = page.getByRole("button", { name: /^Daybreak access/ });
+      await daybreak.click();
+      await expect(page.getByRole("menuitemradio", { name: "Daybreak Blue" })).toBeVisible();
+      await page.screenshot({ path: `screenshots/${vp.name}-daybreak.png`, animations: "disabled" });
+      await page.emulateMedia({ colorScheme: "dark" });
+      await expect(page.locator("html")).toHaveAttribute("data-mantine-color-scheme", "dark");
+      await page.screenshot({ path: `screenshots/${vp.name}-daybreak-dark.png`, animations: "disabled" });
+      expect(violations).toEqual([]);
+    });
+
     test("Git review", async ({ page }) => {
       const violations = watchCsp(page);
       const mock = createMock();
