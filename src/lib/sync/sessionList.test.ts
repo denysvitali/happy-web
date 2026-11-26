@@ -311,6 +311,37 @@ describe("folder list grouped by project", () => {
     expect(rows.find((r) => r.type === "session" && r.view.id === "b1")).toMatchObject({ inProject: true });
     expect(rows.find((r) => r.type === "session" && r.view.id === "a1")).toMatchObject({ inProject: false });
   });
+
+  it("hides empty folders when showEmptyFolders is false, keeping explicitly kept ones", () => {
+    const doc: FolderDoc = {
+      folders: {
+        fempty: { name: "Empty", parent: null, anchor: null },
+        fnew: { name: "JustCreated", parent: null, anchor: null },
+        fbusy: { name: "Busy", parent: null, anchor: null },
+      },
+      sessions: { a1: "fbusy" },
+    };
+    const v = views([mk("a1", { path: "/a" })]);
+    const rows = folderRows(v, doc, {}, { collapsed: new Set(), archivedOpen: false, showEmptyFolders: false, keepEmptyFolders: new Set(["fnew"]) });
+    const names = rows.filter((r) => r.type === "folder").map((r) => r.name);
+    expect(names).toEqual(["Busy", "JustCreated"]);
+  });
+});
+
+describe("deriveSessionSummary", () => {
+  it("prioritizes approvals, Inbox, ToDos, and lastTurn with git indicators", () => {
+    const lastTurn = mk("lt", { path: "/p", lastTurn: { text: "Found 3 sibling handlers.", endedWithQuestion: true, gitDirty: 2, gitAhead: 1, updatedAt: NOW } });
+    const todo = mk("td", { path: "/p", todos: [{ id: "t1", content: "Run tests", status: "in_progress", order: 0 }], lastTurn: { text: "Old reply", updatedAt: NOW } });
+    const inbox = mk("in", { path: "/p", inbox: [{ id: "m1", kind: "blocked", subject: "Need API key", body: "", createdAt: NOW }] });
+    const ask = mk("ak", { path: "/p" }, { agentState: { requests: { r1: { tool: "Bash", arguments: { command: "git status" } } } } });
+
+    const out = deriveViews([lastTurn, todo, inbox, ask], status, machines, NOW);
+    const by = new Map(out.map((v) => [v.id, v]));
+    expect(by.get("lt")).toMatchObject({ statusLine: "Found 3 sibling handlers.", gitDirty: 2, gitAhead: 1, waitingQuestion: true });
+    expect(by.get("td")).toMatchObject({ statusLine: "Run tests" });
+    expect(by.get("in")).toMatchObject({ statusLine: "Blocked: Need API key", waitingQuestion: true });
+    expect(by.get("ak")).toMatchObject({ statusLine: "Needs OK: git status" });
+  });
 });
 
 describe("ListOrder", () => {

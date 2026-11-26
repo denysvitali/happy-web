@@ -25,6 +25,10 @@ export interface FolderListOptions {
   grouping?: Grouping;
   /** Keep archived sessions inside their folders (default: they move to the Archive section). */
   archivedInFolders?: boolean;
+  /** Show empty folders (default: true for direct callers; SessionList hides them unless toggled). */
+  showEmptyFolders?: boolean;
+  /** Folder ids kept visible even when empty (e.g. folders created in this tab). */
+  keepEmptyFolders?: ReadonlySet<string>;
 }
 
 interface Stats {
@@ -101,12 +105,22 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
     for (const fid of (anchored.get(v.id) ?? []).sort(cmpName)) emitFolder(fid, depth + 1);
     for (const c of (underParent.get(v.id) ?? []).sort(byRank)) emitSession(c, depth + 1, inProject);
   };
+  const hideEmpty = filtering || opts.showEmptyFolders === false;
+  const keepEmpty = opts.keepEmptyFolders;
+  const hasKeptEmpty = (fid: string, visited = new Set<string>()): boolean => {
+    if (!keepEmpty || keepEmpty.size === 0 || visited.has(fid)) return false;
+    visited.add(fid);
+    if (keepEmpty.has(fid)) return true;
+    return (subfolders.get(fid) ?? []).some((c) => hasKeptEmpty(c, visited));
+  };
+  const showFolder = (fid: string) => !hideEmpty || statsOfFolder(fid).count > 0 || hasKeptEmpty(fid);
+
   const emitted = new Set<string>();
   const emitFolder = (fid: string, depth: number) => {
     if (emitted.has(fid)) return;
     emitted.add(fid);
     const s = statsOfFolder(fid);
-    if (filtering && s.count === 0) return;
+    if (!showFolder(fid)) return;
     const fd = doc.folders[fid]!;
     const open = !opts.collapsed.has(fid);
     out.push({ type: "folder", id: fid, name: fd.name, anchor: fd.anchor, depth, count: s.count, attention: s.attention, unread: unreadLabel(s.unread, s.more), open });
@@ -115,7 +129,7 @@ export function folderRows(views: readonly SessionView[], doc: FolderDoc, f: Ses
     for (const v of (inFolder.get(fid) ?? []).sort(inFolderOrder)) emitSession(v, depth + 1);
   };
 
-  const top = (subfolders.get(null) ?? []).sort(cmpName).filter((fid) => !filtering || statsOfFolder(fid).count > 0);
+  const top = (subfolders.get(null) ?? []).sort(cmpName).filter(showFolder);
   if (top.length) {
     out.push({ type: "folders", count: top.length });
     for (const fid of top) emitFolder(fid, 0);

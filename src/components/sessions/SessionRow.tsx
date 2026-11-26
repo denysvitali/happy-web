@@ -51,6 +51,8 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
   const [menu, setMenu] = useState(false);
   const actions = useSessionActions();
   const meta = metaLine(v, { inProject });
+  const subline = v.statusLine || meta;
+  const gitTag = v.gitDirty > 0 || v.gitAhead > 0 ? [v.gitDirty > 0 ? `+${v.gitDirty}` : "", v.gitAhead > 0 ? `↑${v.gitAhead}` : ""].filter(Boolean).join(" ") : "";
   // Blocked on an approval is not "thinking", whatever the ephemeral says.
   const thinking = v.status === "thinking" && v.pending === 0;
   return (
@@ -105,7 +107,10 @@ export const SessionRow = memo(function SessionRow({ view: v, depth, inProject, 
               </span>
             </span>
             <span className={classes.rowBottom}>
-              <span className={classes.rowMeta}>{meta || " "}</span>
+              <span className={classes.rowMeta} data-summary={v.statusLine ? true : undefined}>
+                {subline || " "}
+              </span>
+              {gitTag && <span className={classes.gitTag} title={`${v.gitDirty} uncommitted, ${v.gitAhead} unpushed`}>{gitTag}</span>}
               <AttentionBadge count={v.pending} />
               <PodBadge pod={v.pod} />
               <UnreadBadge label={v.unread} />

@@ -1,7 +1,7 @@
 import { Button, Menu, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, ArchiveRestore, Check, CircleAlert, CircleCheckBig, Command, Ellipsis, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, Square, SquarePen, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, BookOpenText, Check, CircleAlert, CircleCheckBig, Command, Ellipsis, FolderInput, FolderPlus, MessagesSquare, SearchX, SlidersHorizontal, Square, SquarePen, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
@@ -32,6 +32,7 @@ const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Ku
 const GROUPING_LABEL: Record<Grouping, string> = { project: "Project", status: "Status" };
 const GROUPING_KEY = "happy.sessionGrouping";
 const ARCHIVED_IN_FOLDERS_KEY = "happy.folders.showArchived";
+const EMPTY_FOLDERS_KEY = "happy.folders.showEmpty";
 
 function loadGrouping(): Grouping {
   try {
@@ -44,6 +45,14 @@ function loadGrouping(): Grouping {
 function loadArchivedInFolders(): boolean {
   try {
     return localStorage.getItem(ARCHIVED_IN_FOLDERS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function loadShowEmptyFolders(): boolean {
+  try {
+    return localStorage.getItem(EMPTY_FOLDERS_KEY) === "1";
   } catch {
     return false;
   }
@@ -107,6 +116,9 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const [grouping, setGroupingState] = useState<Grouping>(loadGrouping);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [archivedInFolders, setArchivedInFoldersState] = useState(loadArchivedInFolders);
+  const [showEmptyFolders, setShowEmptyFoldersState] = useState(loadShowEmptyFolders);
+  const [keepEmptyFolders, setKeepEmptyFolders] = useState<ReadonlySet<string>>(NONE);
+  const knownFoldersRef = useRef<Set<string> | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -132,13 +144,33 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     });
   }, []);
   const canEditFolders = folders.status === "ready" || folders.status === "error";
+  // Keep folders created during this tab visible even while empty so filing into them works smoothly.
+  useEffect(() => {
+    if (folders.status === "loading") return;
+    const ids = Object.keys(folders.doc.folders);
+    const prev = knownFoldersRef.current;
+    if (!prev) {
+      knownFoldersRef.current = new Set(ids);
+      return;
+    }
+    const added = ids.filter((id) => !prev.has(id));
+    knownFoldersRef.current = new Set(ids);
+    if (added.length > 0) {
+      setKeepEmptyFolders((cur) => {
+        const next = new Set(cur);
+        for (const id of added) next.add(id);
+        return next;
+      });
+    }
+  }, [folders.status, folders.doc]);
   // Searching is flat (and reaches into the archive); folders shape the list otherwise.
   const foldered = !searching && hasFolders(folders.doc);
   const rows = useMemo(() => {
-    if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping, archivedInFolders });
+    if (foldered)
+      return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping, archivedInFolders, showEmptyFolders, keepEmptyFolders });
     const grouped = groupViews(views, { query, agent, runtime });
     return flattenSections(grouping === "project" ? projectSections(grouped) : statusSections(grouped), { archivedOpen: archivedOpen || searching });
-  }, [foldered, views, folders.doc, query, agent, runtime, collapsed, archivedOpen, searching, grouping, archivedInFolders]);
+  }, [foldered, views, folders.doc, query, agent, runtime, collapsed, archivedOpen, searching, grouping, archivedInFolders, showEmptyFolders, keepEmptyFolders]);
   const setGrouping = (g: Grouping) => {
     setGroupingState(g);
     try {
@@ -152,6 +184,15 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     setArchivedInFoldersState(next);
     try {
       localStorage.setItem(ARCHIVED_IN_FOLDERS_KEY, next ? "1" : "0");
+    } catch {
+      // Private mode: the choice just doesn't persist.
+    }
+  };
+  const toggleShowEmptyFolders = () => {
+    const next = !showEmptyFolders;
+    setShowEmptyFoldersState(next);
+    try {
+      localStorage.setItem(EMPTY_FOLDERS_KEY, next ? "1" : "0");
     } catch {
       // Private mode: the choice just doesn't persist.
     }
@@ -298,6 +339,19 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
   const anyLive = selectedItems.some(isLiveSession);
   const anyArchived = selectedItems.some((s) => s.archived);
   const anyUnarchived = selectedItems.some((s) => !s.archived);
+  const openRecapSheet = useCallback(
+    (project?: string) => {
+      void import("./RecapSheet").then((m) =>
+        m.openRecap({
+          views,
+          project,
+          onOpen,
+          onArchive: (list) => sessionActions.archiveMany(list.map((v) => v.item)),
+        }),
+      );
+    },
+    [views, onOpen, sessionActions],
+  );
   // "New session in this directory…": the New session modal with the project's
   // directory preselected, on its machine when that's still online.
   const newSessionIn = useCallback(
@@ -411,6 +465,9 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             <IconButton className={classes.filterButton} label="New folder" icon={<FolderPlus size={15} strokeWidth={2} />} onClick={() => void folderActions.create(null)} />
           </Tooltip>
         )}
+        <Tooltip label="Catch me up" openDelay={400}>
+          <IconButton className={classes.filterButton} label="Catch me up" icon={<BookOpenText size={15} strokeWidth={2} />} onClick={() => openRecapSheet()} />
+        </Tooltip>
         <Tooltip label={`Command palette (${PALETTE_KEY})`} openDelay={400}>
           <IconButton className={classes.filterButton} label="Command palette" icon={<Command size={15} strokeWidth={2} />} onClick={onPalette} />
         </Tooltip>
@@ -435,6 +492,9 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             {hasFolders(folders.doc) && (
               <>
                 <Menu.Label>Folders</Menu.Label>
+                <Menu.Item rightSection={showEmptyFolders ? <Check size={14} /> : null} onClick={toggleShowEmptyFolders}>
+                  Show empty folders
+                </Menu.Item>
                 <Menu.Item rightSection={archivedInFolders ? <Check size={14} /> : null} onClick={toggleArchivedInFolders}>
                   Show archived
                 </Menu.Item>

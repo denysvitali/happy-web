@@ -1,0 +1,180 @@
+/* On-demand "Catch me up" recap sheet: calm reading layout over decrypted session state. */
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 0 12px;
+}
+
+.lede {
+  margin: 0;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 0 2px;
+  font-size: var(--happy-text-caption);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--happy-label-2);
+}
+
+.groupCount {
+  color: var(--happy-label-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--happy-radius-lg);
+  background: var(--happy-surface-raised);
+  box-shadow: 0 0 0 0.5px var(--happy-separator);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.row:not(:last-child) {
+  box-shadow: inset 0 -0.5px var(--happy-separator);
+}
+
+.row[data-checked] {
+  background: var(--happy-accent-tint);
+}
+
+.checkBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  padding: 0;
+  border: 1.5px solid var(--happy-label-3);
+  border-radius: var(--happy-radius-pill);
+  background: transparent;
+  color: var(--happy-on-accent);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background-color var(--happy-dur-fast), border-color var(--happy-dur-fast);
+}
+
+.checkBtn[data-checked] {
+  border-color: var(--happy-accent);
+  background: var(--happy-accent);
+}
+
+.checkBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--happy-focus-ring);
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rowTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.titleLink {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--happy-label);
+  font: inherit;
+  font-size: var(--happy-text-subhead);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titleLink:hover {
+  color: var(--happy-accent);
+}
+
+.titleLink:focus-visible {
+  outline: none;
+  box-shadow: var(--happy-focus-ring);
+  border-radius: var(--happy-radius-xs);
+}
+
+.when {
+  flex-shrink: 0;
+  font-size: var(--happy-text-caption);
+  color: var(--happy-label-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--happy-text-subhead);
+  line-height: 1.45;
+  color: var(--happy-label-2);
+  word-break: break-word;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.metaText {
+  font-size: var(--happy-text-caption);
+  color: var(--happy-label-3);
+}
+
+.gitChip {
+  padding: 0 6px;
+  border-radius: var(--happy-radius-xs);
+  background: var(--happy-orange-tint);
+  color: var(--happy-orange-ink);
+  font-family: var(--happy-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.footerNote {
+  flex: 1;
+  font-size: var(--happy-text-footnote);
+  color: var(--happy-label-2);
+}

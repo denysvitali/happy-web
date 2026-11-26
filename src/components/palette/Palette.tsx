@@ -6,6 +6,7 @@ import {
 import {
   Archive,
   ArchiveRestore,
+  BookOpenText,
   Copy,
   Gauge,
   Inbox,
@@ -56,6 +57,7 @@ export interface PaletteProps {
   onSettings: () => void;
   onUsage: () => void;
   onInbox: () => void;
+  onRecap: () => void;
   onShortcuts: () => void;
   onDemo: () => void;
   onForget: () => void;
@@ -193,6 +195,7 @@ function Body({
   onSettings,
   onUsage,
   onInbox,
+  onRecap,
   onShortcuts,
   onDemo,
   onForget,
@@ -312,6 +315,13 @@ function Body({
         { keywords: "toggle theme appearance light dark" },
       ),
       action(
+        "a-recap",
+        "Catch me up",
+        tile(BookOpenText),
+        () => choose(onRecap),
+        { keywords: "recap summary briefing overview status catch up archive" },
+      ),
+      action(
         "a-inbox",
         "Inbox",
         tile(Inbox),
@@ -364,6 +374,7 @@ function Body({
     onNewSession,
     onSettings,
     onInbox,
+    onRecap,
     onShortcuts,
     onDemo,
     onForget,

@@ -3,7 +3,9 @@
 // per change; per-session derivation is cached on the (immutable) SessionItem.
 import { activityAt, type MachineItem, type SessionItem } from "./account";
 import { MACHINE_PRESENCE_MS, STATUS_LABEL, displayPath, machineName, sessionTitle, type SessionMetadata, type SessionStatus } from "./decode";
+import { awaitsUser, inboxKey, parseInboxMessage, type InboxEntryState } from "./inbox";
 import { Store } from "./store";
+import { sessionTodos } from "./todos";
 
 export type Runtime = "local" | "kubernetes";
 export type SessionGroup = "attention" | "active" | "recent" | "archived";
@@ -33,6 +35,14 @@ export interface SessionView {
   status: SessionStatus;
   /** Pending permission requests. */
   pending: number;
+  /** Plain-English current status (approval / Inbox / ToDo / lastTurn); empty falls back to metaLine. */
+  statusLine: string;
+  /** Uncommitted files in the session's worktree (from metadata.lastTurn). */
+  gitDirty: number;
+  /** Unpushed commits in the session's worktree (from metadata.lastTurn). */
+  gitAhead: number;
+  /** True when the agent's last turn ended with a question or set_status(waiting=true). */
+  waitingQuestion: boolean;
   /** Unread agent replies badge ("3", "99+"), "" when all read. */
   unread: string;
   group: SessionGroup;
@@ -117,6 +127,85 @@ export function pendingRequests(s: SessionItem): number {
   return r ? Object.keys(r).length : 0;
 }
 
+const NO_INBOX: ReadonlyMap<string, InboxEntryState> = new Map();
+
+function compactLine(text: string, max = 140): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+function requestSummary(s: SessionItem, pending: number): string {
+  const reqs = s.agentState.requests;
+  if (!reqs) return "";
+  for (const k in reqs) {
+    const req = reqs[k]!;
+    const args = req.arguments && typeof req.arguments === "object" ? (req.arguments as Record<string, unknown>) : undefined;
+    if (req.tool === "AskUserQuestion" && Array.isArray(args?.questions)) {
+      const first = args.questions[0] as Record<string, unknown> | undefined;
+      if (typeof first?.question === "string" && first.question.trim()) {
+        return `Waiting on you: ${compactLine(first.question)}`;
+      }
+    }
+    if ((req.tool === "Bash" || req.tool === "bash") && typeof args?.command === "string" && args.command.trim()) {
+      return `Needs OK: ${compactLine(args.command, 80)}`;
+    }
+    const more = pending > 1 ? ` (+${pending - 1} more)` : "";
+    return `Needs OK to use ${req.tool}${more}`;
+  }
+  return "";
+}
+
+/**
+ * Derives a plain-English status line from everything the session already
+ * carries in encrypted metadata: pending approvals/questions, unresolved Inbox
+ * messages, active Happy ToDos, or the daemon/agent `metadata.lastTurn`.
+ */
+export function deriveSessionSummary(
+  s: SessionItem,
+  pending: number,
+  inboxStates: ReadonlyMap<string, InboxEntryState> = NO_INBOX,
+): { statusLine: string; gitDirty: number; gitAhead: number; waitingQuestion: boolean } {
+  const lt = s.meta.lastTurn;
+  const gitDirty = !s.archived && typeof lt?.gitDirty === "number" && lt.gitDirty > 0 ? Math.floor(lt.gitDirty) : 0;
+  const gitAhead = !s.archived && typeof lt?.gitAhead === "number" && lt.gitAhead > 0 ? Math.floor(lt.gitAhead) : 0;
+  const waitingQuestion = !s.archived && lt?.endedWithQuestion === true;
+
+  if (!s.archived && pending > 0) {
+    return { statusLine: requestSummary(s, pending) || "Needs approval", gitDirty, gitAhead, waitingQuestion: false };
+  }
+
+  if (!s.archived && Array.isArray(s.meta.inbox) && s.meta.inbox.length > 0) {
+    for (let i = s.meta.inbox.length - 1; i >= 0; i--) {
+      const msg = parseInboxMessage(s.meta.inbox[i], s.id);
+      if (!msg) continue;
+      const st = inboxStates.get(inboxKey(s.id, msg.id));
+      if (st?.done) continue;
+      if (awaitsUser(msg.kind) && st?.repliedAt) continue;
+      if (msg.kind === "blocked") return { statusLine: `Blocked: ${compactLine(msg.subject)}`, gitDirty, gitAhead, waitingQuestion: true };
+      if (msg.kind === "question") return { statusLine: `Waiting on you: ${compactLine(msg.subject)}`, gitDirty, gitAhead, waitingQuestion: true };
+      return { statusLine: `Done — ${compactLine(msg.subject)}`, gitDirty, gitAhead, waitingQuestion: false };
+    }
+  }
+
+  if (!s.archived && s.meta.lifecycleStateError?.trim()) {
+    return { statusLine: `Error: ${compactLine(s.meta.lifecycleStateError)}`, gitDirty, gitAhead, waitingQuestion: false };
+  }
+
+  const todos = sessionTodos(s.meta.todos);
+  if (todos?.current && !s.archived) {
+    return { statusLine: compactLine(todos.current), gitDirty, gitAhead, waitingQuestion };
+  }
+  if (todos && todos.total > 0 && todos.done === todos.total) {
+    return { statusLine: `All ${todos.total} tasks completed`, gitDirty, gitAhead, waitingQuestion };
+  }
+
+  if (lt?.text?.trim()) {
+    return { statusLine: compactLine(lt.text), gitDirty, gitAhead, waitingQuestion };
+  }
+
+  return { statusLine: "", gitDirty, gitAhead, waitingQuestion };
+}
+
 // ---- time ---------------------------------------------------------------------
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -161,7 +250,7 @@ function staticOf(s: SessionItem, machine: string): Static {
     pod: podStateOf(s),
     parentId: m.parentSessionId || undefined,
     pending: pendingRequests(s),
-    search: [title, project, m.path, machine, agentLabel(agent), runtime === "kubernetes" ? "k8s kubernetes" : "local", m.gitBranch, s.id]
+    search: [title, project, m.path, machine, agentLabel(agent), runtime === "kubernetes" ? "k8s kubernetes" : "local", m.gitBranch, m.lastTurn?.text, s.id]
       .filter(Boolean)
       .join("\n")
       .toLowerCase(),
@@ -187,6 +276,7 @@ export function deriveViews(
   now: number,
   unread: ReadonlyMap<string, string> = NO_UNREAD,
   order?: ListOrder,
+  inboxStates: ReadonlyMap<string, InboxEntryState> = NO_INBOX,
 ): SessionView[] {
   const out = new Array<SessionView>(items.length);
   for (let i = 0; i < items.length; i++) {
@@ -199,6 +289,7 @@ export function deriveViews(
     const activity = activityAt(s);
     const group = groupOf(status, st.pending);
     const placed = order ? order.place(s.id, activity, group, status === "thinking") : { rank: activity, group };
+    const sum = deriveSessionSummary(s, st.pending, inboxStates);
     const prev = viewCache.get(s);
     if (
       prev &&
@@ -207,12 +298,27 @@ export function deriveViews(
       prev.machine === st.machine &&
       prev.unread === badge &&
       prev.rank === placed.rank &&
-      prev.group === placed.group
+      prev.group === placed.group &&
+      prev.statusLine === sum.statusLine &&
+      prev.gitDirty === sum.gitDirty &&
+      prev.gitAhead === sum.gitAhead &&
+      prev.waitingQuestion === sum.waitingQuestion
     ) {
       out[i] = prev;
       continue;
     }
-    const v: SessionView = { id: s.id, item: s, ...st, status, group: placed.group, lastActivity: activity, rank: placed.rank, ago, unread: badge };
+    const v: SessionView = {
+      id: s.id,
+      item: s,
+      ...st,
+      ...sum,
+      status,
+      group: placed.group,
+      lastActivity: activity,
+      rank: placed.rank,
+      ago,
+      unread: badge,
+    };
     viewCache.set(s, v);
     out[i] = v;
   }

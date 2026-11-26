@@ -156,6 +156,19 @@
   color: var(--happy-label-2);
 }
 
+.gitTag {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: var(--happy-radius-xs);
+  background: var(--happy-orange-tint);
+  color: var(--happy-orange-ink);
+  font-family: var(--happy-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
 .rowAgo {
   flex-shrink: 0;
   font-size: var(--happy-text-caption);

@@ -648,3 +648,24 @@ test.describe("desktop sidebar", () => {
     expect(violations).toEqual([]);
   });
 });
+
+// On-demand "Catch me up" recap sheet (desktop + mobile, light + dark).
+for (const vp of VIEWPORTS) {
+  test.describe(`recap ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+    test("catch me up sheet", async ({ page }) => {
+      const violations = watchCsp(page);
+      const mock = createMock();
+      await mock.install(page);
+      await linkAndOpen(page, mock);
+      await page.getByRole("button", { name: "Catch me up" }).click();
+      await expect(page.getByRole("dialog", { name: "Catch me up" })).toBeVisible();
+      await page.waitForTimeout(200);
+      await page.screenshot({ path: `screenshots/${vp.name}-18-recap.png` });
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: `screenshots/${vp.name}-18b-recap-dark.png` });
+      expect(violations).toEqual([]);
+    });
+  });
+}

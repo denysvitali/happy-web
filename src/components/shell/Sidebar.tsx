@@ -10,6 +10,7 @@ import { openShortcuts } from "@/components/palette/open";
 import { useInbox } from "@/components/inbox/useInbox";
 import { PaletteHost } from "@/components/palette/PaletteHost";
 import { useGlobalShortcuts } from "@/components/palette/shortcuts";
+import { useSessionActions } from "@/components/sessions/actions";
 import { SessionList } from "@/components/sessions/SessionList";
 import { useSessionViews } from "@/components/sessions/useSessionViews";
 import { StatusDot } from "@/components/status";
@@ -77,8 +78,18 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
   const { forget } = useAuth();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { views, sessions, machines, machinesLoaded, onlineMachines } = useSessionViews();
+  const sessionActions = useSessionActions();
 
   const open = useCallback((id: string) => void navigate({ to: "/s/$sessionId", params: { sessionId: id } }), [navigate]);
+  const recap = useCallback(() => {
+    void import("@/components/sessions/RecapSheet").then((m) =>
+      m.openRecap({
+        views,
+        onOpen: open,
+        onArchive: (list) => sessionActions.archiveMany(list.map((v) => v.item)),
+      }),
+    );
+  }, [views, open, sessionActions]);
   const spawn = (machineId?: string) => openSpawnModal(account, onlineMachines, open, machineId);
   const canSpawn = onlineMachines.length > 0;
   const demo = useCallback(() => void navigate({ to: "/components-demo" }), [navigate]);
@@ -126,6 +137,7 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
       onSettings={settings}
       onUsage={usage}
       onInbox={() => void navigate({ to: "/inbox" })}
+      onRecap={recap}
       onShortcuts={openShortcuts}
       onDemo={demo}
       onForget={() => confirmForget(forget)}
