@@ -82,7 +82,8 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
   const spawn = (machineId?: string) => openSpawnModal(account, onlineMachines, open, machineId);
   const canSpawn = onlineMachines.length > 0;
   const demo = useCallback(() => void navigate({ to: "/components-demo" }), [navigate]);
-  const settings = () => openSettings({ account, onDemo: demo, onShortcuts: openShortcuts, onForget: () => confirmForget(forget) });
+  const briefing = useCallback(() => void navigate({ to: "/briefing" }), [navigate]);
+  const settings = () => openSettings({ account, onDemo: demo, onBriefing: briefing, onShortcuts: openShortcuts, onForget: () => confirmForget(forget) });
   const usage = () => openUsage(account);
 
   // Sidebar order without filters: needs attention, active, recent (archived are skipped).
@@ -128,6 +129,7 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
       onInbox={() => void navigate({ to: "/inbox" })}
       onShortcuts={openShortcuts}
       onDemo={demo}
+      onBriefing={briefing}
       onForget={() => confirmForget(forget)}
     />
   );

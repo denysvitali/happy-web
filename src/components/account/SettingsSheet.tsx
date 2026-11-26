@@ -1,6 +1,6 @@
 import { SegmentedControl, Button, useMantineColorScheme } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { Gauge, Keyboard, LayoutGrid, Link2, Server } from "lucide-react";
+import { Compass, Gauge, Keyboard, LayoutGrid, Link2, Server } from "lucide-react";
 import { useAccountSettingsOf, useNow } from "@/app/hooks";
 import { useLink } from "@/components/shell/connection";
 import { getServerUrl } from "@/lib/config";
@@ -24,6 +24,7 @@ export interface SettingsContext {
   account: Account;
   /** Called after the sheet closed. */
   onDemo: () => void;
+  onBriefing: () => void;
   onShortcuts: () => void;
   onForget: () => void;
 }
@@ -171,6 +172,13 @@ function SettingsContent({
             leading={<Keyboard size={16} />}
             chevron
             onClick={then(ctx.onShortcuts)}
+          />
+          <ListRow
+            title="Briefing mode (preview)"
+            subtitle="Mock Spaces, Living Notebooks & Sweep"
+            leading={<Compass size={16} />}
+            chevron
+            onClick={then(ctx.onBriefing)}
           />
           <ListRow
             title="Components demo"

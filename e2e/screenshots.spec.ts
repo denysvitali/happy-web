@@ -632,3 +632,35 @@ test.describe("desktop sidebar", () => {
     expect(violations).toEqual([]);
   });
 });
+
+// Briefing prototype: desktop + mobile, light + dark, Space notebook + Sweep.
+for (const vp of VIEWPORTS) {
+  test.describe(`briefing ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+    const shot = (page: Page, name: string) => page.screenshot({ path: `screenshots/${vp.name}-${name}.png` });
+
+    test("briefing prototype", async ({ page }) => {
+      const violations = watchCsp(page);
+      await page.goto("/#/briefing");
+      await expect(page.getByRole("heading", { name: "Briefing" })).toBeVisible();
+      await page.waitForTimeout(200);
+      await shot(page, "18-briefing-light");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(150);
+      await shot(page, "18b-briefing-dark");
+
+      // Open Happy Space to inspect its Living Notebook & proposed note.
+      await page.getByRole("button", { name: /Happy/ }).first().click();
+      await expect(page.getByText("Living Notebook")).toBeVisible();
+      await page.waitForTimeout(150);
+      await shot(page, "18c-briefing-space-dark");
+
+      // Open Sweep modal.
+      await page.getByRole("button", { name: /Sweep/ }).first().click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.waitForTimeout(200);
+      await shot(page, "18d-briefing-sweep-dark");
+      expect(violations).toEqual([]);
+    });
+  });
+}
