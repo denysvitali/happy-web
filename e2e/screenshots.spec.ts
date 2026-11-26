@@ -633,7 +633,7 @@ test.describe("desktop sidebar", () => {
   });
 });
 
-// Briefing prototype: desktop + mobile, light + dark, Space notebook + Sweep.
+// Minimal sessions UX preview: Option 1 (List) vs Option 2 (Projects).
 for (const vp of VIEWPORTS) {
   test.describe(`briefing ${vp.name}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
@@ -642,24 +642,24 @@ for (const vp of VIEWPORTS) {
     test("briefing prototype", async ({ page }) => {
       const violations = watchCsp(page);
       await page.goto("/#/briefing");
-      await expect(page.getByRole("heading", { name: "Briefing" })).toBeVisible();
-      await page.waitForTimeout(200);
-      await shot(page, "18-briefing-light");
+      await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible();
+      await page.waitForTimeout(150);
+      await shot(page, "18-briefing-list-light");
       await page.emulateMedia({ colorScheme: "dark" });
       await page.waitForTimeout(150);
-      await shot(page, "18b-briefing-dark");
+      await shot(page, "18b-briefing-list-dark");
 
-      // Open Happy Space to inspect its Living Notebook & proposed note.
-      await page.getByRole("button", { name: /Happy/ }).first().click();
-      await expect(page.getByText("Living Notebook")).toBeVisible();
+      // Switch to Option 2 · Projects
+      await page.getByText("Option 2 · Projects").click();
+      await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
       await page.waitForTimeout(150);
-      await shot(page, "18c-briefing-space-dark");
+      await shot(page, "18c-briefing-projects-dark");
 
-      // Open Sweep modal.
-      await page.getByRole("button", { name: /Sweep/ }).first().click();
-      await expect(page.getByRole("dialog")).toBeVisible();
-      await page.waitForTimeout(200);
-      await shot(page, "18d-briefing-sweep-dark");
+      // Drill into Happy project
+      await page.getByRole("button", { name: /Happy/ }).click();
+      await expect(page.getByRole("heading", { name: "Happy" })).toBeVisible();
+      await page.waitForTimeout(150);
+      await shot(page, "18d-briefing-project-inside-dark");
       expect(violations).toEqual([]);
     });
   });

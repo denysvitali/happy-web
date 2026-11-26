@@ -344,10 +344,10 @@ function Body({
       ),
       action(
         "a-briefing",
-        "Briefing mode (preview)",
+        "Sessions UX preview",
         tile(Compass),
         () => choose(onBriefing),
-        { keywords: "spaces notebook sweep sitrep radar prototype" },
+        { keywords: "briefing list projects prototype minimal" },
       ),
       action(
         "a-demo",

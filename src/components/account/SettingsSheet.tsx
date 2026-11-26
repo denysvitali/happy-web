@@ -174,8 +174,8 @@ function SettingsContent({
             onClick={then(ctx.onShortcuts)}
           />
           <ListRow
-            title="Briefing mode (preview)"
-            subtitle="Mock Spaces, Living Notebooks & Sweep"
+            title="Sessions UX preview"
+            subtitle="Compare minimal List vs Projects views"
             leading={<Compass size={16} />}
             chevron
             onClick={then(ctx.onBriefing)}
