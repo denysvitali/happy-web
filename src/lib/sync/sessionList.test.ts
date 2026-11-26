@@ -158,18 +158,41 @@ describe("groupViews", () => {
     expect(flattenSections(statusSections(g), { archivedOpen: true }).at(-1)).toMatchObject({ type: "session" });
   });
 
-  it("groups live sessions by project, keeping approvals and the archive apart", () => {
+  it("groups all live sessions by project, ordering attention items first within their project", () => {
     const v = views([
       mk("a1", { path: "/a" }, { updatedAt: NOW - 10 * MIN }),
       mk("b1", { path: "/b" }, { updatedAt: NOW - 2 * MIN }),
       mk("a2", { path: "/a" }, { updatedAt: NOW - MIN, active: false }),
-      mk("ask", { path: "/a" }, { updatedAt: NOW - 3 * MIN, agentState: { requests: { r: { tool: "Bash", arguments: {} } } } }),
+      mk("ask", { path: "/a" }, { updatedAt: NOW - 3 * MIN, agentState: { requests: { r: { tool: "Bash", arguments: { command: "git status" } } } } }),
       mk("old", { path: "/a" }, { archived: true }),
     ]);
     const rows = flattenSections(projectSections(groupViews(v)), { archivedOpen: true });
-    expect(rows.map((r) => (r.type === "header" ? `#${r.label}` : r.type === "session" ? r.view.id : r.type))).toEqual(["#Needs attention", "ask", "#a", "a2", "a1", "#b", "b1", "#Archived", "old"]);
+    expect(rows.map((r) => (r.type === "header" ? `#${r.label}` : r.type === "session" ? r.view.id : r.type))).toEqual(["#a", "ask", "a2", "a1", "#b", "b1", "#Archived", "old"]);
     expect(rows.find((r) => r.type === "session" && r.view.id === "a1")).toMatchObject({ inProject: true });
-    expect(rows.find((r) => r.type === "session" && r.view.id === "ask")).toMatchObject({ inProject: false });
+    expect(rows.find((r) => r.type === "session" && r.view.id === "ask")).toMatchObject({ inProject: true });
+    const askView = v.find((x) => x.id === "ask")!;
+    expect(askView.needsYou).toBe(true);
+    expect(askView.statusLine).toBe("Needs OK: git status");
+  });
+
+  it("derives plain-English status lines from questions, Inbox messages, pods, and ToDos", () => {
+    const q = mk("q", { path: "/p" }, { agentState: { requests: { r: { tool: "AskUserQuestion", arguments: { questions: [{ question: "Protobuf or JSON?" }] } } } } });
+    const blocked = mk("bl", { path: "/p", inbox: [{ id: "m1", kind: "blocked", subject: "Missing API key", body: "", createdAt: NOW }] });
+    const done = mk("dn", { path: "/p", inbox: [{ id: "m2", kind: "goal_reached", subject: "Rollback UI ready", body: "", createdAt: NOW }] });
+    const todo = mk("td", { path: "/p", todos: [{ id: "t1", content: "Fix pod watch timeout", status: "in_progress", order: 0 }] });
+    const podPaused = mk("pp", { path: "/p", runtimeType: "kubernetes", podName: "pod-1", podPaused: true });
+
+    const out = deriveViews([q, blocked, done, todo, podPaused], status, machines, NOW);
+    const by = new Map(out.map((v) => [v.id, v]));
+    expect(by.get("q")).toMatchObject({ needsYou: true, statusLine: "Waiting on you: Protobuf or JSON?" });
+    expect(by.get("bl")).toMatchObject({ needsYou: true, statusLine: "Blocked: Missing API key" });
+    expect(by.get("dn")).toMatchObject({ needsYou: true, statusLine: "Done — Rollback UI ready" });
+    expect(by.get("td")).toMatchObject({ needsYou: false, statusLine: "Fix pod watch timeout" });
+    expect(by.get("pp")).toMatchObject({ needsYou: false, statusLine: "Pod paused" });
+
+    // Once marked done in Inbox triage, the session stops showing an unresolved Inbox line.
+    const triaged = deriveViews([done], status, machines, NOW, undefined, undefined, new Map([["dn/m2", { done: true }]]));
+    expect(triaged[0]).toMatchObject({ needsYou: false, statusLine: "" });
   });
 
   it("names projects by their last segment", () => {

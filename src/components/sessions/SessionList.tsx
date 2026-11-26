@@ -7,7 +7,6 @@ import { useAccount } from "@/app/auth";
 import { useStore } from "@/app/hooks";
 import { useCompact } from "@/components/shell/nav";
 import { openSpawnModal } from "@/components/shell/spawn";
-import { ProjectSwatch } from "@/components/status";
 import { folderRows, hasFolders } from "@/lib/sync/folderList";
 import type { MachineItem } from "@/lib/sync/account";
 import type { Filing } from "@/lib/sync/folders";
@@ -29,13 +28,14 @@ import { useOrderHold } from "./useOrderHold";
 
 const PALETTE_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
 const RUNTIME_LABEL: Record<Runtime, string> = { local: "Local", kubernetes: "Kubernetes" };
-const GROUPING_LABEL: Record<Grouping, string> = { project: "Project", status: "Status" };
+const GROUPING_LABEL: Record<Grouping, string> = { project: "Project", folders: "Folders", status: "Status" };
 const GROUPING_KEY = "happy.sessionGrouping";
 const ARCHIVED_IN_FOLDERS_KEY = "happy.folders.showArchived";
 
 function loadGrouping(): Grouping {
   try {
-    return localStorage.getItem(GROUPING_KEY) === "status" ? "status" : "project";
+    const v = localStorage.getItem(GROUPING_KEY);
+    return v === "status" || v === "folders" ? v : "project";
   } catch {
     return "project";
   }
@@ -114,8 +114,6 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
 
   const searching = query.trim() !== "";
   const options = useMemo(() => facets(views), [views]);
-  // Only badge avatars whose agent differs from the usual one.
-  const usualAgent = options.agents.length > 1 ? options.agents[0] : undefined;
   const folders = useStore(account.folders.state);
   const folderActions = useFolderActions();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
@@ -132,12 +130,12 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
     });
   }, []);
   const canEditFolders = folders.status === "ready" || folders.status === "error";
-  // Searching is flat (and reaches into the archive); folders shape the list otherwise.
-  const foldered = !searching && hasFolders(folders.doc);
+  // Project view stays flat and calm; Folders view opts into the synced tree.
+  const foldered = !searching && grouping === "folders" && hasFolders(folders.doc);
   const rows = useMemo(() => {
-    if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping, archivedInFolders });
+    if (foldered) return folderRows(views, folders.doc, { agent, runtime }, { collapsed, archivedOpen, grouping: "project", archivedInFolders });
     const grouped = groupViews(views, { query, agent, runtime });
-    return flattenSections(grouping === "project" ? projectSections(grouped) : statusSections(grouped), { archivedOpen: archivedOpen || searching });
+    return flattenSections(grouping === "status" ? statusSections(grouped) : projectSections(grouped), { archivedOpen: archivedOpen || searching });
   }, [foldered, views, folders.doc, query, agent, runtime, collapsed, archivedOpen, searching, grouping, archivedInFolders]);
   const setGrouping = (g: Grouping) => {
     setGroupingState(g);
@@ -406,7 +404,7 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
             onKeyDown={onSearchKey}
           />
         </div>
-        {canEditFolders && (
+        {canEditFolders && grouping === "folders" && (
           <Tooltip label="New folder" openDelay={400}>
             <IconButton className={classes.filterButton} label="New folder" icon={<FolderPlus size={15} strokeWidth={2} />} onClick={() => void folderActions.create(null)} />
           </Tooltip>
@@ -427,12 +425,12 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Label>Group by</Menu.Label>
-            {(["project", "status"] as const).map((g) => (
+            {(["project", "folders", "status"] as const).map((g) => (
               <Menu.Item key={g} rightSection={grouping === g ? <Check size={14} /> : null} onClick={() => setGrouping(g)}>
                 {GROUPING_LABEL[g]}
               </Menu.Item>
             ))}
-            {hasFolders(folders.doc) && (
+            {grouping === "folders" && hasFolders(folders.doc) && (
               <>
                 <Menu.Label>Folders</Menu.Label>
                 <Menu.Item rightSection={archivedInFolders ? <Check size={14} /> : null} onClick={toggleArchivedInFolders}>
@@ -539,7 +537,6 @@ export function SessionList({ views, loading, error, activeId, onOpen, onPalette
                 view={r.view}
                 depth={r.depth}
                 inProject={r.inProject}
-                badgeAgent={usualAgent !== undefined && r.view.agent !== usualAgent}
                 active={r.view.id === activeId}
                 cursor={r.view.id === cursorVisible}
                 first={!isItem(rows[vi.index - 1])}
@@ -631,13 +628,15 @@ function GroupHeader({ row, searching, onToggle, onNewSessionInDir }: { row: Ext
   const [menu, setMenu] = useState(false);
   const attention = row.group === "attention";
   const toggle = row.collapsible && !searching;
-  const icon = attention ? <CircleAlert size={12} strokeWidth={2.5} /> : row.project !== undefined ? <ProjectSwatch project={row.project} /> : undefined;
+  const icon = attention ? <CircleAlert size={12} strokeWidth={2.5} /> : undefined;
+  const count = row.project !== undefined ? undefined : row.count;
   // A local-directory project (vs. a repo slug) offers "New session in this directory…".
   const dir = row.project && !searching && (row.project.startsWith("/") || row.project.startsWith("~")) ? row.project : undefined;
   const canNewSessionInDir = dir !== undefined && onNewSessionInDir !== undefined;
   return (
     <div
       className={classes.groupHeader}
+      data-archived={row.group === "archived" || undefined}
       title={row.project || undefined}
       data-menu={menu || undefined}
       onContextMenu={canNewSessionInDir ? (e) => {
@@ -647,7 +646,7 @@ function GroupHeader({ row, searching, onToggle, onNewSessionInDir }: { row: Ext
     >
       <SectionHeader
         label={row.label}
-        count={row.count}
+        count={count}
         icon={icon}
         tone={attention ? "warning" : undefined}
         level={toggle ? undefined : 3}

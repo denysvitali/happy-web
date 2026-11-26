@@ -14,11 +14,19 @@ async function stored(mock: ReturnType<typeof createMock>): Promise<{ doc: Folde
 
 const list = (page: Page) => page.getByRole("navigation", { name: "Sessions" });
 
+/** Folders are opt-in via Group by → Folders (Project is the calm default). */
+async function showFolders(page: Page) {
+  await page.getByRole("button", { name: "Filter sessions" }).click();
+  await page.getByRole("menuitem", { name: "Folders" }).click();
+  await page.keyboard.press("Escape");
+}
+
 test("folders: tree, collapse, create and move", async ({ page }) => {
   const violations = watchCsp(page);
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
+  await showFolders(page);
 
   // Seeded tree: folders first, the sub-agent's own folder under its parent.
   const web = list(page).getByRole("button", { name: /Web client/ });
@@ -72,6 +80,7 @@ test("searching ignores folders", async ({ page }) => {
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
+  await showFolders(page);
   await page.getByLabel("Search sessions").fill("terraform");
   await expect(list(page).getByText("Terraform drift report")).toBeVisible();
   await expect(list(page).getByRole("button", { name: /Infra/ })).toHaveCount(0);
@@ -141,6 +150,7 @@ test("folders: drag a session onto a folder", async ({ page }) => {
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
+  await showFolders(page);
   const link = (text: string) => list(page).locator("[data-status]").filter({ hasText: text }).getByRole("link");
   // A child session can't go into an account-level folder: that drop is refused…
   await link("Audit CSS modules").dragTo(list(page).getByRole("button", { name: /Infra/ }));
@@ -155,6 +165,7 @@ test("folders: drag a folder subtree into another folder and back to the top lev
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
+  await showFolders(page);
   const folder = (id: string) => list(page).locator(`[data-folder-id="${id}"]`).getByRole("button", { expanded: true });
   const infra = folder("finfra");
   const cloud = folder("fcloud");
@@ -182,6 +193,7 @@ test("folders: drag a nested session folder back onto its parent session", async
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
+  await showFolders(page);
 
   const reviews = list(page).getByRole("button", { name: /Reviews/ });
   await reviews.click({ button: "right" });
@@ -202,6 +214,7 @@ test("folders: an open row menu hides the count under its button", async ({ page
   const mock = createMock();
   await mock.install(page);
   await linkAndOpen(page, mock);
+  await showFolders(page);
   const folder = list(page).locator("[data-folder]").filter({ hasText: "Web client" });
   await folder.click({ button: "right" });
   await page.mouse.move(800, 800);
@@ -233,6 +246,7 @@ test.describe("touch", () => {
     const mock = createMock();
     await mock.install(page);
     await linkAndOpen(page, mock);
+    await showFolders(page);
     const infra = list(page).getByRole("button", { name: /Infra/ });
     const web = list(page).getByRole("button", { name: /Web client/ });
 
@@ -251,6 +265,7 @@ test.describe("touch", () => {
     const mock = createMock();
     await mock.install(page);
     await linkAndOpen(page, mock);
+    await showFolders(page);
     const row = (text: string) => list(page).locator("[data-status]").filter({ hasText: text });
     const web = list(page).getByRole("button", { name: /Web client/ });
     await expect(row("Port nvim config")).toBeVisible();

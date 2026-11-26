@@ -64,14 +64,9 @@ const demo = createRoute({
   path: "/components-demo",
   component: lazyRouteComponent(() => import("@/routes/demo"), "DemoScreen"),
 });
-const briefing = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/briefing",
-  component: lazyRouteComponent(() => import("@/routes/briefing"), "BriefingScreen"),
-});
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, files, review, inbox, inboxMessage, connect]), demo, briefing]),
+  routeTree: rootRoute.addChildren([authed.addChildren([home, chat, agent, files, review, inbox, inboxMessage, connect]), demo]),
   defaultNotFoundComponent: NotFoundScreen,
   history: createHashHistory(),
   defaultPreload: false,

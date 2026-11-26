@@ -632,35 +632,3 @@ test.describe("desktop sidebar", () => {
     expect(violations).toEqual([]);
   });
 });
-
-// Minimal sessions UX preview: Option 1 (List) vs Option 2 (Projects).
-for (const vp of VIEWPORTS) {
-  test.describe(`briefing ${vp.name}`, () => {
-    test.use({ viewport: { width: vp.width, height: vp.height } });
-    const shot = (page: Page, name: string) => page.screenshot({ path: `screenshots/${vp.name}-${name}.png` });
-
-    test("briefing prototype", async ({ page }) => {
-      const violations = watchCsp(page);
-      await page.goto("/#/briefing");
-      await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible();
-      await page.waitForTimeout(150);
-      await shot(page, "18-briefing-list-light");
-      await page.emulateMedia({ colorScheme: "dark" });
-      await page.waitForTimeout(150);
-      await shot(page, "18b-briefing-list-dark");
-
-      // Switch to Option 2 · Projects
-      await page.getByText("Option 2 · Projects").click();
-      await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-      await page.waitForTimeout(150);
-      await shot(page, "18c-briefing-projects-dark");
-
-      // Drill into Happy project
-      await page.getByRole("button", { name: /Happy/ }).click();
-      await expect(page.getByRole("heading", { name: "Happy" })).toBeVisible();
-      await page.waitForTimeout(150);
-      await shot(page, "18d-briefing-project-inside-dark");
-      expect(violations).toEqual([]);
-    });
-  });
-}

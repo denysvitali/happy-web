@@ -6,7 +6,6 @@ import {
 import {
   Archive,
   ArchiveRestore,
-  Compass,
   Copy,
   Gauge,
   Inbox,
@@ -59,7 +58,6 @@ export interface PaletteProps {
   onInbox: () => void;
   onShortcuts: () => void;
   onDemo: () => void;
-  onBriefing: () => void;
   onForget: () => void;
 }
 
@@ -197,7 +195,6 @@ function Body({
   onInbox,
   onShortcuts,
   onDemo,
-  onBriefing,
   onForget,
   choose,
 }: PaletteProps & { choose: (run: () => void) => void }) {
@@ -343,13 +340,6 @@ function Body({
         { keywords: "keys help cheat sheet", trailing: hint("?") },
       ),
       action(
-        "a-briefing",
-        "Sessions UX preview",
-        tile(Compass),
-        () => choose(onBriefing),
-        { keywords: "briefing list projects prototype minimal" },
-      ),
-      action(
         "a-demo",
         "Components demo",
         tile(LayoutGrid),
@@ -376,7 +366,6 @@ function Body({
     onInbox,
     onShortcuts,
     onDemo,
-    onBriefing,
     onForget,
     setColorScheme,
   ]);

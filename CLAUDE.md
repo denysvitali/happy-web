@@ -78,12 +78,15 @@ Server wins over Flutter; record every discrepancy in README.md.
   daemon passes as `--append-system-prompt`. Not re-sent on provider switch restores.
 - Composer task chip (`plan.tsx`): Happy session ToDos (encrypted `metadata.todos`,
   `src/lib/sync/todos.ts`) count when present, else the unfinished TodoWrite plan.
-- Session list: grouped by project by default (approvals pinned on top, archive collapsed;
-  "Group by" in the filter menu). Order is sticky (`ListOrder`): rows rank by when their
+- Session list: calm 2-line status rows grouped by project by default (one status dot:
+  orange = needs you [pending approval or unresolved Inbox item], green = working, hollow =
+  paused; line 2 shows a plain-English current status derived from pending requests, Inbox,
+  pod state or ToDos, falling back to branch/machine; archive collapsed at the bottom;
+  "Group by" in the filter menu offers Project, Folders and Status). Order is sticky (`ListOrder`): rows rank by when their
   current burst of activity began, so busy sessions don't leapfrog; one moves up only after
   10 quiet minutes. Nothing moves under a hovering mouse or a finger (`useOrderHold`);
   held moves land on release and slide. Touch: swipe a row left to archive it (stops a live session
-  first; no confirm, Undo in the toast). Avatars are identicons (`SessionAvatar`): tint from the
+  first; no confirm, Undo in the toast). Avatars (`SessionAvatar`, used in Overview and Palette) are identicons: tint from the
   project, glyph from the session id; changing `hashString` or reordering `SESSION_GLYPHS`
   re-skins every session.
 - New session: right-click a project header (local dirs) → "New session in this directory…"
