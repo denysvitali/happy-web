@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { userRecord } from "./chatStore";
 import {
   agentKind,
+  agyCatalog,
   claudeCatalog,
   codexCatalog,
   currentPermissionMode,
@@ -92,11 +93,26 @@ describe("catalogs", () => {
     expect(codexCatalog({ success: false, error: "codex missing" })).toBeNull();
   });
 
-  it("builds Prime Agent and OpenCode catalogs", () => {
+  it("builds Prime Agent, OpenCode and Antigravity catalogs", () => {
     const p = primeCatalog([{ id: "anthropic/opus", name: "Opus" }, { id: "anthropic/opus" }, { bad: 1 }], [{ id: "high", name: "High" }]);
     expect(p.groups.map((g) => g.id)).toEqual(["anthropic/opus"]);
     expect(p.efforts).toEqual([{ value: "high", label: "High" }]);
     expect(listedCatalog([{ id: "x/y" }]).groups[0]!.label).toBe("x/y");
+
+    const agy = agyCatalog({
+      success: true,
+      error: "cached",
+      models: [
+        { id: "gemini-4-neon-high", name: "Gemini 4 Neon (High)" },
+        { id: "claude-opus-5-5-high", name: "Claude Opus 5.5 (High)" },
+        { id: "gemini-4-neon-high", name: "Duplicate" },
+      ],
+    });
+    expect(agy?.groups.map((g) => g.id)).toEqual(["gemini-4-neon-high", "claude-opus-5-5-high"]);
+    expect(agy?.groups[0]!.label).toBe("Gemini 4 Neon (High)");
+    expect(agy?.notice).toBe("cached");
+    expect(chipLabel(agy!, "default", "gemini-4-neon-high")).toBe("Gemini 4 Neon (High)");
+    expect(agyCatalog({ success: false, error: "not signed in" })).toBeNull();
   });
 });
 

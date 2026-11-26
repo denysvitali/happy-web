@@ -741,6 +741,10 @@ export class Account {
     return this.rpcJson(machineId, "get-codex-models", directory ? { refresh: false, directory } : { refresh: false }, 30_000);
   }
 
+  agyModels(machineId: string) {
+    return this.rpcJson(machineId, "get-agy-models", { refresh: false }, 30_000);
+  }
+
   // Machine updates (machineUpdates.ts): each call returns the cached status
   // at once; updates run as jobs on the daemon.
   async providerVersions(machineId: string, refresh: boolean) {

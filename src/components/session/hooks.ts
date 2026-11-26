@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAccount } from "@/app/auth";
 import { useAccountSettings } from "@/app/hooks";
-import type { SessionItem } from "@/lib/sync/account";
+import type { Account, SessionItem } from "@/lib/sync/account";
 import {
   agentKind,
+  agyCatalog,
   claudeCatalog,
   codexCatalog,
   currentPermissionMode,
@@ -54,12 +55,27 @@ function useCodexCatalog(session: SessionItem, enabled: boolean) {
   });
 }
 
+export const agyModelsKey = (machineId: string | undefined) => ["agy-models", machineId] as const;
+
+export function useAgyModels(account: Account, machineId: string | undefined, enabled: boolean) {
+  return useQuery<Catalog | null>({
+    queryKey: agyModelsKey(machineId),
+    queryFn: async () => agyCatalog(await account.agyModels(machineId!)),
+    enabled: enabled && !!machineId,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    retry: false,
+  });
+}
+
 const EMPTY: Catalog = { groups: [] };
 
 export function useCatalog(session: SessionItem, kind: AgentKind): { catalog: Catalog; loading: boolean } {
+  const account = useAccount();
   const codex = useCodexCatalog(session, kind === "codex");
-  const settings = useAccountSettings();
   const m = session.meta;
+  const agy = useAgyModels(account, m.machineId, kind === "agy" && !m.agyModels?.length);
+  const settings = useAccountSettings();
   // A gateway profile refuses the Claude tiers: offer its own models.
   const gateway = kind === "claude" ? gatewayModels(findProfile(settings.data?.profiles ?? [], sessionProfileId(m)))?.join("\n") : undefined;
   const catalog = useMemo((): Catalog => {
@@ -73,12 +89,15 @@ export function useCatalog(session: SessionItem, kind: AgentKind): { catalog: Ca
       case "opencode":
         return listedCatalog(m.opencodeModels);
       case "agy":
-        return listedCatalog(m.agyModels);
+        return m.agyModels?.length ? listedCatalog(m.agyModels) : (agy.data ?? EMPTY);
       default:
         return EMPTY;
     }
-  }, [kind, codex.data, gateway, m.claudeModels, m.primeagentModels, m.primeagentEfforts, m.opencodeModels, m.agyModels]);
-  return { catalog, loading: kind === "codex" && codex.isPending && codex.fetchStatus !== "idle" };
+  }, [kind, codex.data, agy.data, gateway, m.claudeModels, m.primeagentModels, m.primeagentEfforts, m.opencodeModels, m.agyModels]);
+  const loading =
+    (kind === "codex" && codex.isPending && codex.fetchStatus !== "idle") ||
+    (kind === "agy" && !m.agyModels?.length && agy.isPending && agy.fetchStatus !== "idle");
+  return { catalog, loading };
 }
 
 interface Local {

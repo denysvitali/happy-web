@@ -42,7 +42,8 @@ import {
   resolveHome,
   type SpawnBackend,
 } from "@/lib/sync/spawn";
-import { defaultPermissionMode } from "@/lib/sync/models";
+import { DEFAULT_MODEL, defaultPermissionMode } from "@/lib/sync/models";
+import { useAgyModels } from "@/components/session/hooks";
 import { assignSession, folderOptions } from "@/lib/sync/folders";
 import { KubernetesFields } from "./KubernetesFields";
 import { LocalFields } from "./LocalFields";
@@ -147,6 +148,12 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
   const profileId = usesProfiles ? (selectedProfileIdForAgent(settings, agent, profileByAgent[agentKey(agent)]) ?? NO_PROFILE) : NO_PROFILE;
   const profile = findProfile(settings.profiles, profileId);
   const profileModel = modelForProfile({ profile, agent, favorites: settings.favoriteModelsByProfile });
+  const agyCatalog = useAgyModels(account, machine?.id, agent === "agy");
+  const agyModelChoices = useMemo(
+    () => (agyCatalog.data?.groups ?? []).filter((g) => g.id !== DEFAULT_MODEL).map((g) => ({ value: g.id, label: g.label })),
+    [agyCatalog.data],
+  );
+  const agyModelsLoading = agent === "agy" && agyCatalog.isPending && agyCatalog.fetchStatus !== "idle";
   const [model, setModel] = useState("");
   const [prompt, setPrompt] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -303,7 +310,8 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
     );
   }
 
-  const advancedSummary = [profile?.name, permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], model.trim()].filter(Boolean).join(", ");
+  const modelSummary = (agent === "agy" ? agyModelChoices.find((c) => c.value === model)?.label : undefined) ?? model.trim();
+  const advancedSummary = [profile?.name, permission !== defaultPermissionMode(agent) && MODE_LABELS[permission], modelSummary].filter(Boolean).join(", ");
   const progress = slow ? "Still going: cold image pulls and new volumes can take a few minutes." : "Creating the Pod and cloning the repository.";
 
   return (
@@ -343,7 +351,10 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
                 fullWidth
                 aria-label="Agent"
                 value={agent}
-                onChange={(v) => setAgentByMode((a) => ({ ...a, [mode]: v }))}
+                onChange={(v) => {
+                  setAgentByMode((a) => ({ ...a, [mode]: v }));
+                  setModel("");
+                }}
                 data={agents.map((a) => ({ value: a.value, label: AGENT_SHORT[a.value] ?? a.label }))}
               />
             </div>
@@ -428,16 +439,29 @@ function NewSessionForm({ account, opts, onSpawned, onCancel }: { account: Accou
                 </FormRow>
               )}
               <FormRow label="Model" labelFor={`${uid}-model`}>
-                <Autocomplete
-                  id={`${uid}-model`}
-                  placeholder={profileModel === "default" ? (profile ? "Provider default" : "Account default") : profileModel}
-                  data={[...new Set([...(gatewayModels(profile) ?? (profile ? [] : (MODEL_SUGGESTIONS[agent] ?? []))), ...(usesProfiles ? settings.customModelModes : [])])]}
-                  value={model}
-                  onChange={setModel}
-                  autoComplete="off"
-                  spellCheck={false}
-                  comboboxProps={within}
-                />
+                {agent === "agy" && agyModelChoices.length > 0 ? (
+                  <Select
+                    id={`${uid}-model`}
+                    data={[{ value: "", label: "Account default" }, ...agyModelChoices]}
+                    value={model}
+                    onChange={(v) => setModel(v ?? "")}
+                    allowDeselect={false}
+                    searchable={agyModelChoices.length > 8}
+                    comboboxProps={within}
+                  />
+                ) : (
+                  <Autocomplete
+                    id={`${uid}-model`}
+                    placeholder={profileModel === "default" ? (profile ? "Provider default" : "Account default") : profileModel}
+                    data={[...new Set([...(gatewayModels(profile) ?? (profile ? [] : (MODEL_SUGGESTIONS[agent] ?? []))), ...(usesProfiles ? settings.customModelModes : [])])]}
+                    value={model}
+                    onChange={setModel}
+                    rightSection={agyModelsLoading ? <Loader size={14} /> : undefined}
+                    autoComplete="off"
+                    spellCheck={false}
+                    comboboxProps={within}
+                  />
+                )}
               </FormRow>
               <FormRow label="Permission mode" labelFor={`${uid}-perm`}>
                 <Select

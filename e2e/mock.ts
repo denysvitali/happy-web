@@ -404,6 +404,14 @@ export function createMock() {
         { slug: "internal-eval", display_name: "Internal", visibility: "hide" },
       ],
     }),
+    "get-agy-models": () => ({
+      success: true,
+      models: [
+        { id: "gemini-4-neon-high", name: "Gemini 4 Neon (High)" },
+        { id: "gemini-3.8-flash-low", name: "Gemini 3.8 Flash (Low)" },
+        { id: "claude-opus-5-5-high", name: "Claude Opus 5.5 (High)" },
+      ],
+    }),
   };
 
   async function setSocketUp(up: boolean) {

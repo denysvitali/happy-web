@@ -184,6 +184,14 @@ export function listedCatalog(models: unknown[] | undefined): Catalog {
   return { groups: idNameList(models).map((c) => ({ id: c.value, label: c.label, choices: [c] })) };
 }
 
+/** `get-agy-models` → `{success, models: [{id, name}], error?}`; fetched from
+ * the daemon so Antigravity models appear in New session and while a Pod is
+ * still starting (before `metadata.agyModels` is written). */
+export function agyCatalog(res: unknown): Catalog | null {
+  if (!isObj(res) || res.success !== true || !Array.isArray(res.models)) return null;
+  return { ...listedCatalog(res.models), notice: str(res.error) };
+}
+
 export function findChoice(catalog: Catalog, value: string): ModelChoice | undefined {
   for (const g of catalog.groups) {
     const c = g.choices.find((x) => x.value === value);
@@ -208,7 +216,7 @@ export function selectionLabel(catalog: Catalog, sel: string | undefined): strin
  * such ids may be a stale guess (older daemons recorded `claude-sonnet-5-5`
  * for every Default spawn) and `running` is what actually answers. */
 export function chipLabel(catalog: Catalog, sel: string, running: string | undefined): string {
-  const actual = running && running !== "<synthetic>" ? modelLabel(running) : undefined;
+  const actual = running && running !== "<synthetic>" ? (findChoice(catalog, running)?.label ?? modelLabel(running)) : undefined;
   if (!actual) return selectionLabel(catalog, sel);
   if (sel === DEFAULT_MODEL) return actual;
   const { base, effort } = parseSelection(sel);
