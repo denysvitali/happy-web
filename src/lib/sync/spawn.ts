@@ -277,9 +277,9 @@ export const AGENTS = [
   { value: "har", label: "Har" },
 ] as const;
 
-/** Local only: Har is not allowed on Kubernetes, and session images ship no
- * Antigravity CLI or Google login (its auth is a cached interactive sign-in). */
-const LOCAL_ONLY = new Set<string>(["har", "agy"]);
+/** Local only: Har is not allowed on Kubernetes. (Antigravity runs there
+ * with the daemon-cached CLI and the Machine sheet's shared Google sign-in.) */
+const LOCAL_ONLY = new Set<string>(["har"]);
 
 export function agentsFor(mode: SpawnBackend): { value: string; label: string }[] {
   return AGENTS.filter((a) => mode === "local" || !LOCAL_ONLY.has(a.value));
