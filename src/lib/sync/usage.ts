@@ -1,7 +1,9 @@
 // Account usage limits (machine RPCs `get-claude-usage-limits` /
-// `get-codex-usage`) and per-session context usage derived from raw
+// `get-codex-usage` / `get-agy-usage`), server usage reports
+// (`POST /v1/usage/query`), and per-session context usage derived from raw
 // decrypted message records. Pure; mirrors happy_flutter's
 // claude_usage_limits.dart / codex_usage_summary.dart.
+import type { UsageQueryResponse } from "../api/schemas";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -9,12 +11,13 @@ const num = (v: unknown): number | undefined => (typeof v === "number" && Number
 const str = (v: unknown): string | undefined => (typeof v === "string" && v !== "" ? v : undefined);
 const clampPct = (v: number) => Math.min(100, Math.max(0, v));
 
-export type UsageProvider = "claude" | "codex";
+export type UsageProvider = "claude" | "codex" | "agy";
 
-/** Usage limits exist only for Claude (flavor `claude` or unset) and Codex. */
+/** Usage limits exist for Claude (flavor `claude` or unset), Codex, and Antigravity. */
 export function usageProvider(flavor: string | undefined): UsageProvider | null {
   if (!flavor || flavor === "claude") return "claude";
   if (flavor === "codex") return "codex";
+  if (flavor === "agy" || flavor === "antigravity") return "agy";
   return null;
 }
 
@@ -147,6 +150,170 @@ export function parseCodexUsage(res: unknown, now = Date.now()): UsageSummary | 
   return { provider: "codex", windows, facts, limitReached: rl.limit_reached === true || rl.allowed === false };
 }
 
+function agyGroupShortName(name: string | undefined): string {
+  if (!name) return "";
+  const lower = name.toLowerCase();
+  if (lower.includes("claude") && lower.includes("gpt")) return "Claude & GPT";
+  if (lower.includes("gemini")) return "Gemini";
+  return name.replace(/\s+models$/i, "").trim();
+}
+
+function agyWindowLabel(window: string | undefined, displayName: string | undefined, groupName: string): string {
+  const base =
+    window === "5h"
+      ? "5-Hour"
+      : window === "weekly"
+        ? "7-Day"
+        : displayName?.replace(/\s+Limit\s+Remaining$/i, "").trim() || window || "Quota";
+  return groupName ? `${base} ${groupName}` : base;
+}
+
+/** `get-agy-usage` → `{success, data: {tier, groups, buckets}, error}`. */
+export function parseAgyUsage(res: unknown): UsageSummary | null {
+  if (!isObj(res) || res.success !== true) return null;
+  let data: unknown = res.data;
+  if (typeof data === "string") {
+    try {
+      data = JSON.parse(data) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!isObj(data)) return null;
+
+  // Per-model buckets give Gemini usage and reset timestamps (which summary
+  // groups sometimes omit for 5-hour windows).
+  const rawBuckets = Array.isArray(data.buckets) ? data.buckets.filter(isObj) : [];
+  let geminiMinRem: number | undefined;
+  let geminiReset: number | undefined;
+  let thirdPartyMinRem: number | undefined;
+  let thirdPartyReset: number | undefined;
+
+  for (const b of rawBuckets) {
+    const modelId = (str(b.modelId) ?? "").toLowerCase();
+    const rem = num(b.remainingFraction);
+    if (rem === undefined) continue;
+    const reset = isoMs(b.resetTime);
+    if (modelId.startsWith("gemini-")) {
+      if (geminiMinRem === undefined || rem < geminiMinRem) geminiMinRem = rem;
+      if (reset !== undefined && (geminiReset === undefined || reset < geminiReset)) geminiReset = reset;
+    } else if (modelId.startsWith("claude-") || modelId.startsWith("gpt-")) {
+      if (thirdPartyMinRem === undefined || rem < thirdPartyMinRem) thirdPartyMinRem = rem;
+      if (reset !== undefined && (thirdPartyReset === undefined || reset < thirdPartyReset)) thirdPartyReset = reset;
+    }
+  }
+
+  const windows: UsageWindow[] = [];
+  const seen = new Set<string>();
+  let hasGeminiGroup = false;
+
+  if (Array.isArray(data.groups)) {
+    for (const g of data.groups) {
+      if (!isObj(g) || !Array.isArray(g.buckets)) continue;
+      const groupName = agyGroupShortName(str(g.displayName));
+      if (groupName.toLowerCase().includes("gemini")) hasGeminiGroup = true;
+      // Put 5-hour windows before weekly windows so the shorter window leads on ties.
+      const sorted = [...g.buckets].filter(isObj).sort((a, b) => {
+        const rank = (w: unknown) => (w === "5h" ? 0 : w === "weekly" ? 1 : 2);
+        return rank(a.window) - rank(b.window);
+      });
+      for (const b of sorted) {
+        const rem = num(b.remainingFraction);
+        if (rem === undefined) continue;
+        const win = str(b.window);
+        const label = agyWindowLabel(win, str(b.displayName), groupName);
+        if (seen.has(label.toLowerCase())) continue;
+        seen.add(label.toLowerCase());
+        let resetsAt = isoMs(b.resetTime);
+        if (resetsAt === undefined && win === "5h" && groupName === "Claude & GPT") resetsAt = thirdPartyReset;
+        windows.push({ label, percent: clampPct((1 - rem) * 100), resetsAt });
+      }
+    }
+  }
+
+  if (!hasGeminiGroup && geminiMinRem !== undefined) {
+    windows.push({ label: "Gemini", percent: clampPct((1 - geminiMinRem) * 100), resetsAt: geminiReset });
+  }
+  if (windows.length === 0 && thirdPartyMinRem !== undefined) {
+    windows.push({ label: "Claude & GPT", percent: clampPct((1 - thirdPartyMinRem) * 100), resetsAt: thirdPartyReset });
+  }
+
+  const facts: string[] = [];
+  const tier = str(data.tier);
+  if (tier) facts.push(`Plan: ${tier}`);
+  if (windows.length === 0 && facts.length === 0) return null;
+  return { provider: "agy", windows, facts, limitReached: windows.some((w) => w.percent >= 100) };
+}
+
+export interface UsageReportBucket {
+  /** Epoch ms. */
+  timestamp: number;
+  tokens: number;
+  cost: number;
+  reportCount: number;
+}
+
+export interface UsageReportSummary {
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  totalCost: number;
+  totalReports: number;
+  buckets: UsageReportBucket[];
+}
+
+/** Aggregates `POST /v1/usage/query` buckets into period totals and a sorted timeline. */
+export function summarizeUsageReports(res: UsageQueryResponse): UsageReportSummary {
+  let totalTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheCreationTokens = 0;
+  let totalCost = 0;
+  const buckets: UsageReportBucket[] = [];
+
+  for (const pt of res.usage) {
+    const inp = pt.tokens.input ?? 0;
+    const out = pt.tokens.output ?? 0;
+    const cacheRead = pt.tokens.cache_read ?? 0;
+    const cacheCreate = pt.tokens.cache_creation ?? 0;
+    const ptTotal = pt.tokens.total ?? inp + out + cacheRead + cacheCreate;
+    const ptCost = pt.cost.total ?? (pt.cost.input ?? 0) + (pt.cost.output ?? 0);
+    totalTokens += ptTotal;
+    inputTokens += inp;
+    outputTokens += out;
+    cacheReadTokens += cacheRead;
+    cacheCreationTokens += cacheCreate;
+    totalCost += ptCost;
+    buckets.push({
+      timestamp: pt.timestamp * 1000,
+      tokens: ptTotal,
+      cost: ptCost,
+      reportCount: pt.reportCount,
+    });
+  }
+  buckets.sort((a, b) => a.timestamp - b.timestamp);
+  return {
+    totalTokens,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    totalCost,
+    totalReports: res.totalReports,
+    buckets,
+  };
+}
+
+/** Formats a USD amount compactly ("$0.00", "<$0.01", "$1.25"). */
+export function formatCost(usd: number): string {
+  if (!Number.isFinite(usd) || usd <= 0) return "$0.00";
+  if (usd < 0.005) return "<$0.01";
+  return `$${usd.toFixed(2)}`;
+}
+
 /** "resets in 2h 14m", "resets in 3d 4h", "resets soon". */
 /** The window closest to its limit (first wins ties): what the toolbar shows. */
 export function headlineWindow(u: UsageSummary): UsageWindow | undefined {
@@ -267,7 +434,7 @@ export function knownContextWindow(model: string | undefined): number | undefine
   if (m.endsWith("[1m]")) return 1_000_000;
   if ((m.includes("claude") || /^(opus|sonnet|haiku|fable)\b/.test(m)) && m.includes("1m")) return 1_000_000;
   if (/^grok-4\.[5-9]/.test(m)) return 500_000;
-  if (/^gemini-(2\.5|3)/.test(m) || /^gpt-(4\.1|5)/.test(m)) return 1_000_000;
+  if (/^gemini-(2\.5|3|4)/.test(m) || /^gpt-(4\.1|5)/.test(m)) return 1_000_000;
   if (/^o[34](\b|-)/.test(m) || /^(minimax-m3|kimi-k2)/.test(m)) return 200_000;
   return undefined;
 }

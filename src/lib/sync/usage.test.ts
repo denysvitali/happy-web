@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { normalizeRecord } from "./normalize";
 import {
   contextMeter,
   contextUsageOf,
   defaultContextWindow,
+  formatCost,
   formatResetIn,
   formatTokens,
   headlineWindow,
+  parseAgyUsage,
   parseClaudeUsage,
   reportedWindowsOf,
   shortWindowLabel,
+  summarizeUsageReports,
   parseCodexUsage,
   usageProvider,
 } from "./usage";
@@ -20,6 +24,8 @@ describe("usage limits", () => {
     expect(usageProvider(undefined)).toBe("claude");
     expect(usageProvider("claude")).toBe("claude");
     expect(usageProvider("codex")).toBe("codex");
+    expect(usageProvider("agy")).toBe("agy");
+    expect(usageProvider("antigravity")).toBe("agy");
     expect(usageProvider("opencode")).toBeNull();
   });
 
@@ -87,6 +93,63 @@ describe("usage limits", () => {
     expect(parseCodexUsage({ success: false, error: "x" })).toBeNull();
   });
 
+  it("parses Antigravity quota groups, Gemini buckets, and tier", () => {
+    const u = parseAgyUsage({
+      success: true,
+      data: {
+        tier: "Google AI Pro",
+        groups: [
+          {
+            displayName: "Claude and GPT models",
+            buckets: [
+              { bucketId: "3p-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.72 },
+              { bucketId: "3p-5h", displayName: "Five Hour Limit Remaining", window: "5h", remainingFraction: 0.85 },
+            ],
+          },
+        ],
+        buckets: [
+          { modelId: "gemini-4-neon-high", remainingFraction: 0.65, resetTime: "2026-11-18T14:00:00Z" },
+          { modelId: "gemini-3.8-flash", remainingFraction: 0.8, resetTime: "2026-11-18T15:00:00Z" },
+          { modelId: "claude-opus-5-5-high", remainingFraction: 0.85, resetTime: "2026-11-18T16:30:00Z" },
+        ],
+      },
+    });
+    expect(u?.provider).toBe("agy");
+    expect(u?.windows.map((w) => [w.label, Math.round(w.percent)])).toEqual([
+      ["5-Hour Claude & GPT", 15],
+      ["7-Day Claude & GPT", 28],
+      ["Gemini", 35],
+    ]);
+    // 5-hour Claude & GPT window inherits resetTime from per-model buckets when summary omits it.
+    expect(u?.windows[0]?.resetsAt).toBe(Date.parse("2026-11-18T16:30:00Z"));
+    expect(u?.windows[2]?.resetsAt).toBe(Date.parse("2026-11-18T14:00:00Z"));
+    expect(u?.facts).toEqual(["Plan: Google AI Pro"]);
+    expect(u?.limitReached).toBe(false);
+    expect(parseAgyUsage({ success: false, error: "not logged in" })).toBeNull();
+    expect(parseAgyUsage({ success: true, data: {} })).toBeNull();
+  });
+
+  it("summarizes server usage query responses and formats cost", () => {
+    const s = summarizeUsageReports({
+      groupBy: "day",
+      totalReports: 5,
+      usage: [
+        { timestamp: 1_700_086_400, tokens: { total: 50_000, input: 40_000, output: 10_000 }, cost: { total: 0.35 }, reportCount: 3 },
+        { timestamp: 1_700_000_000, tokens: { total: 20_000, input: 15_000, output: 3_000, cache_read: 2_000 }, cost: { total: 0.12 }, reportCount: 2 },
+      ],
+    });
+    expect(s.totalTokens).toBe(70_000);
+    expect(s.inputTokens).toBe(55_000);
+    expect(s.outputTokens).toBe(13_000);
+    expect(s.cacheReadTokens).toBe(2_000);
+    expect(s.totalCost).toBeCloseTo(0.47, 5);
+    expect(s.totalReports).toBe(5);
+    expect(s.buckets.map((b) => b.timestamp)).toEqual([1_700_000_000_000, 1_700_086_400_000]);
+    expect(formatCost(0)).toBe("$0.00");
+    expect(formatCost(0.001)).toBe("<$0.01");
+    expect(formatCost(1.234)).toBe("$1.23");
+  });
+
   it("formats reset countdowns", () => {
     expect(formatResetIn(NOW + (2 * 60 + 14) * 60_000, NOW)).toBe("resets in 2h 14m");
     expect(formatResetIn(NOW + 3 * 86_400_000 + 4 * 3_600_000, NOW)).toBe("resets in 3d 4h");
@@ -117,9 +180,9 @@ describe("context usage", () => {
   it("reads Codex and ACP usage", () => {
     expect(contextUsageOf({ role: "agent", content: { type: "codex", data: { type: "token_count", usage: { input_tokens: 30_000, cached_input_tokens: 10_000 } } } })?.used).toBe(30_000);
     expect(contextUsageOf({ role: "agent", content: { type: "codex", data: { message: { usage: { input_tokens: 7 } } } } })?.used).toBe(7);
-    expect(
-      contextUsageOf({ role: "agent", content: { type: "acp", data: { type: "usage", usage: { context_size: 120_000, context_window: 400_000, model: "gemini-3-pro" } } } }),
-    ).toEqual({ used: 120_000, window: 400_000, model: "gemini-3-pro" });
+    const acpUsage = { role: "agent", content: { type: "acp", data: { type: "usage", usage: { context_size: 120_000, context_window: 400_000, model: "gemini-3-pro" } } } };
+    expect(contextUsageOf(acpUsage)).toEqual({ used: 120_000, window: 400_000, model: "gemini-3-pro" });
+    expect(normalizeRecord(acpUsage).items).toEqual([]);
     expect(contextUsageOf({ role: "agent", content: { type: "acp", data: { type: "message", usage: { context_size: 1 } } } })).toBeNull();
   });
 
@@ -129,6 +192,7 @@ describe("context usage", () => {
     expect(defaultContextWindow("gpt-5.5")).toBe(1_000_000);
     expect(defaultContextWindow("gpt-4.1-mini")).toBe(1_000_000);
     expect(defaultContextWindow("gemini-2.5-pro")).toBe(1_000_000);
+    expect(defaultContextWindow("gemini-4-neon-high")).toBe(1_000_000);
     expect(defaultContextWindow("o3")).toBe(200_000);
     expect(defaultContextWindow("o4-mini")).toBe(200_000);
     expect(defaultContextWindow("sonnet")).toBe(190_000);

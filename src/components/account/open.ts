@@ -16,6 +16,10 @@ export function openProviders(account: Account): void {
   void import("./ProvidersSheet").then((m) => m.openProviders(account));
 }
 
+export function openUsage(account: Account): void {
+  void import("./UsageSheet").then((m) => m.openUsage(account));
+}
+
 export function openLinkDevice(account: Account, initial?: string): void {
   void import("./LinkDevice").then((m) => m.openLinkDevice(account, initial));
 }

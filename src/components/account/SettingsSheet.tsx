@@ -1,6 +1,6 @@
 import { SegmentedControl, Button, useMantineColorScheme } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { Keyboard, LayoutGrid, Link2, Server } from "lucide-react";
+import { Gauge, Keyboard, LayoutGrid, Link2, Server } from "lucide-react";
 import { useAccountSettingsOf, useNow } from "@/app/hooks";
 import { useLink } from "@/components/shell/connection";
 import { getServerUrl } from "@/lib/config";
@@ -16,7 +16,7 @@ import { ListRow } from "@/ui/List";
 import { openSheet, SheetBody } from "@/ui/Sheet";
 import { PresenceDot } from "@/ui/Status";
 import { openMachine } from "./MachineSheet";
-import { openLinkDevice, openProviders } from "./open";
+import { openLinkDevice, openProviders, openUsage } from "./open";
 import classes from "./settings.module.css";
 
 /** The sheet renders under ModalsProvider, outside the auth context: everything it needs comes in here. */
@@ -97,6 +97,16 @@ function Providers({ account, close }: { account: Account; close: () => void }) 
         onClick={() => {
           close();
           openProviders(account);
+        }}
+      />
+      <ListRow
+        title="Usage"
+        subtitle="Plan limits and token usage for Claude, Codex & Antigravity"
+        leading={<Gauge size={16} />}
+        chevron
+        onClick={() => {
+          close();
+          openUsage(account);
         }}
       />
     </FormSection>

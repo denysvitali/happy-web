@@ -3,9 +3,15 @@ import { Gauge } from "lucide-react";
 import { useState } from "react";
 import { useNow } from "@/app/hooks";
 import type { SessionItem } from "@/lib/sync/account";
-import { formatResetIn, headlineWindow, shortWindowLabel, usageLevel, type UsageSummary, type UsageWindow } from "@/lib/sync/usage";
+import { formatResetIn, headlineWindow, shortWindowLabel, usageLevel, type UsageProvider, type UsageSummary, type UsageWindow } from "@/lib/sync/usage";
 import { useUsageLimits } from "./hooks";
 import classes from "./session.module.css";
+
+export const USAGE_PROVIDER_NAME: Record<UsageProvider, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  agy: "Antigravity",
+};
 
 function Bar({ percent }: { percent: number }) {
   return (
@@ -29,12 +35,12 @@ function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
   );
 }
 
-function UsageCard({ u }: { u: UsageSummary }) {
+export function UsageCard({ u, title }: { u: UsageSummary; title?: string }) {
   const now = useNow(30_000);
   return (
     <div className={classes.usageCard}>
       <div className={classes.usageHead}>
-        <span className={classes.usageTitle}>{u.provider === "codex" ? "Codex plan usage" : "Claude plan usage"}</span>
+        <span className={classes.usageTitle}>{title ?? `${USAGE_PROVIDER_NAME[u.provider]} plan usage`}</span>
         {u.limitReached && <span className={classes.badge}>Limit reached</span>}
       </div>
       {u.windows.map((w) => (
@@ -61,7 +67,7 @@ export function UsageMeter({ session }: { session: SessionItem }) {
   if (!u || !head) return null;
   const pct = Math.round(head.percent);
   const level = u.limitReached ? "critical" : usageLevel(head.percent);
-  const who = u.provider === "codex" ? "Codex" : "Claude";
+  const who = USAGE_PROVIDER_NAME[u.provider];
   return (
     <Popover opened={opened} onChange={setOpened} position="top-end" width={280} shadow="md" radius="md" withinPortal>
       <Popover.Target>

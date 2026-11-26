@@ -36,7 +36,7 @@ export function SessionToolbar({ session, sw, store, children }: { session: Sess
       {store ? <Model sw={sw} store={store} /> : <ModelPicker sw={sw} />}
       <span className={classes.spacer} />
       {children}
-      {store && sw.kind !== "opencode" && sw.kind !== "agy" && <Context session={session} store={store} model={sw.activeModel} />}
+      {store && sw.kind !== "opencode" && <Context session={session} store={store} model={sw.activeModel} />}
       <UsageMeter session={session} />
     </div>
   );

@@ -320,6 +320,7 @@ function codexLike(data: Obj): Placed[] {
       break;
     }
     case "token_count":
+    case "usage":
     case "task_started":
     case "task_complete":
     case "turn_aborted":

@@ -18,7 +18,13 @@ import {
   type SendOptions,
 } from "@/lib/sync/models";
 import { findProfile, gatewayModels, sessionProfileId, usesAccountLogin } from "@/lib/sync/profiles";
-import { parseClaudeUsage, parseCodexUsage, usageProvider, type UsageSummary } from "@/lib/sync/usage";
+import { parseAgyUsage, parseClaudeUsage, parseCodexUsage, usageProvider, type UsageProvider, type UsageSummary } from "@/lib/sync/usage";
+
+export function fetchProviderUsage(account: Account, provider: UsageProvider, machineId: string): Promise<UsageSummary | null> {
+  if (provider === "codex") return account.codexUsage(machineId).then(parseCodexUsage);
+  if (provider === "agy") return account.agyUsage(machineId).then(parseAgyUsage);
+  return account.claudeUsageLimits(machineId).then(parseClaudeUsage);
+}
 
 /** The machine's plan limits for the session's agent, polled every 60s while
  * the tab is visible. Only for sessions on the agent's own login: a gateway or
@@ -31,8 +37,7 @@ export function useUsageLimits(session: SessionItem) {
   const machineId = session.meta.machineId;
   return useQuery<UsageSummary | null>({
     queryKey: ["usage-limits", provider, machineId],
-    queryFn: async () =>
-      provider === "codex" ? parseCodexUsage(await account.codexUsage(machineId!)) : parseClaudeUsage(await account.claudeUsageLimits(machineId!)),
+    queryFn: () => fetchProviderUsage(account, provider!, machineId!),
     enabled: !!provider && !!machineId,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,

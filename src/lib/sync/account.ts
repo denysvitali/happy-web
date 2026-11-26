@@ -737,6 +737,14 @@ export class Account {
     return this.rpcJson(machineId, "get-codex-usage", {}, 20_000);
   }
 
+  agyUsage(machineId: string) {
+    return this.rpcJson(machineId, "get-agy-usage", {}, 20_000);
+  }
+
+  queryUsage(params?: { sessionId?: string; startTime?: number; endTime?: number; groupBy?: "hour" | "day" }, signal?: AbortSignal) {
+    return this.api.queryUsage(params, signal);
+  }
+
   codexModels(machineId: string, directory: string | undefined) {
     return this.rpcJson(machineId, "get-codex-models", directory ? { refresh: false, directory } : { refresh: false }, 30_000);
   }

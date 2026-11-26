@@ -4,7 +4,7 @@ import { CircleUserRound, Inbox, PanelLeftClose, PanelLeftOpen, SquarePen } from
 import { useCallback, useMemo, useState } from "react";
 import { useAccount, useAuth } from "@/app/auth";
 import { confirmForget } from "@/components/account/forget";
-import { openSettings } from "@/components/account/open";
+import { openSettings, openUsage } from "@/components/account/open";
 import { BrandMark } from "@/components/brand";
 import { openShortcuts } from "@/components/palette/open";
 import { useInbox } from "@/components/inbox/useInbox";
@@ -83,6 +83,7 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
   const canSpawn = onlineMachines.length > 0;
   const demo = useCallback(() => void navigate({ to: "/components-demo" }), [navigate]);
   const settings = () => openSettings({ account, onDemo: demo, onShortcuts: openShortcuts, onForget: () => confirmForget(forget) });
+  const usage = () => openUsage(account);
 
   // Sidebar order without filters: needs attention, active, recent (archived are skipped).
   const order = useMemo(() => {
@@ -123,6 +124,7 @@ export function Sidebar({ rail = false }: { rail?: boolean }) {
       onOpenSession={open}
       onNewSession={spawn}
       onSettings={settings}
+      onUsage={usage}
       onInbox={() => void navigate({ to: "/inbox" })}
       onShortcuts={openShortcuts}
       onDemo={demo}

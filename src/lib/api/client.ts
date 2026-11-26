@@ -11,8 +11,17 @@ import {
   sessionsV2Response,
   successResponse,
   updateAccountSettingsResponse,
+  usageQueryResponse,
   type SessionRow,
+  type UsageQueryResponse,
 } from "./schemas";
+
+export interface UsageQueryParams {
+  sessionId?: string;
+  startTime?: number;
+  endTime?: number;
+  groupBy?: "hour" | "day";
+}
 
 /** Authenticated client for the server's compat (non-gateway) routes. */
 export class ApiClient {
@@ -103,6 +112,11 @@ export class ApiClient {
   /** Replaces the blob if it is still at `expectedVersion`. */
   updateAccountSettings(settings: string, expectedVersion: number) {
     return this.get(updateAccountSettingsResponse, "/v1/account/settings", { method: "POST", body: { settings, expectedVersion } });
+  }
+
+  /** Aggregated token and cost usage reports across sessions (POST /v1/usage/query). */
+  queryUsage(params: UsageQueryParams = {}, signal?: AbortSignal): Promise<UsageQueryResponse> {
+    return this.get(usageQueryResponse, "/v1/usage/query", { method: "POST", body: params, signal });
   }
 
   /** GET /v3 messages strictly after `afterSeq` (server caps limit at 500). */

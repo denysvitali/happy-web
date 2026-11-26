@@ -220,6 +220,26 @@ export function createMock() {
         settings.version++;
         return json({ success: true, version: settings.version });
       }
+      if (url.pathname === "/v1/usage/query" && req.method() === "POST") {
+        const body = (req.postDataJSON() ?? {}) as { groupBy?: string };
+        const groupBy = body.groupBy === "hour" ? "hour" : "day";
+        const nowSec = Math.floor(Date.now() / 1000);
+        const step = groupBy === "hour" ? 3600 : 86_400;
+        const base = Math.floor(nowSec / step) * step;
+        const pts =
+          groupBy === "hour"
+            ? [
+                { timestamp: base - 3 * step, tokens: { total: 48_200, input: 32_000, output: 6_200, cache_read: 10_000 }, cost: { total: 0.42 }, reportCount: 2 },
+                { timestamp: base - step, tokens: { total: 91_400, input: 54_000, output: 12_400, cache_read: 25_000 }, cost: { total: 0.86 }, reportCount: 3 },
+                { timestamp: base, tokens: { total: 63_100, input: 41_100, output: 8_000, cache_read: 14_000 }, cost: { total: 0.54 }, reportCount: 2 },
+              ]
+            : [
+                { timestamp: base - 2 * step, tokens: { total: 420_000, input: 240_000, output: 55_000, cache_read: 125_000 }, cost: { total: 3.15 }, reportCount: 5 },
+                { timestamp: base - step, tokens: { total: 685_000, input: 390_000, output: 85_000, cache_read: 210_000 }, cost: { total: 5.4 }, reportCount: 8 },
+                { timestamp: base, tokens: { total: 512_000, input: 295_000, output: 67_000, cache_read: 150_000 }, cost: { total: 4.05 }, reportCount: 6 },
+              ];
+        return json({ usage: pts, groupBy, totalReports: pts.reduce((a, p) => a + p.reportCount, 0) });
+      }
       const m = url.pathname.match(/^\/v3\/sessions\/([^/]+)\/messages$/);
       if (m && req.method() === "GET") {
         const after = Number(url.searchParams.get("after_seq") ?? 0);
@@ -412,6 +432,26 @@ export function createMock() {
         { id: "claude-opus-5-5-high", name: "Claude Opus 5.5 (High)" },
       ],
     }),
+    "get-agy-usage": () => ({
+      success: true,
+      data: {
+        tier: "Google AI Pro",
+        groups: [
+          {
+            displayName: "Claude and GPT models",
+            buckets: [
+              { bucketId: "3p-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.78 },
+              { bucketId: "3p-5h", displayName: "Five Hour Limit Remaining", window: "5h", remainingFraction: 0.92 },
+            ],
+          },
+        ],
+        buckets: [
+          { modelId: "gemini-4-neon-high", remainingFraction: 0.67, resetTime: new Date(Date.now() + 210 * min).toISOString() },
+          { modelId: "claude-opus-5-5-high", remainingFraction: 0.92, resetTime: new Date(Date.now() + 280 * min).toISOString() },
+        ],
+      },
+      error: "",
+    }),
   };
 
   async function setSocketUp(up: boolean) {
@@ -419,7 +459,7 @@ export function createMock() {
     if (!up) await Promise.all([...links].map((l) => l.close()));
   }
 
-  return { install, sent, rpcCalls, archives, approvals, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, secret, kv, settings };
+  return { install, sent, rpcCalls, archives, approvals, socketAuth: () => socketAuth, setSocketUp, enc, dec, sessions, machines, messages, secret, kv, settings };
 }
 
 export function watchCsp(page: Page): string[] {

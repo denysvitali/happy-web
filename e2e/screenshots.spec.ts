@@ -439,6 +439,23 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(200);
       await shot(page, "p5-settings-dark");
       await page.emulateMedia({ colorScheme: "light" });
+      // Account usage sheet: Claude Code, Codex, Antigravity limits + server totals.
+      await page.getByRole("button", { name: /^Usage/ }).click();
+      const usageDialog = page.getByRole("dialog", { name: "Usage" });
+      await expect(usageDialog.getByText("Plan: Google AI Pro")).toBeVisible();
+      await expect(usageDialog.getByText("$12.60")).toBeVisible();
+      await page.waitForTimeout(300);
+      await shot(page, "p5b-usage");
+      await usageDialog.getByText("$12.60").scrollIntoViewIfNeeded();
+      await page.waitForTimeout(200);
+      await shot(page, "p5d-usage-reported");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForTimeout(200);
+      await shot(page, "p5c-usage-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Account and settings" }).click();
+      await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
       // A machine: the daemon and agent CLIs, with updates on offer.
       await page.getByRole("button", { name: /^denys@laptop/ }).click();
       await expect(page.getByRole("dialog", { name: "denys@laptop" })).toBeVisible();

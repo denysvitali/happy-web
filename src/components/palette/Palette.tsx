@@ -7,6 +7,7 @@ import {
   Archive,
   ArchiveRestore,
   Copy,
+  Gauge,
   Inbox,
   Keyboard,
   LayoutGrid,
@@ -53,6 +54,7 @@ export interface PaletteProps {
   onOpenSession: (id: string) => void;
   onNewSession: (machineId?: string) => void;
   onSettings: () => void;
+  onUsage: () => void;
   onInbox: () => void;
   onShortcuts: () => void;
   onDemo: () => void;
@@ -189,6 +191,7 @@ function Body({
   onOpenSession,
   onNewSession,
   onSettings,
+  onUsage,
   onInbox,
   onShortcuts,
   onDemo,
@@ -314,6 +317,13 @@ function Body({
         tile(Inbox),
         () => choose(onInbox),
         { keywords: "messages goals questions blocked agents notifications", trailing: hint("G I") },
+      ),
+      action(
+        "a-usage",
+        "Usage",
+        tile(Gauge),
+        () => choose(onUsage),
+        { keywords: "quota limits tokens cost claude codex antigravity billing" },
       ),
       action(
         "a-settings",

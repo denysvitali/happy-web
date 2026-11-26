@@ -114,6 +114,22 @@ export const updateAccountSettingsResponse = z.object({
 /** GET /v1/kv/:key; `value` is standard base64. */
 export const kvEntryResponse = z.object({ key: z.string(), value: z.nullish(z.string()), version: int });
 
+/** POST /v1/usage/query (compat_handlers_usage.go). */
+export const usageDataPoint = z.object({
+  timestamp: int,
+  tokens: z.record(z.string(), z.number()),
+  cost: z.record(z.string(), z.number()),
+  reportCount: int,
+});
+export type UsageDataPoint = z.infer<typeof usageDataPoint>;
+
+export const usageQueryResponse = z.object({
+  usage: z.array(usageDataPoint),
+  groupBy: z.string(),
+  totalReports: int,
+});
+export type UsageQueryResponse = z.infer<typeof usageQueryResponse>;
+
 // ---- socket.io ------------------------------------------------------------
 
 const versioned = z.object({ value: z.nullish(z.string()), version: int });
