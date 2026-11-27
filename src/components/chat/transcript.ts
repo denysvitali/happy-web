@@ -46,9 +46,9 @@ export function useChatView(store: ChatStore | null, session: SessionItem | unde
   return useMemo(() => (store && session ? buildView(state, agentState ?? {}, halted) : null), [store, session, state, agentState, halted]);
 }
 
-const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission", "work"]);
+const TOOLISH = new Set<Block["type"]>(["tool", "steps", "thinking", "permission", "sign-in", "work"]);
 
-const isCard = (b: Block) => b.type === "permission" || (b.type === "tool" && (isAgent(b) || b.permission?.status === "pending"));
+const isCard = (b: Block) => b.type === "permission" || b.type === "sign-in" || (b.type === "tool" && (isAgent(b) || b.permission?.status === "pending"));
 
 /** Space above a block, from what precedes it: a speaker change is a new
  * turn, runs of tool rows sit tight, everything else is one block apart. */

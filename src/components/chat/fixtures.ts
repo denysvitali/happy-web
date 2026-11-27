@@ -200,6 +200,10 @@ export const demoRecords: unknown[] = [
   codex({ type: "tool-call-result", callId: "agent-th2", result: { status: "failed", agentMetadata: linterMeta }, isError: true, agentMetadata: linterMeta, isSidechain: true, parentToolUseId: "agent-th1", agentId: "th1" }),
   codex({ type: "tool-call", name: "Agent", callId: "nested-1", status: "in_progress", input: { description: "Update the auth docs", prompt: "Document the injectable clock in docs/auth.md.", subagent_type: "happy-session", agentId: "child-session-1", sessionId: "child-session-1" } }),
   codex({ type: "tool-result", callId: "nested-1", status: "completed", isError: false, result: "Updated `docs/auth.md` with a *Testing* section.", agentId: "child-session-1" }),
+  // happy-cli-go's sign-in gate: Claude's login expired mid-session.
+  say([text("Claude rejected this session's sign-in (the OAuth token was revoked or expired). Your last message runs again once you are signed in.\n\n1. Open this link and approve access: https://claude.com/cai/oauth/authorize?code=true&client_id=demo\n2. Paste the code it shows as your next message.")], {
+    claudeLogin: { provider: "claude", url: "https://claude.com/cai/oauth/authorize?code=true&client_id=demo", expiresAt: 4_102_444_800_000, method: "claude-login-submit" },
+  }, { model: "happy" }),
 ];
 
 export const demoAgentState: AgentState = {

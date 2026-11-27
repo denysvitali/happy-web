@@ -810,6 +810,22 @@
 }
 .tool > .stepHead, .tool > .permHead { width: 100%; margin: 0; padding: 8px 10px; border-radius: 0; }
 .tool > .stepBody { padding: 0 12px 12px 40px; }
+.tool[data-quiet] { border-color: var(--happy-separator); }
+
+/* In-chat sign-in card (signin.tsx). */
+.signInBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 12px 12px 40px;
+  font-size: var(--happy-text-subhead);
+  color: var(--happy-label-2);
+}
+.signInBody p { margin: 0; }
+.signInRow { display: flex; gap: 8px; width: 100%; max-width: 420px; }
+.signInRow > :first-child { flex: 1; min-width: 0; }
+.signInNote { font-size: var(--happy-text-footnote); color: var(--happy-label-2); }
 .tool > .stepHead > .stepTitle { color: var(--happy-label); }
 
 /* Tinted glyph square: hue by tool kind. */

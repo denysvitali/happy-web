@@ -4,6 +4,7 @@
 // `session` protocol and user text. Anything else becomes an `unknown` item
 // (shown collapsed) rather than being dropped silently.
 import { acpTool } from "./acpTools";
+import { signInOf, type SignInRequest } from "./signIn";
 
 /** Child-thread settings reported by the agent (model, role, effort…). A
  * present map replaces the previous snapshot; `{}` clears it. Never filled
@@ -31,6 +32,8 @@ export type Item =
    * rows may only carry the task id. */
   | { kind: "task"; id?: string; taskId?: string; status: string; summary?: string }
   | { kind: "event"; text: string }
+  /** An agent asks the user to sign it in (lib/sync/signIn.ts). */
+  | { kind: "sign-in"; request: SignInRequest }
   | { kind: "ready" }
   | { kind: "unknown"; type: string };
 
@@ -181,6 +184,12 @@ function claudeOutput(data: Obj): Placed[] {
   switch (data.type) {
     case "assistant": {
       const content = Array.isArray(msg?.content) ? msg.content : [];
+      // The sign-in gate's notice: its text only repeats the card's steps.
+      const signIn = signInOf(data, content.map((b) => (isObj(b) && b.type === "text" ? s(b.text) : undefined)).find(Boolean));
+      if (signIn) {
+        items.push({ kind: "sign-in", request: signIn });
+        break;
+      }
       for (const b of content) {
         if (!isObj(b)) continue;
         if (b.type === "text" && s(b.text)) items.push({ kind: "text", role: "agent", text: b.text as string });
@@ -399,7 +408,8 @@ function modelOf(record: Obj, content: Obj, data: Obj): string | undefined {
 }
 
 function withModel(n: Normalized, model: string | undefined): Normalized {
-  return model && n.items.some((i) => i.kind !== "ready" && i.kind !== "unknown") ? { ...n, model } : n;
+  // Happy's own notices (the sign-in gate) say nothing about the model.
+  return model && n.items.some((i) => i.kind !== "ready" && i.kind !== "unknown" && i.kind !== "sign-in") ? { ...n, model } : n;
 }
 
 export function normalizeRecord(record: unknown): Normalized {

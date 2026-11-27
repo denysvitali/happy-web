@@ -12,6 +12,7 @@ import { modelLabel } from "@/lib/sync/models";
 import { ImageStrip } from "./images";
 import { Markdown } from "./markdown";
 import { PermissionBar, type PermissionHandler } from "./permission";
+import { SignInCard } from "./signin";
 import { MessageActions } from "./actions";
 import { AgentCard } from "./tools/agent";
 import { titleOf, viewFor } from "./tools/registry";
@@ -138,6 +139,8 @@ function BlockSwitch({ b, onPermission }: ViewProps) {
           <span>Unsupported message · {b.label}</span>
         </div>
       );
+    case "sign-in":
+      return <SignInCard b={b} />;
     case "work":
       return <WorkGroup b={b} renderChildren={childrenFor(onPermission)} />;
     case "steps":

@@ -4,6 +4,7 @@
 // calls and child-agent activity nested under its Agent anchor.
 import type { AgentState } from "./decode";
 import type { AgentMetadata, Item, Normalized, Placed } from "./normalize";
+import type { SignInRequest } from "./signIn";
 
 export interface ChatMessage {
   id: string;
@@ -178,7 +179,10 @@ export type Block =
   | { type: "work"; key: string; items: Block[]; from?: number | undefined; to?: number | undefined }
   /** Local-day separator before the first top-level block of each day. */
   | { type: "day"; key: string; at: number }
-  | { type: "permission"; key: string; id: string; tool: string; input: unknown };
+  | { type: "permission"; key: string; id: string; tool: string; input: unknown }
+  /** The agent waits for a sign-in; `settled` once the agent spoke again
+   * (signed in, failed, or a newer request replaced it). */
+  | { type: "sign-in"; key: string; request: SignInRequest; at?: number | undefined; settled?: boolean };
 
 export interface ChatView {
   blocks: Block[];
@@ -236,7 +240,8 @@ export const blockTime = (b: Block): number | undefined =>
 
 /** Blocks a finished turn must not hide: they still wait for the user. */
 export const needsUser = (b: Block): boolean =>
-  b.type === "permission" || (b.type === "tool" && (b.permission?.status === "pending" || (ASKING_TOOLS.has(b.name) && !b.result)));
+  b.type === "permission" ||
+  (b.type === "sign-in" && !b.settled) || (b.type === "tool" && (b.permission?.status === "pending" || (ASKING_TOOLS.has(b.name) && !b.result)));
 
 /** Folds each finished agent turn: everything between the user's message and
  * the final reply (the trailing text) becomes one `work` block. The turn in
@@ -339,6 +344,19 @@ function settleOpen(blocks: readonly Block[], ended: ReadonlyMap<ToolBlock, numb
   }
 }
 
+/** A sign-in request is answered once the agent speaks again on the main
+ * thread: the gate reports success or failure, or posts a newer request. */
+function settleSignIns(top: readonly Block[]): void {
+  let later = false;
+  for (let i = top.length - 1; i >= 0; i--) {
+    const b = top[i]!;
+    if (b.type === "sign-in") {
+      if (later) b.settled = true;
+      later = true;
+    } else if (b.type === "text" || b.type === "tool") later = true;
+  }
+}
+
 /** `halted`: the session is known not to be working right now, so nothing
  * outside a background agent can still be running. */
 export function buildView(state: ChatState, agentState: AgentState, halted = false): ChatView {
@@ -385,6 +403,9 @@ export function buildView(state: ChatState, agentState: AgentState, halted = fal
         break;
       case "event":
         to.push({ type: "event", key, text: item.text, at });
+        break;
+      case "sign-in":
+        to.push({ type: "sign-in", key, request: item.request, at });
         break;
       case "unknown":
         to.push({ type: "unknown", key, label: item.type });
@@ -484,6 +505,7 @@ export function buildView(state: ChatState, agentState: AgentState, halted = fal
     else orphans.push({ type: "permission", key: `perm:${id}`, id, tool: r.tool, input: r.arguments });
   }
   settleOpen(top, ended, halted);
+  settleSignIns(top);
 
   return { blocks: [...withDays(groupTurns(groupSteps(top), turnOpen)), ...orphans], turnOpen };
 }

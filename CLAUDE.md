@@ -150,5 +150,9 @@ Server wins over Flutter; record every discrepancy in README.md.
 - Session menu "After restart…" (`lib/sync/startupResume.ts`): the per-session opt-in to be
   respawned with a message after a daemon restart/reboot. The owning daemon writes it
   (machine RPC `session-startup-resume-set`), never the client; the daemon's legacy todo marker reads as off.
+- Claude sign-in card (`lib/sync/signIn.ts`, `chat/signin.tsx`): a Kubernetes Claude session
+  whose login is missing/rejected posts a row with `claudeLogin` (happy-cli-go `claude_auth_gate.go`);
+  it renders as a card (claude.ai/claude.com/anthropic.com links only) whose code goes to the
+  session RPC `claude-login-submit` `{code}`. It waits for the user until the agent speaks again.
 - Image attachments follow happy_flutter: user content becomes a block array with base64
   `image` blocks (≤1568px, ≤3.4 MB base64); Har/OpenCode are text-only.

@@ -7,7 +7,7 @@ import type { Block } from "@/lib/sync/chat";
 export function messageCount(blocks: readonly Block[]): number {
   let n = 0;
   for (const b of blocks) {
-    if (b.type === "text" || b.type === "permission") n++;
+    if (b.type === "text" || b.type === "permission" || b.type === "sign-in") n++;
     else if (b.type === "steps" || b.type === "work") n += messageCount(b.items);
   }
   return n;

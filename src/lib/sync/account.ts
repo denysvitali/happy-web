@@ -790,6 +790,13 @@ export class Account {
     return parseAgyStatus(await this.rpcJson(machineId, "agy-auth-cancel", { flowId }, 15_000));
   }
 
+  /** Hands the code from an in-chat sign-in card (signIn.ts) to the session's
+   * pending login; `method` comes from the request. */
+  async submitSignIn(sessionId: string, method: string, code: string): Promise<void> {
+    const res = await this.rpcJson(sessionId, method, { code }, 30_000);
+    if (res && typeof res === "object" && "error" in res && typeof res.error === "string" && res.error) throw new RpcError(res.error);
+  }
+
   abort(sessionId: string) {
     return this.rpc(sessionId, "abort", (p) => [p.AbortRequestSchema, p.AbortResponseSchema], { reason: "" });
   }
