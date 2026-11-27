@@ -396,11 +396,13 @@ export function buildView(state: ChatState, agentState: AgentState, halted = fal
         const own = AGENT_TOOLS.has(item.name);
         const existing = tools.get(item.id);
         if (existing) {
-          existing.input = item.input ?? existing.input;
+          existing.input = mergeToolInput(existing.input, item.input);
           if (existing.synthetic) {
             existing.name = item.name;
             existing.at = at;
             delete existing.synthetic;
+          } else if (!AGENT_TOOLS.has(existing.name) && item.name !== "tool") {
+            existing.name = item.name;
           }
         } else {
           const block: ToolBlock = { type: "tool", key, id: item.id, name: item.name, input: item.input, children: [], at };
@@ -539,3 +541,12 @@ export function sameBlock(a: Block, b: Block): boolean {
 const modelKey = (m: string) => m.trim().toLowerCase().replace(/\[[^\]]*\]$/, "");
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+function mergeToolInput(prev: unknown, next: unknown): unknown {
+  if (next === undefined) return prev;
+  if (isObj(prev) && isObj(next)) {
+    if (Object.keys(next).length === 0) return prev;
+    return { ...prev, ...next };
+  }
+  return next;
+}

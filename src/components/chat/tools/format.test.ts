@@ -1,7 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { splitStable } from "../markdown-split";
 import type { ToolBlock } from "@/lib/sync/chat";
-import { asText, commandOf, diffStats, duration, humanize, lineDiff, numberedLines, parseMcpName, questionAnswers, resultParts, shellOutput } from "./format";
+import {
+  asText,
+  commandOf,
+  diffStats,
+  duration,
+  editDiffs,
+  humanize,
+  lineDiff,
+  numberedLines,
+  parseMcpName,
+  patchChanges,
+  questionAnswers,
+  readOutput,
+  readRange,
+  resultParts,
+  shellOutput,
+  todosOf,
+  writeContent,
+} from "./format";
 import { stepLabel, stepsSummary } from "./steps";
 
 describe("parseMcpName", () => {
@@ -154,5 +172,49 @@ describe("questionAnswers", () => {
   });
   it("comma-joins picks and free text per question", () => {
     expect(questionAnswers(qs, [[], ["X", "Y"]], [" mine ", "also Z"])).toEqual({ "One?": "mine", "Many?": "X, Y, also Z" });
+  });
+});
+
+describe("cross-harness tool outputs", () => {
+  it("extracts shell output from ACP content blocks and Antigravity/Grok envelopes", () => {
+    expect(shellOutput([{ type: "content", content: { type: "text", text: "ok\n" } }])).toEqual({ stdout: "ok\n", stderr: "", exitCode: undefined });
+    expect(
+      shellOutput("Created At: 2026-11-26T23:54:31Z\nCompleted At: 2026-11-26T23:54:33Z\nCommand exited with code 2\n\nCommand output:\nboom\n"),
+    ).toEqual({ stdout: "boom\n", stderr: "", exitCode: 2 });
+    expect(shellOutput("exit: 1\nfailed")).toEqual({ stdout: "failed", stderr: "", exitCode: 1 });
+  });
+
+  it("extracts Read content from ACP blocks, embedded resources, and structured records without losing images", () => {
+    expect(readOutput([{ type: "content", content: { type: "text", text: "     1\thello" } }])).toEqual({ kind: "text", text: "1  hello" });
+    expect(readOutput([{ type: "content", content: { type: "resource", resource: { uri: "file:///a.c", text: "int a;" } } }])).toEqual({ kind: "text", text: "int a;" });
+    expect(readOutput({ type: "ReadFile", FileContent: { content: "1→hi" } })).toEqual({ kind: "text", text: "1→hi" });
+    expect(readOutput({ output: "raw", metadata: { display: { text: "clean" } } })).toEqual({ kind: "text", text: "clean" });
+    expect(readOutput({})).toEqual({ kind: "empty" });
+    expect(readOutput([{ type: "content", content: { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" } }])).toBeUndefined();
+    expect(readRange({ StartLine: 5, EndLine: 25 })).toBe(" · lines 5–25");
+    expect(readRange({ offset: 10, limit: 20 })).toBe(" · lines 10–29");
+  });
+
+  it("extracts edit diffs, write content, CodexPatch changes, and todos across harnesses", () => {
+    expect(editDiffs({ input: { Path: "/a.c", Target: "a", Replacement: "b" }, result: { output: {}, isError: false } })[0]?.rows).toEqual([
+      { op: "-", text: "a" },
+      { op: "+", text: "b" },
+    ]);
+    expect(editDiffs({ input: { Path: "/a.c" }, result: { output: [{ type: "content", content: { type: "diff", path: "/a.c", old_text: "x", new_text: "y" } }], isError: false } })[0]?.rows).toEqual([
+      { op: "-", text: "x" },
+      { op: "+", text: "y" },
+    ]);
+    expect(writeContent({ input: { Path: "/a.c", Content: "hi" } })).toBe("hi");
+    expect(writeContent({ input: { Path: "/a.c" }, result: { output: [{ type: "diff", path: "/a.c", oldText: "", newText: "from diff" }], isError: false } })).toBe("from diff");
+    expect(patchChanges({ changes: { "/a.ts": { kind: "update" }, "/b.ts": { kind: "add" } } })).toEqual([
+      { path: "/a.ts", kind: "update", diff: undefined },
+      { path: "/b.ts", kind: "add", diff: undefined },
+    ]);
+    expect(todosOf({ steps: [{ title: "First", status: "done" }, { title: "Second", status: "in_progress" }] })).toEqual([
+      { content: "First", status: "completed" },
+      { content: "Second", status: "in_progress" },
+    ]);
+    expect(todosOf({ items: [{ text: "Codex item", completed: true }] })).toEqual([{ content: "Codex item", status: "completed" }]);
+    expect(asText([{ type: "content", content: { type: "text", text: "copied cleanly" } }])).toBe("copied cleanly");
   });
 });

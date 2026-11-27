@@ -8,7 +8,27 @@ import { Markdown } from "../markdown";
 import type { PermissionHandler } from "../permission";
 import { lineCount, lines, numberRows } from "../text";
 import { Clip, CopyIcon, KeyValues, ResultView, Section } from "../primitives";
-import { asText, commandOf, editDiffs, editRows, field, isObj, numberedLines, questionAnswers, questionsOf, shellOutput, str, todosOf, type DiffRow, type Obj, type Question } from "./format";
+import {
+  asText,
+  commandOf,
+  editDiffs,
+  editRows,
+  field,
+  isEmptyOutput,
+  isObj,
+  patchChanges,
+  questionAnswers,
+  questionsOf,
+  readOutput,
+  shellOutput,
+  str,
+  todosOf,
+  toolPath,
+  writeContent,
+  type DiffRow,
+  type Obj,
+  type Question,
+} from "./format";
 import classes from "../chat.module.css";
 
 export interface ToolViewProps {
@@ -93,17 +113,18 @@ export function BashBody({ b }: ToolViewProps) {
 // ---- files --------------------------------------------------------------------
 
 export function ReadBody({ b }: ToolViewProps) {
-  const i = inputOf(b);
-  const path = field(i, "file_path", "path", "notebook_path") ?? "";
+  const path = toolPath(b.input) ?? "";
   const r = b.result;
-  const text = r && !r.isError && typeof r.output === "string" ? numberedLines(r.output) : undefined;
+  const parsed = r && !r.isError ? readOutput(r.output) : undefined;
   return (
     <>
-      <code className={classes.path}>{path}</code>
-      {text !== undefined ? (
-        <Section label="Content" right={<CopyIcon text={text} reveal />}>
-          <Clip text={text} />
+      {path && <code className={classes.path}>{path}</code>}
+      {parsed?.kind === "text" ? (
+        <Section label="Content" right={<CopyIcon text={parsed.text} reveal />}>
+          <Clip text={parsed.text} />
         </Section>
+      ) : parsed?.kind === "empty" ? (
+        <span className={classes.dim}>Empty file</span>
       ) : (
         <Result b={b} label="Content" />
       )}
@@ -133,7 +154,7 @@ function Diff({ rows }: { rows: DiffRow[] }) {
 }
 
 function FileHead({ b }: ToolViewProps) {
-  const path = field(inputOf(b), "file_path", "path") ?? "";
+  const path = toolPath(b.input) ?? "";
   return path ? <code className={classes.path}>{path}</code> : null;
 }
 
@@ -143,11 +164,21 @@ function ErrorOnly({ b }: ToolViewProps) {
 
 export function EditBody({ b }: ToolViewProps) {
   const diffs = editDiffs(b);
-  const path = field(inputOf(b), "file_path", "path");
+  const path = toolPath(b.input);
+  const emptyResult = b.result && !b.result.isError && isEmptyOutput(b.result.output);
   return (
     <>
       <FileHead b={b} />
-      {diffs.length === 0 && (b.result ? <Result b={b} /> : <span className={classes.dim}>No changes yet</span>)}
+      {diffs.length === 0 &&
+        (b.result ? (
+          emptyResult ? (
+            <span className={classes.dim}>Applied</span>
+          ) : (
+            <Result b={b} />
+          )
+        ) : (
+          <span className={classes.dim}>No changes yet</span>
+        ))}
       {diffs.map((d, k) => (
         <Fragment key={k}>
           {d.path && d.path !== path && <code className={classes.path}>{d.path}</code>}
@@ -174,33 +205,60 @@ export function MultiEditBody({ b }: ToolViewProps) {
 }
 
 export function WriteBody({ b }: ToolViewProps) {
-  const content = str(inputOf(b).content) ?? "";
+  const content = writeContent(b);
   return (
     <>
       <FileHead b={b} />
-      <Section label="Content" right={<CopyIcon text={content} reveal />}>
-        <Clip text={content} />
-      </Section>
+      {content !== undefined ? (
+        content === "" ? (
+          <span className={classes.dim}>Empty file</span>
+        ) : (
+          <Section label="Content" right={<CopyIcon text={content} reveal />}>
+            <Clip text={content} />
+          </Section>
+        )
+      ) : (
+        b.result && !b.result.isError && isEmptyOutput(b.result.output) && <span className={classes.dim}>Written</span>
+      )}
       <ErrorOnly b={b} />
     </>
   );
 }
 
-/** Unified diff / apply_patch text with +/- colouring. */
-export function PatchBody({ b }: ToolViewProps) {
-  const i = inputOf(b);
-  const patch = str(i.patch) ?? str(i.input) ?? str(i.diff) ?? (typeof b.input === "string" ? b.input : undefined);
-  if (!patch) return <GenericBody b={b} />;
-  const rows: DiffRow[] = patch.split("\n").map((line) => {
+function patchRows(text: string): DiffRow[] {
+  return text.split("\n").map((line) => {
     const op = line.startsWith("+") && !line.startsWith("+++") ? "+" : line.startsWith("-") && !line.startsWith("---") ? "-" : " ";
     return { op, text: op === " " ? line : line.slice(1) };
   });
-  return (
-    <>
-      <Diff rows={rows} />
-      <Result b={b} />
-    </>
-  );
+}
+
+/** Unified diff / apply_patch text with +/- colouring, or Codex `changes` map. */
+export function PatchBody({ b }: ToolViewProps) {
+  const i = inputOf(b);
+  const patch = str(i.patch) ?? str(i.input) ?? str(i.diff) ?? (typeof b.input === "string" ? b.input : undefined);
+  if (patch) {
+    return (
+      <>
+        <Diff rows={patchRows(patch)} />
+        {b.result && (b.result.isError || !isEmptyOutput(b.result.output)) && <Result b={b} />}
+      </>
+    );
+  }
+  const changes = patchChanges(b.input);
+  if (changes.length > 0) {
+    return (
+      <>
+        {changes.map((c, k) => (
+          <Fragment key={k}>
+            <code className={classes.path}>{c.kind ? `${c.kind} · ${c.path}` : c.path}</code>
+            {c.diff && <Diff rows={patchRows(c.diff)} />}
+          </Fragment>
+        ))}
+        <ErrorOnly b={b} />
+      </>
+    );
+  }
+  return <GenericBody b={b} />;
 }
 
 // ---- search -------------------------------------------------------------------

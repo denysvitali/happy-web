@@ -15,12 +15,55 @@ export const field = (o: unknown, ...keys: string[]): string | undefined => {
   return undefined;
 };
 
+export const firstStr = (o: unknown, ...keys: string[]): string | undefined => {
+  if (!isObj(o)) return undefined;
+  for (const k of keys) {
+    if (typeof o[k] === "string") return o[k] as string;
+  }
+  return undefined;
+};
+
+export const isEmptyOutput = (v: unknown): boolean => {
+  if (v === undefined || v === null || v === "") return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (isObj(v)) return Object.keys(v).length === 0;
+  return false;
+};
+
+const PATH_KEYS = ["file_path", "filePath", "path", "Path", "AbsolutePath", "TargetFile", "target_file", "File", "file", "notebook_path", "DirectoryPath", "target_directory"];
+
+export const toolPath = (input: unknown): string | undefined => field(input, ...PATH_KEYS);
+
+function unwrapContentBlock(b: unknown): unknown {
+  if (isObj(b) && b.type === "content" && b.content !== undefined) return b.content;
+  return b;
+}
+
+function blockAsText(b: unknown): string | undefined {
+  const inner = unwrapContentBlock(b);
+  if (typeof inner === "string") return inner;
+  if (!isObj(inner)) return undefined;
+  if (typeof inner.text === "string") return inner.text;
+  if (inner.type === "image") return "[image]";
+  if (inner.type === "diff") return `Changed ${str(inner.path) ?? "file"}`;
+  if (inner.type === "resource") {
+    const r = isObj(inner.resource) ? inner.resource : inner;
+    if (typeof r.text === "string") return r.text;
+    return field(r, "uri", "name", "title") ?? "[resource]";
+  }
+  return undefined;
+}
+
 export function asText(v: unknown): string {
   if (v === undefined || v === null) return "";
   if (typeof v === "string") return v;
-  if (Array.isArray(v) && v.every((b) => isObj(b) && (typeof b.text === "string" || b.type === "image"))) {
-    // Image blocks carry base64: never dump it as text.
-    return v.map((b) => (typeof (b as Obj).text === "string" ? String((b as Obj).text) : "[image]")).join("\n");
+  const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v.content) ? v.content : undefined;
+  if (list && list.length > 0) {
+    const mapped = list.map(blockAsText);
+    if (mapped.every((t): t is string => t !== undefined)) {
+      // Image blocks carry base64: never dump it as text.
+      return mapped.join("\n");
+    }
   }
   try {
     return JSON.stringify(v, null, 2);
@@ -109,6 +152,7 @@ function blockPart(b: unknown): ResultPart | undefined {
     case "resource":
     case "resource_link": {
       const r = isObj(b.resource) ? b.resource : b;
+      if (b.type === "resource" && typeof r.text === "string" && r.text !== "") return { kind: "text", text: r.text };
       return { kind: "resource", label: field(r, "uri", "name", "title") ?? "resource" };
     }
     default:
@@ -225,25 +269,92 @@ export interface ShellOutput {
   exitCode?: number | undefined;
 }
 
-/** Shell results: plain text (Claude, with an `Exit code N` lead on failure)
- * or `{stdout, stderr, exit_code}` records (Codex, MCP exec tools). */
+/** Shell results: plain text (Claude, Antigravity, Grok), ACP/MCP content block
+ * arrays (Har, DeepSeek, PrimeAgent), or `{stdout, stderr, exit_code}` records
+ * (Codex, Grok, MCP exec tools). */
 export function shellOutput(output: unknown): ShellOutput {
   let o = output;
   if (isObj(o) && Array.isArray(o.content)) o = o.content;
-  if (Array.isArray(o) && o.length === 1 && isObj(o[0]) && o[0].type === "text") o = o[0].text;
+  if (Array.isArray(o)) {
+    const texts: string[] = [];
+    let allText = o.length > 0;
+    for (const raw of o) {
+      const b = unwrapContentBlock(raw);
+      if (typeof b === "string") texts.push(b);
+      else if (isObj(b) && b.type === "text" && typeof b.text === "string") texts.push(b.text);
+      else {
+        allText = false;
+        break;
+      }
+    }
+    if (allText) o = texts.join("\n");
+  }
   if (typeof o === "string") {
     const j = jsonOf(o);
-    if (isObj(j) && ("stdout" in j || "exit_code" in j || "exitCode" in j)) o = j;
+    if (isObj(j) && ("stdout" in j || "Stdout" in j || "exit_code" in j || "exitCode" in j || "ExitCode" in j || "CommandOutput" in j)) o = j;
   }
   if (isObj(o)) {
-    const code = num(o.exit_code) ?? num(o.exitCode) ?? num(o.code);
-    const stdout = str(o.stdout) ?? str(o.output) ?? str(o.aggregated_output) ?? str(o.formatted_output) ?? "";
-    return { stdout, stderr: str(o.stderr) ?? "", exitCode: code };
+    const code = num(o.exit_code) ?? num(o.exitCode) ?? num(o.ExitCode) ?? num(o.code);
+    const stdout =
+      str(o.stdout) ?? str(o.Stdout) ?? str(o.output) ?? str(o.Output) ?? str(o.CommandOutput) ?? str(o.aggregated_output) ?? str(o.formatted_output) ?? "";
+    return { stdout, stderr: str(o.stderr) ?? str(o.Stderr) ?? "", exitCode: code };
   }
   const text = asText(o);
+  const agy = /^(?:Created At: [^\n]*\r?\n)?(?:Completed At: [^\n]*\r?\n)?Command exited with code (\d+)(?:\r?\n\r?\nCommand output:\r?\n|\r?\n)?([\s\S]*)/.exec(text);
+  if (agy) return { stdout: agy[2] ?? "", stderr: "", exitCode: Number(agy[1]) };
   const m = /^(?:Error: )?Exit code (\d+)\n?/.exec(text);
   if (m) return { stdout: text.slice(m[0].length), stderr: "", exitCode: Number(m[1]) };
+  const grok = /^exit: (\d+)\n/.exec(text);
+  if (grok) return { stdout: text.slice(grok[0].length), stderr: "", exitCode: Number(grok[1]) };
   return { stdout: text, stderr: "" };
+}
+
+/** Extracts file content from a Read result across all harnesses: plain string
+ * (Claude/OpenCode/agy), ACP content arrays (Har/DeepSeek/PrimeAgent), or
+ * structured objects (`FileContent`, `metadata.display`, `content`/`output`).
+ * Returns `undefined` for non-text results (e.g. images) so ResultView renders them. */
+export function readOutput(output: unknown): { kind: "text"; text: string } | { kind: "empty" } | undefined {
+  if (isEmptyOutput(output)) return { kind: "empty" };
+  if (typeof output === "string") return { kind: "text", text: numberedLines(output) };
+  const list = Array.isArray(output) ? output : isObj(output) && Array.isArray(output.content) ? output.content : undefined;
+  if (list) {
+    const texts: string[] = [];
+    for (const raw of list) {
+      const b = unwrapContentBlock(raw);
+      if (typeof b === "string") texts.push(b);
+      else if (isObj(b) && b.type === "text" && typeof b.text === "string") texts.push(b.text);
+      else if (isObj(b) && b.type === "resource" && isObj(b.resource) && typeof b.resource.text === "string") texts.push(b.resource.text);
+      else return undefined;
+    }
+    return texts.length ? { kind: "text", text: numberedLines(texts.join("\n")) } : { kind: "empty" };
+  }
+  if (isObj(output)) {
+    const fc = isObj(output.FileContent) ? output.FileContent : undefined;
+    const display = isObj(output.metadata) && isObj(output.metadata.display) ? output.metadata.display : undefined;
+    const raw =
+      (fc && (firstStr(fc, "content", "raw_output"))) ??
+      (display && firstStr(display, "text")) ??
+      firstStr(output, "content", "Content", "text", "Text", "output", "Output");
+    if (raw !== undefined) return raw === "" ? { kind: "empty" } : { kind: "text", text: numberedLines(raw) };
+  }
+  return undefined;
+}
+
+/** Formats Read line-range metadata from either offset/limit or start_line/end_line. */
+export function readRange(input: unknown): string {
+  if (!isObj(input)) return "";
+  const startLine = num(input.start_line) ?? num(input.StartLine) ?? num(input.startLine) ?? num(input.line_start);
+  const endLine = num(input.end_line) ?? num(input.EndLine) ?? num(input.endLine) ?? num(input.line_end);
+  if (startLine !== undefined || endLine !== undefined) {
+    return ` · lines ${startLine ?? 1}–${endLine ?? "end"}`;
+  }
+  const off = num(input.offset) ?? num(input.Offset);
+  const lim = num(input.limit) ?? num(input.Limit);
+  if (off !== undefined || lim !== undefined) {
+    const start = off ?? 1;
+    return ` · lines ${start}–${lim ? start + lim - 1 : "end"}`;
+  }
+  return "";
 }
 
 /** `cat -n` style Read output ("     12\tcode") with the number gutter cut
@@ -330,21 +441,62 @@ export function duration(ms: number): string {
 
 // ---- structured inputs -----------------------------------------------------------
 
+const OLD_KEYS = ["old_string", "oldString", "old_str", "oldText", "old_text", "Target", "TargetContent", "search"] as const;
+const NEW_KEYS = ["new_string", "newString", "new_str", "newText", "new_text", "Replacement", "ReplacementContent", "replace"] as const;
+const CONTENT_KEYS = ["content", "Content", "CodeContent", "file_text", "fileContent", "new_content", "NewContent"] as const;
+
 export function editRows(input: unknown): DiffRow[] {
-  const i = isObj(input) ? input : {};
-  return lineDiff(str(i.old_string) ?? "", str(i.new_string) ?? "");
+  const oldText = firstStr(input, ...OLD_KEYS) ?? "";
+  const newText = firstStr(input, ...NEW_KEYS) ?? "";
+  return lineDiff(oldText, newText);
 }
 
-/** An edit's change: its `old_string`/`new_string`, else the ACP diff blocks
- * (`{type: "diff", path, oldText, newText}`) its result carries (agy). */
+function diffBlocksOf(output: unknown): Obj[] {
+  const list = Array.isArray(output) ? output : isObj(output) && Array.isArray(output.content) ? output.content : undefined;
+  if (!list) return [];
+  const out: Obj[] = [];
+  for (const raw of list) {
+    const b = unwrapContentBlock(raw);
+    if (isObj(b) && b.type === "diff") out.push(b);
+  }
+  return out;
+}
+
+/** An edit's change: its old/new input fields, else the ACP diff blocks
+ * (`{type: "diff", path, oldText, newText}`) its result carries. */
 export function editDiffs(b: Pick<ToolBlock, "input" | "result">): { path?: string | undefined; rows: DiffRow[] }[] {
-  const i = isObj(b.input) ? b.input : {};
-  if (typeof i.old_string === "string" || typeof i.new_string === "string") return [{ rows: editRows(i) }];
-  const out = b.result?.output;
-  if (!Array.isArray(out)) return [];
-  return out
-    .filter((d): d is Obj => isObj(d) && d.type === "diff")
-    .map((d) => ({ path: str(d.path), rows: lineDiff(typeof d.oldText === "string" ? d.oldText : "", typeof d.newText === "string" ? d.newText : "") }));
+  const hasInputDiff = firstStr(b.input, ...OLD_KEYS) !== undefined || firstStr(b.input, ...NEW_KEYS) !== undefined;
+  if (hasInputDiff) return [{ rows: editRows(b.input) }];
+  return diffBlocksOf(b.result?.output).map((d) => ({
+    path: str(d.path),
+    rows: lineDiff(firstStr(d, "oldText", "old_text") ?? "", firstStr(d, "newText", "new_text") ?? ""),
+  }));
+}
+
+/** Written file content: from input (`content`/`Content`/`CodeContent`/…),
+ * falling back to an ACP result diff's `newText` when input omitted it. */
+export function writeContent(b: Pick<ToolBlock, "input" | "result">): string | undefined {
+  const direct = firstStr(b.input, ...CONTENT_KEYS);
+  if (direct !== undefined) return direct;
+  const diff = diffBlocksOf(b.result?.output)[0];
+  return diff ? firstStr(diff, "newText", "new_text") : undefined;
+}
+
+export interface PatchChange {
+  path: string;
+  kind?: string | undefined;
+  diff?: string | undefined;
+}
+
+/** Structured file changes from Codex `CodexPatch` (`{ changes: { path: { kind } } }`). */
+export function patchChanges(input: unknown): PatchChange[] {
+  if (!isObj(input) || !isObj(input.changes)) return [];
+  const out: PatchChange[] = [];
+  for (const [path, raw] of Object.entries(input.changes)) {
+    const c = isObj(raw) ? raw : {};
+    out.push({ path, kind: str(c.kind) ?? str(c.type), diff: str(c.diff) ?? str(c.patch) });
+  }
+  return out;
 }
 
 export interface Todo {
@@ -352,9 +504,25 @@ export interface Todo {
   status: string;
 }
 
+function todoStatus(t: Obj): string {
+  const s = str(t.status)?.toLowerCase();
+  if (s === "done") return "completed";
+  if (s) return s;
+  return t.completed === true ? "completed" : "pending";
+}
+
 export function todosOf(input: unknown): Todo[] {
-  const list = isObj(input) && Array.isArray(input.todos) ? input.todos : [];
-  return list.filter(isObj).map((t) => ({ content: field(t, "content", "activeForm", "title") ?? "", status: str(t.status) ?? "pending" }));
+  if (!isObj(input)) return [];
+  const list = Array.isArray(input.todos)
+    ? input.todos
+    : Array.isArray(input.steps)
+      ? input.steps
+      : Array.isArray(input.items)
+        ? input.items
+        : Array.isArray(input.plan)
+          ? input.plan
+          : [];
+  return list.filter(isObj).map((t) => ({ content: field(t, "content", "activeForm", "title", "text", "step") ?? "", status: todoStatus(t) }));
 }
 
 export interface Question {
@@ -369,7 +537,7 @@ export function questionsOf(input: unknown): Question[] {
   return list.filter(isObj).map((q) => ({
     question: str(q.question) ?? "",
     header: str(q.header),
-    multiSelect: q.multiSelect === true,
+    multiSelect: q.multiSelect === true || q.is_multi_select === true || q.multi_select === true,
     options: (Array.isArray(q.options) ? q.options : []).map((o) =>
       isObj(o) ? { label: field(o, "label") ?? "", description: str(o.description) } : { label: String(o) },
     ),

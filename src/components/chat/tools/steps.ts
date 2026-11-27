@@ -1,7 +1,7 @@
 // One-line descriptions of a run of steps ("Ran 3 commands, edited 2 files")
 // and of what a run or a sub-agent is doing right now.
 import { isAgent, needsUser, type Block, type StepBlock, type ToolBlock } from "@/lib/sync/chat";
-import { agentStatus, field, firstLine, inBackground } from "./format";
+import { agentStatus, firstLine, inBackground, patchChanges, toolPath } from "./format";
 import { titleOf, viewFor } from "./registry";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -25,8 +25,11 @@ export function stepsSummary(items: readonly StepBlock[]): string {
       continue;
     }
     const v = viewFor(b.name);
-    if (v.kind === "edit") edited.add(field(b.input, "file_path", "path", "notebook_path") ?? b.id);
-    else if (v.kind === "mcp") {
+    if (v.kind === "edit") {
+      const changes = patchChanges(b.input);
+      if (changes.length > 0) for (const c of changes) edited.add(c.path);
+      else edited.add(toolPath(b.input) ?? b.id);
+    } else if (v.kind === "mcp") {
       const server = v.chip?.(b) ?? "MCP";
       mcp.set(server, (mcp.get(server) ?? 0) + 1);
     } else if (v.kind === "plan") plan = true;
@@ -103,7 +106,7 @@ export function latestActivity(children: readonly Block[]): { kind: "tool"; b: T
   return undefined;
 }
 
-const TODO_TOOLS = new Set(["TodoWrite", "todo_write", "update_plan"]);
+const TODO_TOOLS = new Set(["TodoWrite", "todo_write", "update_plan", "update_steps"]);
 
 /** The newest main-thread todo call (sub-agents keep their own lists). */
 export function latestPlan(blocks: readonly Block[]): ToolBlock | undefined {

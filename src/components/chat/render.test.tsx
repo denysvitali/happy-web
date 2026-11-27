@@ -107,17 +107,36 @@ describe("demo transcript", () => {
   });
 });
 
-// Antigravity over ACP, as happy-cli-go forwards it: titles as names, the ACP
-// `kind`, PascalCase rawInput, edits as diff blocks in the result.
-describe("ACP tools (Antigravity)", () => {
+// Antigravity, OpenCode, Grok, Har, Codex, DeepSeek/PrimeAgent: every harness
+// renders the same Read / Edit / Write / Bash / Patch views with diffs and content.
+describe("ACP and cross-harness tools", () => {
   const acp = (data: object) => ({ role: "agent", content: { type: "acp", data } });
+  const grok = (data: object) => ({ role: "agent", content: { type: "grok", data } });
+  const codex = (data: object) => ({ role: "agent", content: { type: "codex", data } });
   const records = [
     acp({ type: "tool-call", callId: "x1", name: "grep -rn S4_PORT drivers/", kind: "execute", input: { CommandLine: "grep -rn S4_PORT drivers/", Cwd: "/root/linux", command: "grep -rn S4_PORT drivers/" } }),
     acp({ type: "tool-result", callId: "x1", result: "drivers/hi6402.c:12:#define S4_PORT 0x20", status: "completed" }),
-    acp({ type: "tool-call", callId: "r1", name: "File ../tone-thd", kind: "read", input: { Path: "/root/stage2/tone-thd" } }),
+    acp({ type: "tool-call", callId: "r1", name: "File ../tone-thd", kind: "read", input: { Path: "/root/stage2/tone-thd", StartLine: 1, EndLine: 20 } }),
     acp({ type: "tool-result", callId: "r1", result: "#!/bin/sh\nexec tone 1000", status: "completed" }),
     acp({ type: "tool-call", callId: "e1", name: "File ../stereo-tone", kind: "edit", input: { Path: "/root/stage2/stereo-tone" } }),
     acp({ type: "tool-result", callId: "e1", result: [{ type: "diff", path: "/root/stage2/stereo-tone", oldText: "vol=50\n", newText: "vol=80\n" }], status: "completed" }),
+    // Antigravity edit_file with Target/Replacement and empty {} rawOutput
+    acp({ type: "tool-call", callId: "e2", name: "File ../mainline/ui/bach2-ui.c", kind: "edit", input: { Path: "/root/pmos-tablet/mainline/ui/bach2-ui.c", Target: "int quiet = 0;", Replacement: "int quiet = 1;" } }),
+    acp({ type: "tool-result", callId: "e2", result: {}, status: "completed" }),
+    // Antigravity write_file with Content and empty {} rawOutput
+    acp({ type: "tool-call", callId: "w1", name: "File ../note.txt", kind: "edit", input: { Path: "/root/note.txt", Content: "line1\nline2\n" } }),
+    acp({ type: "tool-result", callId: "w1", result: {}, status: "completed" }),
+    // Har read_file (no kind, raw ACP content block result)
+    acp({ type: "tool-call", callId: "h1", name: "read_file", input: { path: "/workspace/package.json" } }),
+    acp({ type: "tool-result", callId: "h1", result: [{ type: "content", content: { type: "text", text: '{"name":"demo"}' } }], status: "completed" }),
+    // Grok read_file with target_file + list_dir with kind="other"
+    grok({ type: "tool-call", callId: "g1", name: "read_file", kind: "read", input: { target_file: "README.md" } }),
+    grok({ type: "tool-result", callId: "g1", result: "1→# Hello", status: "completed" }),
+    grok({ type: "tool-call", callId: "g2", name: "list_dir", kind: "other", input: { target_directory: "." } }),
+    grok({ type: "tool-result", callId: "g2", result: "- README.md", status: "completed" }),
+    // Codex file_change (CodexPatch with changes map)
+    codex({ type: "tool-call", callId: "cp1", toolName: "CodexPatch", args: { changes: { "/workspace/app.ts": { kind: "update" } } } }),
+    codex({ type: "tool-result", callId: "cp1", result: { status: "completed", summary: "applied", output: "applied" } }),
   ];
   const all = () => {
     const msgs = records.map((r, i) => ({ id: `a${i}`, seq: i + 1, createdAt: i, norm: normalizeRecord(r) }));
@@ -128,15 +147,48 @@ describe("ACP tools (Antigravity)", () => {
     return renderToString(<MantineProvider><Body b={t} /></MantineProvider>);
   };
 
-  it("shows commands with output, file reads and file diffs", () => {
-    const [sh, rd, ed] = all();
-    expect([sh!.name, rd!.name, ed!.name]).toEqual(["Bash", "Read", "Edit"]);
+  it("shows commands with output, file reads, writes, patches, and file diffs consistently", () => {
+    const [sh, rd, ed, agyEd, agyWr, harRd, grokRd, grokLs, codexPatch] = all();
+    expect([sh!.name, rd!.name, ed!.name, agyEd!.name, agyWr!.name, harRd!.name, grokRd!.name, grokLs!.name, codexPatch!.name]).toEqual([
+      "Bash",
+      "Read",
+      "Edit",
+      "Edit",
+      "Write",
+      "Read",
+      "Read",
+      "LS",
+      "CodexPatch",
+    ]);
     expect(body(sh!)).toContain("S4_PORT 0x20");
     expect(body(sh!)).toContain("/root/linux");
+    expect(viewFor(rd!.name).summary?.(rd!)).toContain("lines 1–20");
     expect(body(rd!)).toContain("exec tone 1000");
     const diff = body(ed!);
     expect(diff).toContain("vol=50");
     expect(diff).toContain("vol=80");
     expect(viewFor(ed!.name).badge?.(ed!)).toBe("+1 −1");
+    // Antigravity edit_file renders real diff and badge, never "{}"
+    const agyDiff = body(agyEd!);
+    expect(agyDiff).toContain("int quiet = 0;");
+    expect(agyDiff).toContain("int quiet = 1;");
+    expect(agyDiff).not.toContain("{}");
+    expect(viewFor(agyEd!.name).badge?.(agyEd!)).toBe("+1 −1");
+    // Antigravity write_file renders content and line count, never "{}"
+    const agyWrite = body(agyWr!);
+    expect(agyWrite).toContain("line1");
+    expect(agyWrite).not.toContain("{}");
+    expect(viewFor(agyWr!.name).badge?.(agyWr!)).toBe("3 lines");
+    // Har JSON file read renders plain file text, not a JSON-highlighted tree
+    const harBody = body(harRd!);
+    expect(harBody).toContain("&quot;name&quot;:&quot;demo&quot;");
+    expect(harBody).not.toContain("content");
+    // Grok read_file and list_dir
+    expect(viewFor(grokRd!.name).summary?.(grokRd!)).toBe("README.md");
+    expect(body(grokRd!)).toContain("# Hello");
+    expect(viewFor(grokLs!.name).title).toBe("List");
+    // CodexPatch shows changed file summary and path
+    expect(viewFor(codexPatch!.name).summary?.(codexPatch!)).toBe("app.ts");
+    expect(body(codexPatch!)).toContain("update · /workspace/app.ts");
   });
 });

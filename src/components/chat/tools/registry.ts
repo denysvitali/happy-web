@@ -31,11 +31,15 @@ import {
   inlineValue,
   isObj,
   parseMcpName,
+  patchChanges,
   questionsOf,
+  readRange,
   shellOutput,
   shortPath,
   str,
   todosOf,
+  toolPath,
+  writeContent,
 } from "./format";
 import {
   BashBody,
@@ -75,13 +79,13 @@ export interface ToolView {
 }
 
 const inp = (b: ToolBlock) => (isObj(b.input) ? b.input : {});
-const pathOf = (b: ToolBlock) => field(inp(b), "file_path", "path", "notebook_path");
+const pathOf = (b: ToolBlock) => toolPath(b.input);
 
 const shell: ToolView = {
   icon: SquareTerminal,
   kind: "shell",
   title: "Bash",
-  summary: (b) => field(inp(b), "description") ?? firstLine(commandOf(b.input) ?? ""),
+  summary: (b) => field(inp(b), "description", "toolSummary") ?? firstLine(commandOf(b.input) ?? ""),
   chip: (b) => (b.result?.async ? "background" : undefined),
   badge: (b) => {
     if (!b.result) return undefined;
@@ -96,13 +100,8 @@ const read: ToolView = {
   kind: "read",
   title: "Read",
   summary: (b) => {
-    const i = inp(b);
     const p = pathOf(b);
-    const off = typeof i.offset === "number" ? i.offset : undefined;
-    const lim = typeof i.limit === "number" ? i.limit : undefined;
-    const start = off ?? 1;
-    const range = off !== undefined || lim !== undefined ? ` · lines ${start}–${lim ? start + lim - 1 : "end"}` : "";
-    return p ? `${shortPath(p)}${range}` : "";
+    return p ? `${shortPath(p)}${readRange(b.input)}` : "";
   },
   Body: ReadBody,
 };
@@ -139,7 +138,7 @@ const write: ToolView = {
   title: "Write",
   summary: (b) => shortPath(pathOf(b) ?? ""),
   badge: (b) => {
-    const c = str(inp(b).content);
+    const c = writeContent(b);
     return c ? `${c.split("\n").length} lines` : undefined;
   },
   Body: WriteBody,
@@ -152,7 +151,9 @@ const patch: ToolView = {
   summary: (b) => {
     const p = str(inp(b).patch) ?? str(inp(b).input) ?? (typeof b.input === "string" ? b.input : "");
     const files = [...p.matchAll(/^\*\*\* (?:Update|Add|Delete) File: (.+)$/gm)].map((m) => baseName(m[1]!));
-    return files.length ? files.join(", ") : "";
+    if (files.length) return files.join(", ");
+    const changes = patchChanges(b.input);
+    return changes.length ? changes.map((c) => baseName(c.path)).join(", ") : "";
   },
   Body: PatchBody,
 };
@@ -235,23 +236,42 @@ export const toolViews: Record<string, ToolView> = {
   shell: { ...shell, title: "Shell" },
   exec_command: { ...shell, title: "Shell" },
   CodexBash: { ...shell, title: "Shell" },
+  command: shell,
+  run_command: shell,
+  run_terminal_command: shell,
   Read: read,
   NotebookRead: read,
   read_file: read,
+  view_file: read,
   Edit: edit,
+  edit_file: edit,
+  replace_file_content: edit,
   MultiEdit: multiEdit,
+  multi_replace_file_content: multiEdit,
   Write: write,
+  write_file: write,
+  write_to_file: write,
   NotebookEdit: { ...write, title: "Edit notebook", badge: () => undefined, Body: GenericBody },
   apply_patch: patch,
   CodexPatch: patch,
   Grep: grep,
+  grep_search: grep,
   Glob: glob,
+  find_by_name: glob,
   LS: ls,
+  list_dir: ls,
   WebFetch: webFetch,
+  web_fetch: webFetch,
+  read_url_content: webFetch,
   WebSearch: webSearch,
   web_search: webSearch,
+  search_web: webSearch,
   TodoWrite: todo,
+  todo_write: todo,
+  update_steps: todo,
+  update_plan: todo,
   AskUserQuestion: question,
+  ask_question: question,
   ExitPlanMode: plan,
   exit_plan_mode: plan,
 };
