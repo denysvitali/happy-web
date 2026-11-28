@@ -243,7 +243,10 @@ export function demoChat(): { state: ChatState; agentState: AgentState } {
 export const DEMO_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAAA3ElEQVR42u3ZsQ2AIBRFUYaycgJGt6F2CULDALiBjYkhL+flTuCpPpbjrAqu+ASABViABViABViAAQuwAAuwAOsTcB9TwQEGLMACLMACLMACDFiAlQW8bL8BBgwYMGDABtgAG2ADDBgwYMCADbABNsD2D7D88BdgARZgARZgwAKsGOCr3QIMGDBgwIABAwYMGDBgeegQYAEWYAEWYMDu4KwbGjBgwIAFGDBgwIABu4MFGLAAC7AAC7AACzBgARZgARZgARZgAQYswAIswAIswAIMWIAFWIAFWID13gMGBUWHAfp8+AAAAABJRU5ErkJggg==";
 
 const think = (t: string) => ({ type: "thinking", thinking: t });
-const ssh = (id: string, command: string) => call(id, "mcp__ssh__ssh_execute", { host: "galaxy", command });
+const ssh = (id: string, command: string) => call(id, "mcp__ssh__ssh_execute", { host: "galaxy", user: "root", command });
+/** An ssh MCP result: the JSON envelope ssh_execute returns. */
+const sshOut = (id: string, stdout: string, exit = 0, stderr = "") =>
+  out(id, [text(JSON.stringify({ binary_output: false, exit_code: exit, signal: 0, signal_name: "", stderr, stdout }, null, 2))]);
 
 const opsQuestion = { questions: [
   { header: "Flash", question: "The tab is in download mode. Flash the rebuilt image now?", multiSelect: false, options: [
@@ -268,9 +271,9 @@ export const opsRecords: unknown[] = [
   say([think("Start with the staging script: it should build into /var/tmp/stage and never write /boot."), text("Let me check the staging script first."), call("o1", "Bash", { command: "./stage-initramfs.sh --dry-run", description: "Dry-run the staging script" })], {}, opus),
   results([out("o1", "staging into /var/tmp/stage\nmkinitfs: using config /etc/mkinitfs/mkinitfs.conf\nboot-deploy: not found\nExit code 1", true)]),
   say([think("The script failed as designed and kernel.release is missing. Check what the stage dir holds.\nIf it is empty, mkinitfs never ran."), ssh("o2", "ls -la /var/tmp/stage/initramfs")]),
-  results([out("o2", "total 0\ndrwxr-xr-x 2 root root 40 Nov 19 09:58 .\ndrwxr-xr-x 4 root root 80 Nov 19 09:58 ..")]),
+  results([sshOut("o2", "total 0\ndrwxr-xr-x 2 root root 40 Nov 19 09:58 .\ndrwxr-xr-x 4 root root 80 Nov 19 09:58 ..\n")]),
   say([think("The output directory is empty, though mkinitfs logged a config. Compare /boot timestamps."), ssh("o3", "ls -la --time-style=+%m-%d /boot/"), ssh("o4", "ls -la /boot/ 2>&1 | head -20")]),
-  results([out("o3", "-rw-r--r-- 1 root root 7340032 11-03 initramfs\n-rw-r--r-- 1 root root 9175040 11-03 vmlinuz"), out("o4", "initramfs  vmlinuz  dtbs/")]),
+  results([sshOut("o3", "-rw-r--r-- 1 root root 7340032 11-03 initramfs\n-rw-r--r-- 1 root root 9175040 11-03 vmlinuz\n"), sshOut("o4", "", 2, "ls: /boot/dtbs: Permission denied\n")]),
   say([think("/boot hasn't changed since Nov 3, good. mkinitfs calls boot-deploy by bare name, so a stub on PATH keeps it from touching /boot."), ssh("o5", "strings $(command -v mkinitfs) | grep -n boot-deploy")], {}, opus),
   results([out("o5", "412:boot-deploy -i initramfs -k vmlinuz -d /boot")]),
   say([call("o6", "TodoWrite", { todos: [

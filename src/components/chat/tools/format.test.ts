@@ -17,6 +17,7 @@ import {
   readRange,
   resultParts,
   shellOutput,
+  shellTarget,
   todosOf,
   writeContent,
 } from "./format";
@@ -182,6 +183,15 @@ describe("cross-harness tool outputs", () => {
       shellOutput("Created At: 2026-11-26T23:54:31Z\nCompleted At: 2026-11-26T23:54:33Z\nCommand exited with code 2\n\nCommand output:\nboom\n"),
     ).toEqual({ stdout: "boom\n", stderr: "", exitCode: 2 });
     expect(shellOutput("exit: 1\nfailed")).toEqual({ stdout: "failed", stderr: "", exitCode: 1 });
+    // ssh MCP envelope: empty signal_name is no signal; a named one is kept.
+    const ssh = { binary_output: false, exit_code: 0, signal: 0, signal_name: "", stderr: "", stdout: "ok\n" };
+    expect(shellOutput([{ type: "text", text: JSON.stringify(ssh) }])).toEqual({ stdout: "ok\n", stderr: "", exitCode: 0 });
+    expect(shellOutput({ ...ssh, exit_code: -1, signal: 15, signal_name: "SIGTERM" }).signal).toBe("SIGTERM");
+  });
+
+  it("shellTarget reads ssh-style targets", () => {
+    expect(shellTarget({ host: "galaxy", user: "root", command: "ls", timeout: 30 })).toEqual({ user: "root", host: "galaxy", cwd: undefined, rest: { timeout: 30 } });
+    expect(shellTarget({ connection_id: "m5", command: "ls" }).host).toBe("m5");
   });
 
   it("extracts Read content from ACP blocks, embedded resources, and structured records without losing images", () => {

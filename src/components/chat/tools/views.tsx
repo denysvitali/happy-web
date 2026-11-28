@@ -7,13 +7,14 @@ import type { ToolBlock } from "@/lib/sync/chat";
 import { Markdown } from "../markdown";
 import type { PermissionHandler } from "../permission";
 import { lineCount, lines, numberRows } from "../text";
-import { Clip, CopyIcon, KeyValues, ResultView, Section } from "../primitives";
+import { Clip, CopyIcon, KeyValues, ResultView, Section, useClip } from "../primitives";
 import {
   asText,
   commandOf,
   editDiffs,
   editRows,
   field,
+  inlineValue,
   isEmptyOutput,
   isObj,
   patchChanges,
@@ -21,6 +22,7 @@ import {
   questionsOf,
   readOutput,
   shellOutput,
+  shellTarget,
   str,
   todosOf,
   toolPath,
@@ -66,35 +68,52 @@ export function GenericBody({ b }: ToolViewProps) {
 // ---- shell --------------------------------------------------------------------
 
 export function BashBody({ b }: ToolViewProps) {
+  return <Terminal b={b} prompt="$" cwd={field(inputOf(b), "cwd", "workdir")} />;
+}
+
+/** MCP shells (ssh_execute, run_command, …): a remote terminal with a
+ * `user@host:cwd$` prompt; other arguments (timeouts, ids) sit under it. */
+export function RemoteShellBody({ b }: ToolViewProps) {
+  const t = shellTarget(b.input);
+  const where = t.host ? `${t.user ? `${t.user}@` : ""}${t.host}` : t.user;
+  const prompt = where ? `${where}${t.cwd ? `:${t.cwd}` : ""}$` : "$";
+  const meta = Object.entries(t.rest).map(([k, v]) => `${k} ${inlineValue(v, 60)}`);
+  return <Terminal b={b} prompt={prompt} cwd={where ? undefined : t.cwd} meta={meta} />;
+}
+
+function Terminal({ b, prompt, cwd, meta = [] }: ToolViewProps & { prompt: string; cwd?: string | undefined; meta?: string[] }) {
   const cmd = commandOf(b.input) ?? "";
-  const i = inputOf(b);
-  const cwd = field(i, "cwd", "workdir");
+  const { shown, more } = useClip(cmd);
   const out = b.result ? shellOutput(b.result.output) : undefined;
   const failed = !!b.result?.isError;
-  const exit = out?.exitCode ?? (failed ? "failed" : undefined);
+  const exit = out?.signal ?? out?.exitCode ?? (failed ? "failed" : undefined);
+  const ok = exit === 0 && !failed;
   const total = out ? lineCount(out.stdout) + lineCount(out.stderr) : 0;
+  const status = exit !== undefined && (
+    <span className={classes.exit} data-ok={ok || undefined}>
+      {typeof exit === "number" ? `exit ${exit}` : exit}
+    </span>
+  );
   return (
     <div className={classes.terminal}>
       {cwd && <div className={classes.terminalCwd}>{cwd}</div>}
       <div className={classes.commandRow}>
         <pre className={classes.command}>
-          <span className={classes.prompt}>$ </span>
-          {cmd}
+          <span className={classes.prompt}>{prompt} </span>
+          {shown}
         </pre>
         <CopyIcon text={cmd} label="Copy command" reveal />
       </div>
+      {more}
+      {meta.length > 0 && <div className={classes.terminalMeta}>{meta.join(" · ")}</div>}
       {out && (
         <div className={classes.terminalOut}>
           {out.stdout || out.stderr ? (
             <>
-              <div className={classes.terminalHead} data-tone={failed ? "error" : undefined}>
+              <div className={classes.terminalHead} data-tone={failed || (exit !== undefined && !ok) ? "error" : undefined}>
                 <span>
                   Output{total > 0 && ` · ${lines(total)}`}
-                  {exit !== undefined && (
-                    <span className={classes.exit} data-ok={exit === 0 || undefined}>
-                      {typeof exit === "number" ? `exit ${exit}` : exit}
-                    </span>
-                  )}
+                  {status}
                 </span>
                 <CopyIcon text={[out.stdout, out.stderr].filter(Boolean).join("\n")} reveal />
               </div>
@@ -102,7 +121,9 @@ export function BashBody({ b }: ToolViewProps) {
               {out.stderr && <Clip text={out.stderr} tone="error" />}
             </>
           ) : (
-            <span className={classes.dim}>No output</span>
+            <span className={classes.dim}>
+              No output{exit !== undefined && !ok && status}
+            </span>
           )}
         </div>
       )}

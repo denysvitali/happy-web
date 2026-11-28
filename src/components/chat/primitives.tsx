@@ -88,6 +88,14 @@ function ShowMore({ open, hidden, hiddenLines, onToggle }: { open: boolean; hidd
   );
 }
 
+/** Truncates `text` like Clip, for callers that render it themselves;
+ * `more` is the Show more/less toggle (null when nothing is cut). */
+export function useClip(text: string): { shown: string; more: ReactNode } {
+  const [open, setOpen] = useState(false);
+  const { shown, hidden, hiddenLines } = clipText(text, open);
+  return { shown, more: <ShowMore open={open} hidden={hidden} hiddenLines={hiddenLines} onToggle={() => setOpen((o) => !o)} /> };
+}
+
 /** Monospace output with truncation and "show more". */
 export function Clip({ text, tone, wrap = true }: { text: string; tone?: "error" | "dim" | undefined; wrap?: boolean }) {
   const [open, setOpen] = useState(false);

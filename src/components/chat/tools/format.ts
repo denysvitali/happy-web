@@ -267,6 +267,8 @@ export interface ShellOutput {
   stdout: string;
   stderr: string;
   exitCode?: number | undefined;
+  /** Killing signal (`SIGTERM`), from MCP shells that report one. */
+  signal?: string | undefined;
 }
 
 /** Shell results: plain text (Claude, Antigravity, Grok), ACP/MCP content block
@@ -297,7 +299,8 @@ export function shellOutput(output: unknown): ShellOutput {
     const code = num(o.exit_code) ?? num(o.exitCode) ?? num(o.ExitCode) ?? num(o.code);
     const stdout =
       str(o.stdout) ?? str(o.Stdout) ?? str(o.output) ?? str(o.Output) ?? str(o.CommandOutput) ?? str(o.aggregated_output) ?? str(o.formatted_output) ?? "";
-    return { stdout, stderr: str(o.stderr) ?? str(o.Stderr) ?? "", exitCode: code };
+    const sig = str(o.signal_name) ?? str(o.signal) ?? (num(o.signal) ? `signal ${o.signal}` : undefined);
+    return { stdout, stderr: str(o.stderr) ?? str(o.Stderr) ?? "", exitCode: code, ...(sig ? { signal: sig } : {}) };
   }
   const text = asText(o);
   const agy = /^(?:Created At: [^\n]*\r?\n)?(?:Completed At: [^\n]*\r?\n)?Command exited with code (\d+)(?:\r?\n\r?\nCommand output:\r?\n|\r?\n)?([\s\S]*)/.exec(text);
@@ -307,6 +310,35 @@ export function shellOutput(output: unknown): ShellOutput {
   const grok = /^exit: (\d+)\n/.exec(text);
   if (grok) return { stdout: text.slice(grok[0].length), stderr: "", exitCode: Number(grok[1]) };
   return { stdout: text, stderr: "" };
+}
+
+/** Where an MCP shell call runs (`ssh_execute {host, user, cwd}`), for a
+ * `user@host:cwd$` prompt; `rest` holds the remaining, non-shell arguments. */
+export interface ShellTarget {
+  user?: string | undefined;
+  host?: string | undefined;
+  cwd?: string | undefined;
+  rest: Obj;
+}
+
+const TARGET_KEYS = {
+  user: ["user", "username", "login"],
+  host: ["host", "hostname", "server", "target", "connection_id", "connectionId", "machine"],
+  cwd: ["cwd", "workdir", "working_directory", "directory", "dir"],
+} as const;
+const COMMAND_KEYS = new Set(["command", "cmd", "argv", "description", "toolSummary"]);
+
+export function shellTarget(input: unknown): ShellTarget {
+  const i = isObj(input) ? input : {};
+  const pick = (keys: readonly string[]) => keys.map((k) => i[k]).find((v): v is string | number => (typeof v === "string" && v !== "") || typeof v === "number");
+  const used = new Set<string>([...COMMAND_KEYS, ...Object.values(TARGET_KEYS).flat()]);
+  const asStr = (v: string | number | undefined) => (v === undefined ? undefined : String(v));
+  return {
+    user: asStr(pick(TARGET_KEYS.user)),
+    host: asStr(pick(TARGET_KEYS.host)),
+    cwd: asStr(pick(TARGET_KEYS.cwd)),
+    rest: Object.fromEntries(Object.entries(i).filter(([k, v]) => !used.has(k) && v !== undefined && v !== null && v !== "")),
+  };
 }
 
 /** Extracts file content from a Read result across all harnesses: plain string

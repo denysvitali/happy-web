@@ -246,6 +246,9 @@ for (const vp of VIEWPORTS) {
       // Expanded: the run of steps and one step inside it.
       await page.getByRole("button", { name: /^Ran \d+ commands/ }).click();
       await page.getByRole("button", { name: /Dry-run the staging script/ }).click();
+      // ssh MCP calls: remote prompt, JSON envelope unpacked (one ok, one failing).
+      await page.getByRole("button", { name: /ls -la \/var\/tmp\/stage/ }).click();
+      await page.getByRole("button", { name: /ls -la \/boot\/ 2>&1/ }).click();
       await page.mouse.move(0, 0);
       await page.waitForTimeout(300);
       await page.setViewportSize({ width: vp.width, height: 1800 });

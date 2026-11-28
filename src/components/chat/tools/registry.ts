@@ -50,6 +50,7 @@ import {
   PlanBody,
   QuestionBody,
   ReadBody,
+  RemoteShellBody,
   SearchBody,
   TodoBody,
   WebFetchBody,
@@ -313,7 +314,14 @@ const mcp: ToolView = {
 
 /** MCP tools that run a command (ssh_execute, run_command, …) read as shell. */
 const MCP_SHELL = /(^|_)(exec|execute|run_command|shell|bash|command)($|_)/i;
-const mcpShell: ToolView = { ...mcp, icon: SquareTerminal, kind: "shell" };
+const mcpShell: ToolView = {
+  ...mcp,
+  icon: SquareTerminal,
+  kind: "shell",
+  summary: (b) => firstLine(commandOf(b.input) ?? "") || (mcp.summary?.(b) ?? ""),
+  badge: shell.badge,
+  Body: RemoteShellBody,
+};
 
 const lower = new Map(Object.entries(toolViews).map(([k, v]) => [k.toLowerCase(), v]));
 

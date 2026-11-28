@@ -61,6 +61,8 @@ Server wins over Flutter; record every discrepancy in README.md.
   Background shell jobs (Bash `run_in_background`: receipt → `async`, ended by `local_bash`
   task rows / `<task-notification>`) spin with a "background" chip and keep that row up after
   the turn ("In background · …", `backgroundJobs`) while the session is online.
+  MCP shells (`ssh_execute`, `run_command`, …) render as Bash with a `user@host:cwd$` prompt
+  (`shellTarget`); their JSON envelopes unpack via `shellOutput`.
   ACP calls (agy/OpenCode: title as name + `kind`, agy's PascalCase args) map onto
   Bash/Read/Edit/Write/Grep in `lib/sync/acpTools.ts`; agy edits carry ACP diff blocks in the result.
   A call with no result is closed as interrupted once a later `ready` ends its turn or the
